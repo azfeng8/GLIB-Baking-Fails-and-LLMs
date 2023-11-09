@@ -141,7 +141,7 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
         if (not (self._current_goal_action is None)) and (len(self._plan) == 0):
             action = self._get_ground_action_to_execute(state)
             if action != None:
-                # print("*** Finished the plan, now executing the action", action)
+                print("*** Finished the plan, now executing the action", action)
                 # Execute the action
                 self.line_stats.append(1)
                 return action
@@ -159,7 +159,9 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
 
     @staticmethod
     def _sample_action_from_goal(lifted_goal, lifted_action, state, rand_state):
-        """Sample a grounding for the action conditioned on the lifted goal and state"""
+        """Sample a grounding for the action conditioned on the lifted goal and state
+        """
+        #TODO: use LLM to select a better grounding based on common sense
         # Try to find a grounding of the lifted goal in the state
         all_assignments = find_satisfying_assignments(state.literals, lifted_goal,
             allow_redundant_variables=False)
@@ -208,7 +210,7 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
         # If the plan is empty, then we want to immediately take the action.
         if len(plan) == 0:
             action = self._get_ground_action_to_execute(self._last_state)
-            # print("Goal is satisfied in the current state; taking action now:", action)
+            print("Goal is satisfied in the current state; taking action now:", action)
             if action is None:
                 # There was no way to bind the lifted action. Fallback
                 action = self._get_fallback_action(self._last_state)

@@ -4,6 +4,7 @@ from pddlgym.parser import PDDLProblemParser
 import random
 import abc
 import os
+import time
 
 
 class PlannerTimeoutException(Exception):
@@ -114,6 +115,7 @@ class Planner:
     def _create_domain_file_from_str(self, dom_str):
         filename = "/tmp/learned_dom_{}_{}.pddl".format(
             self.domain_name, random.randint(0, 9999999))
+        # filename = "/home/catalan/Desktop/GLIB-AAAI-2021/pddl_glib_l2/learned_dom_{}_{}.pddl".format(self.domain_name, time.time())
         with open(filename, 'w') as f:
             f.write(dom_str)
         return filename
@@ -125,6 +127,7 @@ class Planner:
             problem_fname += '_{}_with_diffs_{}.pddl'.format(
                 self.domain_name, random.randint(0, 9999999))
             problem_fname = os.path.join('/tmp', problem_fname)
+            # problem_fname = os.path.join('/home/catalan/Desktop/GLIB-AAAI-2021/pddl_glib_g1_problem_files', problem_fname)
 
             # Parse raw problem
             action_names = []  # purposely empty b/c we WANT action literals in there

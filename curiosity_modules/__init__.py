@@ -3,6 +3,7 @@ from .oracle_curiosity import OracleCuriosityModule
 from .random_actions import RandomCuriosityModule
 from .GLIB_grounded import *
 from .GLIB_lifted import *
+from .goal_sequences_lifted import *
 
 
 def create_curiosity_module(curiosity_module_name, action_space,
@@ -17,6 +18,8 @@ def create_curiosity_module(curiosity_module_name, action_space,
         module = GLIBG1CuriosityModule
     elif curiosity_module_name == "GLIB_L2":
         module = GLIBL2CuriosityModule
+    elif curiosity_module_name == "GLIB_Seq":
+        module = GLIBLSCuriosityModule
     else:
         raise Exception("Unrecognized curiosity module '{}'".format(
             curiosity_module_name))

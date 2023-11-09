@@ -57,6 +57,7 @@ class Runner:
                 action = self.test_env.action_space.sample(obs)
                 next_obs, _, done, _ = self.test_env.step(action)
                 null_effect = (next_obs.literals == obs.literals)
+                # discard null-effect transitions whenever > half of total are null
                 keep_transition = ((not null_effect or
                                     (num_no_effects[action.predicate] <
                                      total_counts[action.predicate]/2+1)) and
@@ -95,7 +96,9 @@ class Runner:
                 self.agent.reset_episode(obs)
                 episode_time_step = 0
 
+            print("Goal:", obs.goal)
             action = self.agent.get_action(obs)
+            print("Selected action", action)
 
             next_obs, _, episode_done, _ = self.train_env.step(action)
             self.agent.observe(obs, action, next_obs)
@@ -156,7 +159,7 @@ class Runner:
         average variational distance).
         """
         for op in self.agent.learned_operators:
-            print(op)
+            print(op, '\n')
         if self.domain_name == "PybulletBlocks" and self.curiosity_name == "oracle":
             # Disable oracle for pybullet.
             return 0.0, 1.0
@@ -166,10 +169,11 @@ class Runner:
         else:
             num_problems = len(self.test_env.problems)
         for problem_idx in range(num_problems):
-            print("\tTest case {} of {}, {} successes so far".format(
+            print("\tStarting test case {} of {}, {} successes so far".format(
                 problem_idx+1, num_problems, num_successes), end="\r")
             self.test_env.fix_problem_index(problem_idx)
             obs, debug_info = self.test_env.reset()
+            print("Test Goal:", obs.goal)
             try:
                 policy = self.agent.get_policy(debug_info["problem_file"])
             except (NoPlanFoundException, PlannerTimeoutException):

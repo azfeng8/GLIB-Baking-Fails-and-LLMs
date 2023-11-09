@@ -5,7 +5,8 @@
 class EnvConfig:
     """Environment-specific constants.
     """
-    domain_name = "Glibblocks"
+    domain_name = "Baking"
+    # domain_name = "Glibblocks"
     # domain_name = "Easygripper"
     # domain_name = "Glibdoors"
     # domain_name = "Tireworld"
@@ -17,6 +18,7 @@ class EnvConfig:
 
     # Number of transitions to use for variational distance computation.
     num_var_dist_trans = {
+        'Baking': 1000,
         "Blocks": 1000,
         "Glibblocks": 1000,
         "Tsp": 1000,
@@ -36,10 +38,11 @@ class AgentConfig:
     """Agent-specific constants.
     """
     curiosity_methods_to_run = [
-        "GLIB_L2",
-        "GLIB_G1",
-        "oracle",
-        "random",
+        # "GLIB_L2",
+        # "GLIB_G1",
+        # "oracle",
+        # "random",
+        "GLIB_Seq"
     ]
     cached_results_to_load = [
         # "GLIB_L2",
@@ -63,6 +66,7 @@ class AgentConfig:
         "Tireworld": "ffreplan",
         "Explodingblocks": "ffreplan",
         "River": "ffreplan",
+        "Baking": "ff"
     }
 
     # Random seed optionally used by curiosity modules.
@@ -81,6 +85,7 @@ class AgentConfig:
         "Explodingblocks": 10,
         "River": 10,
         "NDRBlocks": 25,
+        "Baking": 1
     }
 
     # Max training episode length.
@@ -98,6 +103,7 @@ class AgentConfig:
         "River": 25,
         "PybulletBlocks" : 10,
         "NDRBlocks" : 25,
+        "Baking": 25
     }
     # Max test episode length.
     max_test_episode_length = {
@@ -114,6 +120,7 @@ class AgentConfig:
         "River": 25,
         "PybulletBlocks" : 25,
         "NDRBlocks" : 25,
+        "Baking": 25
     }
     # Timeout for planner.
     planner_timeout = None  # set in main.py
@@ -133,6 +140,7 @@ class AgentConfig:
         "River": 1001,
         "PybulletBlocks" : 501,
         "NDRBlocks" : 1501,
+        "Baking": 1501
     }
 
     ## Constants for curiosity modules. ##
@@ -155,6 +163,7 @@ class AgentConfig:
         "River": 35,
         "PybulletBlocks": 35,
         "NDRBlocks": 35,
+        "Baking": 35
     }
     mutex_episode_len = {
         "Blocks": 35,
@@ -170,6 +179,7 @@ class AgentConfig:
         "River": 35,
         "PybulletBlocks": 35,
         "NDRBlocks": 35,
+        "Baking": 35
     }
     mutex_num_action_samples = 10
 
@@ -194,6 +204,7 @@ class AgentConfig:
         "River": 25,
         "PybulletBlocks": float("inf"),
         "NDRBlocks": float("inf"),
+        "Baking": 25
     }
     max_zpk_action_batch_size = {
         "Blocks": None,
@@ -209,6 +220,7 @@ class AgentConfig:
         "River": None,
         "PybulletBlocks": None,
         "NDRBlocks": None,
+        "Baking": None
     }
     zpk_initialize_from_previous_rule_set = {
         "Blocks": False,
@@ -224,6 +236,7 @@ class AgentConfig:
         "River": False,
         "PybulletBlocks": False,
         "NDRBlocks": False,
+        "Baking": False
     }
 
     # Major hacks. Only used by oracle_curiosity.py.
@@ -234,4 +247,4 @@ class GeneralConfig:
     """General configuration constants.
     """
     verbosity = 5
-    num_seeds = 10
+    num_seeds = 5
