@@ -1,2 +1,0 @@
-panhasegg,?x0,putflourinpan,?x1,?x2
-panhasflour,?x0,putpaninoven,?x0,?x1

@@ -3,12 +3,12 @@ from .oracle_curiosity import OracleCuriosityModule
 from .random_actions import RandomCuriosityModule
 from .GLIB_grounded import *
 from .GLIB_lifted import *
-from .goal_sequences_lifted import *
+from .replay_sampled_lifted_sequences import *
 
 
 def create_curiosity_module(curiosity_module_name, action_space,
                             observation_space, planning_module,
-                            learned_operators, operator_learning_module, domain_name):
+                            learned_operators, operator_learning_module, domain_name, replay_file_name):
     module = None
     if curiosity_module_name == "oracle":
         module = OracleCuriosityModule
@@ -24,4 +24,4 @@ def create_curiosity_module(curiosity_module_name, action_space,
         raise Exception("Unrecognized curiosity module '{}'".format(
             curiosity_module_name))
     return module(action_space, observation_space, planning_module,
-                  learned_operators, operator_learning_module, domain_name)
+                  learned_operators, operator_learning_module, domain_name, replay_file_name)

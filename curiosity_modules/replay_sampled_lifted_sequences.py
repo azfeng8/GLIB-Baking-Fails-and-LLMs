@@ -22,7 +22,6 @@ from pddlgym.inference import find_satisfying_assignments
 from collections import defaultdict
 import numpy as np
 
-FILE = '/home/catalan/Desktop/GLIB-Baking-Fails-and-LLMs/curiosity_modules/goal_files/sample.txt'
 
 class GLIBLSCuriosityModule(GoalBabblingCuriosityModule):
 
@@ -45,7 +44,9 @@ class GLIBLSCuriosityModule(GoalBabblingCuriosityModule):
         self.init_counts = 0
         # Index into the goal,action from the file
         self.index = 0
-        self.goal_actions = self._parse_file_into_goal_action_preds(FILE)
+        self.goal_actions = self._parse_file_into_goal_action_preds(self._replay_fname)
+        if len(self.goal_actions) == 0:
+            raise Exception("No goal,action lines could be parsed")
 
     def _parse_file_into_goal_action_preds(self,fname):
         """Parse sequence of goal,action pairs.
@@ -62,6 +63,7 @@ class GLIBLSCuriosityModule(GoalBabblingCuriosityModule):
         goal_action_tuples = []
         goal_counts_per_line = []
         for line_no,line in enumerate(fh.readlines()):
+            if "Starting..." in line: continue
             # All lines should have the same number of goals
             num_goals = 0
             found_action = False
@@ -95,10 +97,10 @@ class GLIBLSCuriosityModule(GoalBabblingCuriosityModule):
             # `current_pred` is an action pred
             preds_with_args.append(current_pred(*current_args))
             goal_action_tuples.append(tuple(preds_with_args))
-            # (optional) make sure all lines have the same number of goal literals, error checking the parsing 
-            diff = 1 - ((np.array(goal_counts_per_line) / goal_counts_per_line[0]) == np.ones(len(goal_counts_per_line)))
-            if np.any(diff):
-                raise Exception("Parsing error: number of goals different on lines 1,{}".format("".join((1 + np.argwhere(diff).flatten()).tolist())))
+            # # (optional) make sure all lines have the same number of goal literals, error checking the parsing 
+            # diff = 1 - ((np.array(goal_counts_per_line) / goal_counts_per_line[0]) == np.ones(len(goal_counts_per_line)))
+            # if np.any(diff):
+            #     raise Exception("Parsing error: number of goals different on lines 1,{}".format("".join([str(a) for a in (1 + np.argwhere(diff).flatten()).tolist()])))
         return goal_action_tuples
 
 ### Reset ###
@@ -200,7 +202,7 @@ class GLIBLSCuriosityModule(GoalBabblingCuriosityModule):
     def _sample_goal(self, state):
         """Produce a new goal to try to plan towards"""
         if self.random_actions:
-            return None
+            return None, None, None
         elif self.directed_goals:
             if self.index == len(self.goal_actions):
                 # print("Starting to read from file")
@@ -209,7 +211,7 @@ class GLIBLSCuriosityModule(GoalBabblingCuriosityModule):
             print("sampled goal, action:", goal, action, self.index)
             self._current_goal_action = (goal, action)
             self.index += 1
-            return self._structify_goal(goal)
+            return self._structify_goal(goal), goal, action
         else:
             raise Exception("Unexpected goal sampling strategy selected for this episode.")
 

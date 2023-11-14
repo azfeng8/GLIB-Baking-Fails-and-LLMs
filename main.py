@@ -218,7 +218,7 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name):
     train_env.seed(ec.seed)
     agent = Agent(domain_name, train_env.action_space,
                   train_env.observation_space, curiosity_name, learning_name,
-                  planning_module_name=ac.planner_name[domain_name])
+                  planning_module_name=ac.planner_name[domain_name], replay_file_name=ac.goal_action_lifted_sequence_file)
     test_env = gym.make("PDDLEnv{}Test-v0".format(domain_name))
     results, curiosity_avg_time = Runner(agent, train_env, test_env, domain_name, curiosity_name).run()
     with open("results/timings/{}_{}_{}_{}.txt".format(domain_name, curiosity_name, learning_name, seed), "w") as f:

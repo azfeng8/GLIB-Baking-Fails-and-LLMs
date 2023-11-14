@@ -21,6 +21,7 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
 
     def reset_episode(self, state):
         self._last_state = set()
+        # self._current_goal_action = None
         self._plan = []
 
     def _sample_goal(self, state):
@@ -28,6 +29,10 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
 
     def _goal_is_valid(self, goal):
         return True
+
+    def save_to_file(self, goal_action):
+        # Overridden by lifted GLIB
+        return
 
     def _finish_plan(self, plan):
         return plan
@@ -53,7 +58,7 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
         while (sampling_attempts < ac.max_sampling_tries and \
                planning_attempts < ac.max_planning_tries):
 
-            goal = self._sample_goal(state)
+            goal, goal_lifted, action_lifted = self._sample_goal(state)
             sampling_attempts += 1
 
             if not self._goal_is_valid(goal):
@@ -82,6 +87,7 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
                 self._plan = self._finish_plan(self._plan)
                 print("\tGOAL:", goal)
                 print("\tPLAN:", self._plan)
+                self.save_to_file((goal_lifted, action_lifted))
                 # import ipdb; ipdb.set_trace()
                 # Take the first step in the plan
                 self.line_stats.append(1)

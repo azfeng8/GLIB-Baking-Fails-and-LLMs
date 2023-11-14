@@ -20,7 +20,7 @@ class Agent:
     """
     def __init__(self, domain_name, action_space, observation_space,
                  curiosity_module_name, operator_learning_name,
-                 planning_module_name):
+                 planning_module_name, replay_file_name):
         self.curiosity_time = 0.0
         self.domain_name = domain_name
         self.curiosity_module_name = curiosity_module_name
@@ -41,7 +41,7 @@ class Agent:
         self._curiosity_module = create_curiosity_module(
             curiosity_module_name, action_space, observation_space,
             self._planning_module, self.learned_operators,
-            self._operator_learning_module, domain_name)
+            self._operator_learning_module, domain_name, replay_file_name)
 
     ## Training time methods
     def get_action(self, state):

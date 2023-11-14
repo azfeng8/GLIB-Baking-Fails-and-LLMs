@@ -1,4 +1,3 @@
-
 from curiosity_modules.goal_babbling import GoalBabblingCuriosityModule
 from settings import AgentConfig as ac
 from pddlgym import structs
@@ -8,7 +7,6 @@ from collections import defaultdict
 import copy
 import itertools
 import numpy as np
-
 
 class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
 
@@ -29,6 +27,10 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
         self._unseen_goal_actions = self._init_unseen_goal_actions(
             self._action_space.predicates, self._observation_space.predicates, 
             self._k)
+
+        # Clear the goal-action sequence file
+        with open(self._replay_fname, 'w') as f:
+            f.write('')
 
     @classmethod
     def _use_goal_preds(cls, goal_preds):
@@ -201,10 +203,38 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
             goal, action = self._untried_episode_goal_actions.pop(0)
             # print("sampling goal-action", goal,action)
             self._current_goal_action = (goal, action)
-            return self._structify_goal(goal)
+            # Uncomment to save all sampled goals
+            # self.save_sampled(self._current_goal_action)
+            return self._structify_goal(goal), goal, action
         # No goals left to try
         # print("no goals left")
-        return None
+        return None, None, None
+
+    def save_sampled(self, goal_action):
+        pass
+
+    def save_to_file(self, ga):
+        """Utility to save babbled goal, action sequence for loading and sampling goal,actions.
+
+        File format:
+        
+        goal_pred_0,?x1,?x2,..,goal_pred_1,arg0,arg1,...action_pred,arg0,arg1...
+        goal_pred_0,?x0,?x1,..,goal_pred_1,arg0,arg1,...action_pred,arg0,arg1...
+        ...
+
+        Args:
+            ga (tuple): tuple of (goal, action) where goal is a tuple of PDDLGym Literals (observation predicates),
+                        and action is a PDDLGym Literal (action predicate)
+        """
+        fh = open(self._replay_fname, 'a')
+        # NOTE: Assume start with new line
+        goals, action = ga
+        line = ''
+        for g in goals:
+            line += f"{g.predicate.name}," + ",".join(g.pddl_variables()) + ","
+        line += f"{action.predicate.name}," + ",".join(action.pddl_variables()) + "\n"
+        fh.write(line)
+        fh.close()
 
     def _finish_plan(self, plan):
         # If the plan is empty, then we want to immediately take the action.

@@ -38,12 +38,13 @@ class AgentConfig:
     """Agent-specific constants.
     """
     curiosity_methods_to_run = [
-        # "GLIB_L2",
-        # "GLIB_G1",
+        "GLIB_L2",
+        # "GLIB_Seq"
         # "oracle",
         # "random",
-        "GLIB_Seq"
     ]
+    goal_action_lifted_sequence_file = '/home/catalan/GLIB-Baking-Fails-and-LLMs/curiosity_modules/goal_files/log1.txt'
+
     cached_results_to_load = [
         # "GLIB_L2",
         # "GLIB_G1",
@@ -247,4 +248,4 @@ class GeneralConfig:
     """General configuration constants.
     """
     verbosity = 5
-    num_seeds = 5
+    num_seeds = 1
