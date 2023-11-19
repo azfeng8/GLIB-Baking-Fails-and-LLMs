@@ -15,16 +15,28 @@ from collections import defaultdict
 import glob
 import time
 import gym
+import json
 import numpy as np
 import os
 import pddlgym
 import pickle
-
+import shutil
+from typing import Union
 
 class Runner:
     """Helper class for running experiments.
     """
-    def __init__(self, agent, train_env, test_env, domain_name, curiosity_name):
+    def __init__(self, agent, train_env, test_env, domain_name, curiosity_name, run_name:Union[str, None]):
+        """Runs a single train/test experiment.
+
+        Args:
+            agent (Agent): 
+            train_env (PDDLEnv): 
+            test_env (PDDLEnv): 
+            domain_name (str): 
+            curiosity_name (str): 
+            run_name (str or None): None if not doing logging, otherwise the directory path for the log.
+        """
         self.agent = agent
         self.train_env = train_env
         self.test_env = test_env
@@ -32,6 +44,8 @@ class Runner:
         self.curiosity_name = curiosity_name
         self.num_train_iters = ac.num_train_iters[domain_name]
         self._variational_dist_transitions = self._initialize_variational_distance_transitions()
+
+        self.run_path = run_name
 
     def _initialize_variational_distance_transitions(self):
         print("Getting transitions for variational distance...")
@@ -207,7 +221,7 @@ class Runner:
         variational_dist /= len(self._variational_dist_transitions)
         return float(num_successes)/num_problems, variational_dist
 
-def _run_single_seed(seed, domain_name, curiosity_name, learning_name):
+def _run_single_seed(seed, domain_name, curiosity_name, learning_name, run_name):
     start = time.time()
 
     ac.seed = seed
@@ -220,7 +234,7 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name):
                   train_env.observation_space, curiosity_name, learning_name,
                   planning_module_name=ac.planner_name[domain_name], replay_file_name=ac.goal_action_lifted_sequence_file)
     test_env = gym.make("PDDLEnv{}Test-v0".format(domain_name))
-    results, curiosity_avg_time = Runner(agent, train_env, test_env, domain_name, curiosity_name).run()
+    results, curiosity_avg_time = Runner(agent, train_env, test_env, domain_name, curiosity_name, run_name=run_name).run()
     with open("results/timings/{}_{}_{}_{}.txt".format(domain_name, curiosity_name, learning_name, seed), "w") as f:
         f.write("{} {} {} {} {}\n".format(domain_name, curiosity_name, learning_name, seed, curiosity_avg_time))
 
@@ -239,19 +253,23 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name):
 
 def _main():
     start = time.time()
-    if not os.path.exists("results/"):
-        os.mkdir("results/")
-    if not os.path.exists("results/timings/"):
-        os.mkdir("results/timings/")
-    if not os.path.exists("data/"):
-        os.mkdir("data/")
+    os.makedirs("results", exist_ok=True)
+    os.makedirs("results/timings", exist_ok=True)
+    os.makedirs("data/", exist_ok=True)
 
     if isinstance(ec.domain_name, str):
         ec.domain_name = [ec.domain_name]
 
     for domain_name in ec.domain_name:
         all_results = defaultdict(list)
+
         for curiosity_name in ac.curiosity_methods_to_run:
+
+            if ec.logging:
+                experiment_path = f"/home/catalan/glib_log/{domain_name}/{curiosity_name}/experiment_{time.strftime('%Y-%m-%d_%H:%M:%S', time.gmtime(start))}"
+                os.makedirs(experiment_path)
+                shutil.copyfile("settings.py", os.path.join(experiment_path, "settings.py"))
+
             if curiosity_name in ac.cached_results_to_load:
                 for pkl_fname in glob.glob(os.path.join(
                         "results/", domain_name, ac.learning_name,
@@ -267,8 +285,12 @@ def _main():
                     seed = seed+20
                     print("\nRunning curiosity method: {}, with seed: {}\n".format(
                         curiosity_name, seed))
-                    single_seed_results = _run_single_seed(
-                        seed, domain_name, curiosity_name, ac.learning_name)
+                    if ec.logging:
+                        single_seed_results = _run_single_seed(
+                            seed, domain_name, curiosity_name, ac.learning_name, run_name=experiment_path)
+                    else:
+                        single_seed_results = _run_single_seed(
+                            seed, domain_name, curiosity_name, ac.learning_name, run_name=None)
                     for cur_name, results in single_seed_results.items():
                         all_results[cur_name].append(results)
                     plot_results(domain_name, ac.learning_name, all_results)

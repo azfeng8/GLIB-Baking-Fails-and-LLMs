@@ -12,7 +12,7 @@ class EnvConfig:
     # domain_name = "Tireworld"
     # domain_name = "Explodingblocks"
     seed = 0
-
+    
     # Number of test problems. Only needed for non-PDDLGym envs.
     num_test_problems = {}
 
@@ -32,6 +32,7 @@ class EnvConfig:
         "River": 1000,
         "NDRBlocks": 100,
     }
+    logging = True
 
 
 class AgentConfig:
@@ -248,4 +249,4 @@ class GeneralConfig:
     """General configuration constants.
     """
     verbosity = 5
-    num_seeds = 1
+    num_seeds = 5
