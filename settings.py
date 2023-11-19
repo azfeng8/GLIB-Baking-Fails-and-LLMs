@@ -5,12 +5,12 @@
 class EnvConfig:
     """Environment-specific constants.
     """
-    domain_name = "Baking"
-    # domain_name = "Glibblocks"
-    # domain_name = "Easygripper"
-    # domain_name = "Glibdoors"
-    # domain_name = "Tireworld"
-    # domain_name = "Explodingblocks"
+    domain_name = ["Baking"]
+    # domain_name = ["Glibblocks"]
+    # domain_name = ["Easygripper"]
+    # domain_name = ["Glibdoors"  ]
+    # domain_name = ["Tireworld"  ]
+    # domain_name = ["Explodingblocks"]
     seed = 0
     
     # Number of test problems. Only needed for non-PDDLGym envs.

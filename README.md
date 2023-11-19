@@ -1,38 +1,63 @@
 
-# Modify settings.json
+# Modify settings.json and settings.py to run `python main.py`
 
+Pick one of four modes to write in settings.json.
+
+```
 {
-    # "runSave": "settings.py"
-    # "run": "settings.py"
+    # "run": true,
+    # "runSave": true,
     # "loadRun": {
         # "explorer": "GLIB_G1",
         # "domain": "Baking"
         # "path": ""
+        # "experiment_no": 0
     # }
     "loadSave": {
         "explorer": "GLIB_L2",
         "domain": "Baking"
         "path": "path_to_settings.py"
+        "experiment_no": 0
     },
 
 }
 
-Modes:
+```
 
-"runSave"
-"run"
-"loadSave"
-"loadRun"
+### 4 Modes:
 
-Loading will only load one "experiment": one explorer on one domain for one run.
+<b>"runSave"</b>: run from this directory's settings.py and save outputs as new experiments
 
-Load fields:
-    path: path to the settings.py to load from
-    explorer: name of explorer to run 
-    domain: name of domain to run on
-    # NOTE that the explorer and domain name must be specified in the settings.py file to be valid.
+<b>"run" </b>: run from this directory's settings.py
+
+<b>"loadSave" </b>: load the settings from the path specified, running the experiment specified by the number. Also save the replay's output as a new experiment.
+
+<b>"loadRun" </b>: load the settings from the path specified, running the experiment specified by the number. 
+
+Loading will only load one "experiment": one explorer on one domain for one run. NOTE that the explorer and domain name must be specified in the settings.py file to be valid.
+
+### 'loadSave' and 'loadRun' fields:
+
+<b>path</b> (str): path to the settings.py to load from
+
+<b>explorer</b> (str): name of explorer to run, one of the names in the AgentConfig of the python settings file.
+
+<b>domain</b> (str): name of domain to run on, must be a valid PDDLGym environment name
+
+<b>experiment_id</b> (str): ID of the experiment (the suffix name of the folder in the folder structure in the next section)
 
 
+# Folder structure of experiments log (WIP)
+
+```
+{domain_name}
+    {explorer_name}
+        experiment_{ID}/
+            settings.py
+            plans.txt
+            actions.txt
+            iter_{no}/
+```
 
 GLIB: Efficient Exploration for Relational Model-Based Reinforcement Learning via Goal-Literal Babbling
 

@@ -6,10 +6,6 @@ from agent import Agent
 from planning_modules.base_planner import PlannerTimeoutException, \
     NoPlanFoundException
 from plotting import plot_results
-from settings import AgentConfig as ac
-from settings import EnvConfig as ec
-from settings import GeneralConfig as gc
-
 from collections import defaultdict
 
 import glob
@@ -21,7 +17,34 @@ import os
 import pddlgym
 import pickle
 import shutil
+import sys
 from typing import Union
+
+# Use settings.json to decide to replay or run from settings.py
+with open('settings.json', 'r') as f:
+    settings = json.load(f)
+
+assert len(settings) == 1, "Only one option of ['run', 'runSave', 'load', 'loadSave'] allowed"
+assert (list(settings.keys())[0] in ['run', 'runSave', 'load', 'loadSave']), f"Only one option of ['run', 'runSave', 'load', 'loadSave'] allowed. You provided: {list(settings.keys())[0]}"
+
+if 'loadRun' in settings or 'loadSave' in settings:
+    cwd = os.getcwd()
+    settings_file = settings['loadSave']['path'])
+    os.chdir(os.path.dirname(settings_file))
+    from settings import AgentConfig as ac
+    from settings import EnvConfig as ec
+    from settings import GeneralConfig as gc
+    os.chdir(cwd)
+else:
+    settings_file = 'settings.py'
+    from settings import AgentConfig as ac
+    from settings import EnvConfig as ec
+    from settings import GeneralConfig as gc
+
+if 'loadSave' or 'runSave' in settings:
+    ec.logging = True
+else:
+    ec.logging = False
 
 class Runner:
     """Helper class for running experiments.
@@ -256,10 +279,7 @@ def _main():
     os.makedirs("results", exist_ok=True)
     os.makedirs("results/timings", exist_ok=True)
     os.makedirs("data/", exist_ok=True)
-
-    if isinstance(ec.domain_name, str):
-        ec.domain_name = [ec.domain_name]
-
+    # Run using hyperparams, domains, explorers from a settings.py file
     for domain_name in ec.domain_name:
         all_results = defaultdict(list)
 
@@ -268,7 +288,7 @@ def _main():
             if ec.logging:
                 experiment_path = f"/home/catalan/glib_log/{domain_name}/{curiosity_name}/experiment_{time.strftime('%Y-%m-%d_%H:%M:%S', time.gmtime(start))}"
                 os.makedirs(experiment_path)
-                shutil.copyfile("settings.py", os.path.join(experiment_path, "settings.py"))
+                shutil.copyfile(settings_file, os.path.join(experiment_path, "settings.py"))
 
             if curiosity_name in ac.cached_results_to_load:
                 for pkl_fname in glob.glob(os.path.join(
