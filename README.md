@@ -54,10 +54,59 @@ Loading will only load one "experiment": one explorer on one domain for one run.
     {explorer_name}
         experiment_{ID}/
             settings.py
-            plans.txt
-            actions.txt
-            iter_{no}/
+            explorer_summary.json
+            final_operators.txt
+            results.pkl
+
+            iter_{#}/
+                explorer.json
+                learner.json
 ```
+
+## experiment-level logs:
+
+### explorer_summary.json:
+
+"plans": a list of iteration #s where plans were found
+
+"actions": a list of actions taken on each iteration
+
+"babbled_or_not": a list with 1s,0s. 1 if the action taken that iteration was result of a babble and plan, or 0 if used fallback to a random action.
+
+
+## iteration-level logs:
+
+### learner.json
+"operators_before":
+"operators_after":
+"operators_changed"
+
+### explorer.json
+
+"babbled": list of goal,action strings that were babbled
+
+"action": string parseable grounded action taken
+
+"plan_found": false, or:
+        
+        {
+            "goal": the grounded goal babbled
+            "plan": the plan found (list of grounded actions)
+        }
+
+"random_action": true if action taken is random, or false if following a plan found
+
+# Verbosity levels
+
+0
+
+1
+
+2
+
+3
+
+4
 
 GLIB: Efficient Exploration for Relational Model-Based Reinforcement Learning via Goal-Literal Babbling
 

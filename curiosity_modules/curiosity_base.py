@@ -8,7 +8,9 @@ from collections import defaultdict
 import abc
 import random
 from settings import AgentConfig as ac
-from operator_learning_modules.foldt.foldt_operator_learning import FOLDTOperatorLearningModule
+from operator_learning_modules.foldt.foldt_operator_learning import (
+    FOLDTOperatorLearningModule,
+)
 from pddlgym.inference import find_satisfying_assignments
 from pddlgym import structs
 from pddlgym.parser import PDDLProblemParser
@@ -16,18 +18,25 @@ import os
 
 
 class BaseCuriosityModule:
-    """Base class for a curiosity module.
-    """
-    def __init__(self, action_space, observation_space, planning_module,
-                 learned_operators, operator_learning_module, domain_name, replay_file_name):
+    """Base class for a curiosity module."""
+
+    def __init__(
+        self,
+        action_space,
+        observation_space,
+        planning_module,
+        learned_operators,
+        operator_learning_module,
+        domain_name,
+        experiment_log_path,
+    ):
         self._action_space = action_space
         self._observation_space = observation_space
         self._planning_module = planning_module
         self._learned_operators = learned_operators
         self._operator_learning_module = operator_learning_module
         self._domain_name = domain_name
-        self._replay_fname = replay_file_name
-
+        self._experiment_log_path = experiment_log_path
 
         self._action_space.seed(ac.seed)
         self._observation_space.seed(ac.seed)
@@ -37,43 +46,40 @@ class BaseCuriosityModule:
 
     @abc.abstractmethod
     def _initialize(self):
-        """Initialize anything needed.
-        """
+        """Initialize anything needed."""
         pass
 
     @abc.abstractmethod
     def reset_episode(self, state):
-        """Defines whatever happens when a training episode ends.
-        """
+        """Defines whatever happens when a training episode ends."""
         pass
 
     @abc.abstractmethod
     def get_action(self, state):
-        """Get the next action to take, given the current state.
-        """
+        """Get the next action to take, given the current state."""
         pass
 
     @abc.abstractmethod
     def observe(self, state, action, effects):
-        """Observe transitions.
-        """
+        """Observe transitions."""
         pass
 
     def learning_callback(self):
-        """Called when an operator changes.
-        """
-        self._mutex_cache = {}  # need to dump mutex_pairs cache because operators changed
+        """Called when an operator changes."""
+        self._mutex_cache = (
+            {}
+        )  # need to dump mutex_pairs cache because operators changed
 
     def _create_problem_pddl(self, state, goal, prefix):
-        fname = "/tmp/{}_problem_{}.pddl".format(
-            prefix, random.randint(0, 9999999))
+        fname = "/tmp/{}_problem_{}.pddl".format(prefix, random.randint(0, 9999999))
         objects = state.objects
         all_action_lits = self._action_space.all_ground_literals(state)
         initial_state = state.literals | all_action_lits
         problem_name = "{}_problem".format(prefix)
         domain_name = self._planning_module.domain_name
-        PDDLProblemParser.create_pddl_file(fname, objects, initial_state,
-                                           problem_name, domain_name, goal)
+        PDDLProblemParser.create_pddl_file(
+            fname, objects, initial_state, problem_name, domain_name, goal
+        )
 
         return fname
 
@@ -87,7 +93,9 @@ class BaseCuriosityModule:
             for act_pred, dt in self._operator_learning_module.learned_dts.items():
                 if act_pred.name != action.predicate.name:
                     continue
-                prediction = FOLDTOperatorLearningModule.get_prediction(state.literals | {action}, dt)
+                prediction = FOLDTOperatorLearningModule.get_prediction(
+                    state.literals | {action}, dt
+                )
                 if prediction is None:
                     return prediction
                 effects = [structs.effect_to_literal(effect) for effect in prediction]
@@ -144,11 +152,13 @@ class BaseCuriosityModule:
                             continue
                         if isinstance(chosen_effect, structs.LiteralConjunction):
                             for lit in chosen_effect.literals:
-                                ground_effects.append(structs.ground_literal(
-                                    lit, assignments))
+                                ground_effects.append(
+                                    structs.ground_literal(lit, assignments)
+                                )
                         else:
-                            ground_effects.append(structs.ground_literal(
-                                chosen_effect, assignments))
+                            ground_effects.append(
+                                structs.ground_literal(chosen_effect, assignments)
+                            )
                     else:
                         ground_effects.append(structs.ground_literal(l, assignments))
                 return self._execute_effects(state, ground_effects)
@@ -156,8 +166,7 @@ class BaseCuriosityModule:
 
     @staticmethod
     def _preconds_satisfied(state, action, literals):
-        """Helper method for _get_predicted_next_state.
-        """
+        """Helper method for _get_predicted_next_state."""
         kb = state.literals | {action}
         assignments = find_satisfying_assignments(kb, literals)
         # NOTE: unlike in the actual environment, here num_found could be
@@ -170,8 +179,7 @@ class BaseCuriosityModule:
 
     @staticmethod
     def _execute_effects(state, literals):
-        """Helper method for _get_predicted_next_state.
-        """
+        """Helper method for _get_predicted_next_state."""
         new_literals = set(state.literals)
         for effect in literals:
             if effect.predicate.name == "NoChange":
@@ -194,16 +202,16 @@ class BaseCuriosityModule:
         """
         static_preds = set()
         for pred in self._observation_space.predicates:
-            if any(self._op_changes_predicate(op, pred)
-                   for op in self._learned_operators):
+            if any(
+                self._op_changes_predicate(op, pred) for op in self._learned_operators
+            ):
                 continue
             static_preds.add(pred)
         return static_preds
 
     @staticmethod
     def _op_changes_predicate(op, pred):
-        """Helper method for computing static predicates.
-        """
+        """Helper method for computing static predicates."""
         for lit in op.effects.literals:
             assert not lit.is_negative
             if lit.is_anti:
@@ -215,8 +223,7 @@ class BaseCuriosityModule:
         return False
 
     def _compute_lifted_mutex_literals(self, initial_state):
-        """Lifted mutex computation using MMM sampling-based algorithm.
-        """
+        """Lifted mutex computation using MMM sampling-based algorithm."""
         print("Computing mutexes...(cache size = {})".format(len(self._mutex_cache)))
         if initial_state.literals in self._mutex_cache:
             mutex_pairs = self._mutex_cache[initial_state.literals]
@@ -240,15 +247,14 @@ class BaseCuriosityModule:
                     break
         print("\tStep 2/2: finding mutex pairs...")
         mutex_pairs = set()
-        for pred_pair in itertools.combinations(
-                self._observation_space.predicates, 2):
+        for pred_pair in itertools.combinations(self._observation_space.predicates, 2):
             ph_to_pred_slot = {}
             lit_pair_with_phs = []
             # Create the placeholders
             for i, pred in enumerate(pred_pair):
                 ph_for_lit = []
                 for j, var_type in enumerate(pred.var_types):
-                    ph = var_type('ph{}_{}'.format(i, j))
+                    ph = var_type("ph{}_{}".format(i, j))
                     ph_to_pred_slot[ph] = (i, j)
                     ph_for_lit.append(ph)
                 ph_lit = pred(*ph_for_lit)
@@ -270,11 +276,16 @@ class BaseCuriosityModule:
                         break
                 if pair_valid:
                     # Call it mutex if it can't bind to any of the reachable states.
-                    if not any(len(find_satisfying_assignments(state_lits, lit_pair)) > 0
-                               for state_lits in reachable_states):
+                    if not any(
+                        len(find_satisfying_assignments(state_lits, lit_pair)) > 0
+                        for state_lits in reachable_states
+                    ):
                         mutex_pairs.add(frozenset(lit_pair))
-        print("\tFound {} mutex pairs in {} seconds".format(
-            len(mutex_pairs), time.time()-start_time))
+        print(
+            "\tFound {} mutex pairs in {} seconds".format(
+                len(mutex_pairs), time.time() - start_time
+            )
+        )
         self._mutex_cache[initial_state.literals] = mutex_pairs
         return mutex_pairs
 
@@ -285,8 +296,8 @@ class BaseCuriosityModule:
         for v_nums in itertools.product(range(num_phs), repeat=num_phs):
             # Filter out if any number is skipped
             valid = True
-            for lo in range(num_phs-1):
-                hi = lo+1
+            for lo in range(num_phs - 1):
+                hi = lo + 1
                 if hi in v_nums and lo not in v_nums:
                     valid = False
                     break
@@ -317,8 +328,9 @@ class BaseCuriosityModule:
         for op in self._learned_operators:
             assignments = self._preconds_satisfied(state, action, op.preconds.literals)
             if assignments is not None:
-                ground_effects = [structs.ground_literal(l, assignments)
-                                  for l in op.effects.literals]
+                ground_effects = [
+                    structs.ground_literal(l, assignments) for l in op.effects.literals
+                ]
                 return ground_effects
         return None
 
@@ -340,8 +352,7 @@ class BaseCuriosityModule:
             level += 1
 
     def _mutex_one_level(self, state):
-        """Helper method for mutex. Computes mutex literals for a single level.
-        """
+        """Helper method for mutex. Computes mutex literals for a single level."""
         current_links, next_links = self._compute_links(state)
         acts_inconsistent_preconds = self._compute_inconsistent(current_links)
         acts_inconsistent_effects = self._compute_inconsistent(next_links)
@@ -351,9 +362,11 @@ class BaseCuriosityModule:
             for lit2 in next_links:
                 if lit1.is_anti or lit2.is_anti:
                     continue
-                if all({op1, op2} in mutex_actions
-                       for op1 in next_links[lit1]
-                       for op2 in next_links[lit2]):
+                if all(
+                    {op1, op2} in mutex_actions
+                    for op1 in next_links[lit1]
+                    for op2 in next_links[lit2]
+                ):
                     if {lit1, lit2} not in literal_mutex_pairs:
                         literal_mutex_pairs.append({lit1, lit2})
         return literal_mutex_pairs, next_links
@@ -373,8 +386,9 @@ class BaseCuriosityModule:
                 pos_lits.append(lit)
         for neg_lit in neg_lits:
             for pos_lit in pos_lits:
-                if (neg_lit.is_anti and neg_lit.inverted_anti == pos_lit) or \
-                   (neg_lit.is_negative and neg_lit.positive == pos_lit):
+                if (neg_lit.is_anti and neg_lit.inverted_anti == pos_lit) or (
+                    neg_lit.is_negative and neg_lit.positive == pos_lit
+                ):
                     for op1 in links[pos_lit]:
                         for op2 in links[neg_lit]:
                             if {op1, op2} not in actions_inconsistent:
@@ -382,8 +396,7 @@ class BaseCuriosityModule:
         return actions_inconsistent
 
     def _compute_links(self, state):
-        """Helper method for mutex. Sets up state/action dependencies.
-        """
+        """Helper method for mutex. Sets up state/action dependencies."""
         # Map from literal to all actions that it's a precond of.
         current_links = defaultdict(list)
         # Map from literal to all actions that it's an effect of.
@@ -391,23 +404,31 @@ class BaseCuriosityModule:
         for lit in state.literals:
             pred = lit.predicate
             persist_pred = structs.Predicate(
-                "PERSIST"+pred.name, pred.arity, pred.var_types,
-                pred.is_negative, pred.is_anti, pred.negated_as_failure)
+                "PERSIST" + pred.name,
+                pred.arity,
+                pred.var_types,
+                pred.is_negative,
+                pred.is_anti,
+                pred.negated_as_failure,
+            )
             persist_lit = structs.Literal(persist_pred, lit.variables)
             current_links[lit].append(persist_lit)
             next_links[lit].append(persist_lit)
         for action in self._action_space.all_ground_literals(state):
             for op in self._learned_operators:
                 assignments = self._preconds_satisfied(
-                    state, action, op.preconds.literals)
+                    state, action, op.preconds.literals
+                )
                 if assignments is None:
                     continue
-                ground_preconds = [structs.ground_literal(l, assignments)
-                                   for l in op.preconds.literals]
+                ground_preconds = [
+                    structs.ground_literal(l, assignments) for l in op.preconds.literals
+                ]
                 for precond in ground_preconds:
                     current_links[precond].append(action)
-                ground_effects = [structs.ground_literal(l, assignments)
-                                  for l in op.effects.literals]
+                ground_effects = [
+                    structs.ground_literal(l, assignments) for l in op.effects.literals
+                ]
                 for effect in ground_effects:
                     next_links[effect].append(action)
         return current_links, next_links

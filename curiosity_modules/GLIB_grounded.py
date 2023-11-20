@@ -26,8 +26,9 @@ class GLIBG1CuriosityModule(GoalBabblingCuriosityModule):
     def _recompute_unseen_lits_acts(self, state):
         self._unseen_lits_acts = set()
         for lit in self._observation_space.all_ground_literals(state):
-            if self._ignore_statics and \
-               lit.predicate in self._static_preds:  # ignore static goals
+            if (
+                self._ignore_statics and lit.predicate in self._static_preds
+            ):  # ignore static goals
                 continue
             for act in self._action_space.all_ground_literals(state):
                 self._unseen_lits_acts.add((lit, act))
@@ -50,8 +51,9 @@ class GLIBG1CuriosityModule(GoalBabblingCuriosityModule):
     def _sample_goal(self, state):
         if not self._unseen_lits_acts:
             return None
-        goal, act = self._unseen_lits_acts[self._rand_state.choice(
-            len(self._unseen_lits_acts))]
+        goal, act = self._unseen_lits_acts[
+            self._rand_state.choice(len(self._unseen_lits_acts))
+        ]
         self._last_sampled_action = act
 
     def _goal_is_valid(self, goal):

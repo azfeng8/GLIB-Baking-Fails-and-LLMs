@@ -33,16 +33,19 @@ class OracleCuriosityModule(BaseCuriosityModule):
         return action
 
     def _get_action(self, state, depth, max_depth):
-        """Returns tuple of (action, is_interesting).
-        """
+        """Returns tuple of (action, is_interesting)."""
         if self._domain_name == "PybulletBlocks":
             return self._action_space.sample(state), False
         if ac.learning_name == "TILDE":
-            action_preds_with_learned_rules = set(self._operator_learning_module.learned_dts)
+            action_preds_with_learned_rules = set(
+                self._operator_learning_module.learned_dts
+            )
         elif ac.learning_name == "LNDR":
             action_preds_with_learned_rules = set(self._operator_learning_module._ndrs)
         else:
-            import ipdb; ipdb.set_trace()
+            import ipdb
+
+            ipdb.set_trace()
 
         assert max_depth > 0
 
@@ -73,8 +76,10 @@ class OracleCuriosityModule(BaseCuriosityModule):
         for action in all_ground_actions:
             # If no decision tree learned for this action predicate,
             # it's automatically interesting.
-            if not any(act_pred.name == action.predicate.name
-                       for act_pred in action_preds_with_learned_rules):
+            if not any(
+                act_pred.name == action.predicate.name
+                for act_pred in action_preds_with_learned_rules
+            ):
                 assert depth == 0
                 self.lookaheads.append(0)
                 self.goaldirecteds.append(0)
@@ -110,7 +115,7 @@ class OracleCuriosityModule(BaseCuriosityModule):
 
     def _is_goal_state_action(self, state, action):
         """A state-action is a goal if the predicted next state is different
-           from the ground truth."""
+        from the ground truth."""
         # Calculate predicted next state under learned operators.
         predicted_next_state = self._get_predicted_next_state(state, action)
         actual_next_state = self._predict_ground_truth(state, action)
@@ -127,22 +132,26 @@ class OracleCuriosityModule(BaseCuriosityModule):
             self._learned_operators.add(op)
         # Check for operators as actions
         for op in self._learned_operators:
-            if not any(p.predicate in ac.train_env.domain.actions for p in op.preconds.literals):
+            if not any(
+                p.predicate in ac.train_env.domain.actions for p in op.preconds.literals
+            ):
                 assert op.name in ac.train_env.domain.actions
-                action_predicate = [p for p in ac.train_env.domain.actions if p.name == op.name][0]
+                action_predicate = [
+                    p for p in ac.train_env.domain.actions if p.name == op.name
+                ][0]
                 op.preconds.literals.append(action_predicate(*op.params))
         # Calculate actual next state under ground truth operators.
-        actual_next_state = self._get_predicted_next_state_ops(state, action, mode="max")
+        actual_next_state = self._get_predicted_next_state_ops(
+            state, action, mode="max"
+        )
         # Restore current operators.
         self._learned_operators.clear()
         for op in old_ops:
             self._learned_operators.add(op)
         return actual_next_state
 
-
     def _bfs(self, init_state):
-        """Graph search to compute all H-step novelties.
-        """
+        """Graph search to compute all H-step novelties."""
         queue = [([init_state], [])]
         # Run BFS.
         while queue:
@@ -153,7 +162,7 @@ class OracleCuriosityModule(BaseCuriosityModule):
                 continue
             for action in self._action_space.all_ground_literals(state):
                 if self._is_goal_state_action(state, action):
-                    return act_seq+[action]
+                    return act_seq + [action]
                 predicted_next_state = self._predict_ground_truth(state, action)
-                queue.append((path+[predicted_next_state], act_seq+[action]))
+                queue.append((path + [predicted_next_state], act_seq + [action]))
         return []

@@ -142,7 +142,7 @@ class AgentConfig:
         "River": 1001,
         "PybulletBlocks" : 501,
         "NDRBlocks" : 1501,
-        "Baking": 1501
+        "Baking": 101
     }
 
     ## Constants for curiosity modules. ##
@@ -249,4 +249,4 @@ class GeneralConfig:
     """General configuration constants.
     """
     verbosity = 5
-    num_seeds = 5
+    num_seeds = 1

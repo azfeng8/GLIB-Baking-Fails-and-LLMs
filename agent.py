@@ -3,8 +3,6 @@ from operator_learning_modules import create_operator_learning_module
 from planning_modules import create_planning_module
 from pddlgym.structs import Anti
 import time
-import numpy as np
-
 
 class Agent:
     """An agent interacts with an env, learns PDDL operators, and plans.
@@ -20,7 +18,7 @@ class Agent:
     """
     def __init__(self, domain_name, action_space, observation_space,
                  curiosity_module_name, operator_learning_name,
-                 planning_module_name, replay_file_name):
+                 planning_module_name, experiment_log_path):
         self.curiosity_time = 0.0
         self.domain_name = domain_name
         self.curiosity_module_name = curiosity_module_name
@@ -31,7 +29,7 @@ class Agent:
         # The operator learning module learns operators. It should update the
         # agent's learned operators set
         self._operator_learning_module = create_operator_learning_module(
-            operator_learning_name, self.learned_operators, self.domain_name)
+            operator_learning_name, self.learned_operators, self.domain_name, experiment_log_path)
         # The planning module uses the learned operators to plan at test time.
         self._planning_module = create_planning_module(
             planning_module_name, self.learned_operators, domain_name,
@@ -41,14 +39,15 @@ class Agent:
         self._curiosity_module = create_curiosity_module(
             curiosity_module_name, action_space, observation_space,
             self._planning_module, self.learned_operators,
-            self._operator_learning_module, domain_name, replay_file_name)
+            self._operator_learning_module, domain_name, experiment_log_path)
 
     ## Training time methods
-    def get_action(self, state):
+    def get_action(self, state, iter_path):
         """Get an exploratory action to collect more training data.
            Not used for testing. Planner is used for testing."""
         start_time = time.time()
-        action = self._curiosity_module.get_action(state)
+        if iter_path is None: raise Exception
+        action = self._curiosity_module.get_action(state, iter_path)
         self.curiosity_time += time.time()-start_time
         return action
 
@@ -62,7 +61,14 @@ class Agent:
         self._curiosity_module.observe(state, action, effects)
         self.curiosity_time += time.time()-start_time
 
-    def learn(self):
+    def learn(self, iter_path=None):
+        """
+
+        Args:
+            iter_path (str, optional): If not None, log the operators to this path. Defaults to None.
+
+        Returns:
+        """
         # Learn (probably less frequently than observing)
         some_operator_changed = self._operator_learning_module.learn()
         if some_operator_changed:

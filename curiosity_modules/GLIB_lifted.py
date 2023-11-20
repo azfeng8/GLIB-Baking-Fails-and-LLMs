@@ -8,9 +8,9 @@ import copy
 import itertools
 import numpy as np
 
-class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
 
-    _k = None # Must be set by subclasses
+class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
+    _k = None  # Must be set by subclasses
     _ignore_statics = True
     _ignore_mutex = True
 
@@ -25,19 +25,17 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
         # Initialize all possible goal-actions up to the max num of lits.
         # This is a set of (goal literals, action literal) pairs.
         self._unseen_goal_actions = self._init_unseen_goal_actions(
-            self._action_space.predicates, self._observation_space.predicates, 
-            self._k)
-
-        # Clear the goal-action sequence file
-        with open(self._replay_fname, 'w') as f:
-            f.write('')
+            self._action_space.predicates, self._observation_space.predicates, self._k
+        )
 
     @classmethod
     def _use_goal_preds(cls, goal_preds):
         return True
 
     @classmethod
-    def _init_unseen_goal_actions(cls, action_predicates, observation_predicates, max_num_lits):
+    def _init_unseen_goal_actions(
+        cls, action_predicates, observation_predicates, max_num_lits
+    ):
         """Initialize all possible goal-actions up to the max num of lits.
         Parameters
         ----------
@@ -51,8 +49,10 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
         """
         unseen_goal_actions = set()
         for action_pred in action_predicates:
-            for num_lits in range(1, max_num_lits+1):
-                for goal_preds in itertools.combinations(observation_predicates, num_lits):
+            for num_lits in range(1, max_num_lits + 1):
+                for goal_preds in itertools.combinations(
+                    observation_predicates, num_lits
+                ):
                     # Lump together goal and action for now; will separate at the end
                     # if num_lits == 1:
                     #     if not goal_preds[0]=="robotat":continue
@@ -69,7 +69,7 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
                     for i, pred in enumerate(goal_action_preds):
                         ph_for_lit = []
                         for j, var_type in enumerate(pred.var_types):
-                            ph = var_type('ph{}_{}'.format(i, j))
+                            ph = var_type("ph{}_{}".format(i, j))
                             ph_to_pred_slot[ph] = (i, j)
                             ph_for_lit.append(ph)
                         ph_lit = pred(*ph_for_lit)
@@ -77,13 +77,25 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
                     phs = sorted(ph_to_pred_slot.keys())
                     # Consider all substitutions of placeholders to variables
                     for vs in cls._iter_vars_from_phs(phs):
-                        goal_vs = {v.name for i, v in enumerate(vs) if
-                                   ph_to_pred_slot[phs[i]][0] != len(goal_action_preds)-1}
-                        action_vs = {v.name for i, v in enumerate(vs) if
-                                     ph_to_pred_slot[phs[i]][0] == len(goal_action_preds)-1}
-                        if goal_vs and action_vs-goal_vs and min(action_vs-goal_vs) < max(goal_vs):
+                        goal_vs = {
+                            v.name
+                            for i, v in enumerate(vs)
+                            if ph_to_pred_slot[phs[i]][0] != len(goal_action_preds) - 1
+                        }
+                        action_vs = {
+                            v.name
+                            for i, v in enumerate(vs)
+                            if ph_to_pred_slot[phs[i]][0] == len(goal_action_preds) - 1
+                        }
+                        if (
+                            goal_vs
+                            and action_vs - goal_vs
+                            and min(action_vs - goal_vs) < max(goal_vs)
+                        ):
                             continue
-                        goal_action_lits = [copy.deepcopy(lit) for lit in goal_action_lits_with_phs]
+                        goal_action_lits = [
+                            copy.deepcopy(lit) for lit in goal_action_lits_with_phs
+                        ]
                         # Perform substitution
                         for k, v in enumerate(vs):
                             ph = phs[k]
@@ -97,8 +109,18 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
                                 break
                         # Finish the goal and add it
                         if goal_action_valid:
-                            goal = tuple([l for l in goal_action_lits if l.predicate != action_pred])
-                            action = [l for l in goal_action_lits if l.predicate == action_pred][0]
+                            goal = tuple(
+                                [
+                                    l
+                                    for l in goal_action_lits
+                                    if l.predicate != action_pred
+                                ]
+                            )
+                            action = [
+                                l
+                                for l in goal_action_lits
+                                if l.predicate == action_pred
+                            ][0]
                             unseen_goal_actions.add((goal, action))
         return unseen_goal_actions
 
@@ -108,18 +130,26 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
         # Want to retry goal-actions if a new episode or new operators learned
         self._untried_episode_goal_actions = copy.deepcopy(self._unseen_goal_actions)
         # Randomly shuffle within num_lits
-        self._untried_episode_goal_actions = sorted(self._untried_episode_goal_actions,
-            key=lambda ga : (len(ga[0]), self._rand_state.uniform()))
+        self._untried_episode_goal_actions = sorted(
+            self._untried_episode_goal_actions,
+            key=lambda ga: (len(ga[0]), self._rand_state.uniform()),
+        )
         if self._ignore_statics:  # ignore static goals
             static_preds = self._compute_static_preds()
-            self._untried_episode_goal_actions = list(filter(
-                lambda ga: any(lit.predicate not in static_preds for lit in ga[0]),
-                self._untried_episode_goal_actions))
+            self._untried_episode_goal_actions = list(
+                filter(
+                    lambda ga: any(lit.predicate not in static_preds for lit in ga[0]),
+                    self._untried_episode_goal_actions,
+                )
+            )
         if self._ignore_mutex:  # ignore mutex goals
             mutex_pairs = self._compute_lifted_mutex_literals(self._episode_start_state)
-            self._untried_episode_goal_actions = list(filter(
-                lambda ga: frozenset(ga[0]) not in mutex_pairs,
-                self._untried_episode_goal_actions))
+            self._untried_episode_goal_actions = list(
+                filter(
+                    lambda ga: frozenset(ga[0]) not in mutex_pairs,
+                    self._untried_episode_goal_actions,
+                )
+            )
         # Forget the goal-action that was going to be taken at the end of the plan in progress
         self._current_goal_action = None
 
@@ -138,7 +168,7 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
 
     ### Get an action ###
 
-    def _get_action(self, state):
+    def _get_action(self, state, iter_path):
         # First check whether we just finished a plan and now must take the final action
         if (not (self._current_goal_action is None)) and (len(self._plan) == 0):
             action = self._get_ground_action_to_execute(state)
@@ -146,27 +176,29 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
                 print("*** Finished the plan, now executing the action", action)
                 # Execute the action
                 self.line_stats.append(1)
-                return action
+                return action, True, False
         # Either continue executing a plan or make a new one (or fall back to random)
-        return super()._get_action(state)
+        return super()._get_action(state, iter_path)
 
     def _get_ground_action_to_execute(self, state):
         lifted_goal, lifted_action = self._current_goal_action
         # Forget this goal-action because we're about to execute it
         self._current_goal_action = None
         # Sample a grounding for the action conditioned on the lifted goal and state
-        action = self._sample_action_from_goal(lifted_goal, lifted_action, state, self._rand_state)
+        action = self._sample_action_from_goal(
+            lifted_goal, lifted_action, state, self._rand_state
+        )
         # If the action is None, that means that the plan was wrong somehow.
         return action
 
     @staticmethod
     def _sample_action_from_goal(lifted_goal, lifted_action, state, rand_state):
-        """Sample a grounding for the action conditioned on the lifted goal and state
-        """
-        #TODO: use LLM to select a better grounding based on common sense
+        """Sample a grounding for the action conditioned on the lifted goal and state"""
+        # TODO: use LLM to select a better grounding based on common sense
         # Try to find a grounding of the lifted goal in the state
-        all_assignments = find_satisfying_assignments(state.literals, lifted_goal,
-            allow_redundant_variables=False)
+        all_assignments = find_satisfying_assignments(
+            state.literals, lifted_goal, allow_redundant_variables=False
+        )
         # If none exist, return action None
         if len(all_assignments) == 0:
             return None
@@ -203,40 +235,21 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
             goal, action = self._untried_episode_goal_actions.pop(0)
             # print("sampling goal-action", goal,action)
             self._current_goal_action = (goal, action)
-            # Uncomment to save all sampled goals
-            # self.save_sampled(self._current_goal_action)
             return self._structify_goal(goal), goal, action
         # No goals left to try
         # print("no goals left")
         return None, None, None
 
-    def save_sampled(self, goal_action):
-        pass
-
-    def save_to_file(self, ga):
-        """Utility to save babbled goal, action sequence for loading and sampling goal,actions.
-
-        File format:
-        
-        goal_pred_0,?x1,?x2,..,goal_pred_1,arg0,arg1,...action_pred,arg0,arg1...
-        goal_pred_0,?x0,?x1,..,goal_pred_1,arg0,arg1,...action_pred,arg0,arg1...
-        ...
+    def _ground_babbled_action(self, plan):
+        """Try to ground the lifted action babbled, or fallback to random action.
 
         Args:
-            ga (tuple): tuple of (goal, action) where goal is a tuple of PDDLGym Literals (observation predicates),
-                        and action is a PDDLGym Literal (action predicate)
-        """
-        fh = open(self._replay_fname, 'a')
-        # NOTE: Assume start with new line
-        goals, action = ga
-        line = ''
-        for g in goals:
-            line += f"{g.predicate.name}," + ",".join(g.pddl_variables()) + ","
-        line += f"{action.predicate.name}," + ",".join(action.pddl_variables()) + "\n"
-        fh.write(line)
-        fh.close()
+            plan (list[PDDLGym.Literal]): list of actions
 
-    def _finish_plan(self, plan):
+        Returns:
+            list[action]: plan
+            bool: True if able to ground the action, False if took fallback random action
+        """
         # If the plan is empty, then we want to immediately take the action.
         if len(plan) == 0:
             action = self._get_ground_action_to_execute(self._last_state)
@@ -244,21 +257,16 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
             if action is None:
                 # There was no way to bind the lifted action. Fallback
                 action = self._get_fallback_action(self._last_state)
-            return [action]
-        # Otherwise, we'll take the last action once we finish the plan
-        # print("Setting a plan:", plan)
-        return plan
+                return [action], False
+            return [action], True
 
     def _goal_is_valid(self, goal):
         return not (goal is None)
 
-    def _plan_is_good(self):
-        return True
-
     @staticmethod
     def _structify_goal(goal):
         """Create Exists struct for a goal."""
-        variables = sorted({ v for lit in goal for v in lit.variables })
+        variables = sorted({v for lit in goal for v in lit.variables})
         body = structs.LiteralConjunction(goal)
         return structs.Exists(variables, body)
 
@@ -270,8 +278,9 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
         for goal_action in self._unseen_goal_actions:
             # Check whether goal-action is satisfied by new state and action
             conds = list(goal_action[0]) + [goal_action[1]]
-            assignments = find_satisfying_assignments(state.literals | {action}, conds,
-                allow_redundant_variables=False)
+            assignments = find_satisfying_assignments(
+                state.literals | {action}, conds, allow_redundant_variables=False
+            )
             if len(assignments) > 0:
                 newly_seen_goal_actions.append(goal_action)
         for new_goal_action in newly_seen_goal_actions:

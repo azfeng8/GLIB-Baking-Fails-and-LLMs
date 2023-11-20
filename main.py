@@ -6,6 +6,7 @@ from agent import Agent
 from planning_modules.base_planner import PlannerTimeoutException, \
     NoPlanFoundException
 from plotting import plot_results
+from curiosity_modules.goal_babbling import stringify_grounded_action
 from collections import defaultdict
 
 import glob
@@ -29,7 +30,7 @@ assert (list(settings.keys())[0] in ['run', 'runSave', 'load', 'loadSave']), f"O
 
 if 'loadRun' in settings or 'loadSave' in settings:
     cwd = os.getcwd()
-    settings_file = settings['loadSave']['path'])
+    settings_file = settings['loadSave']['path']
     os.chdir(os.path.dirname(settings_file))
     from settings import AgentConfig as ac
     from settings import EnvConfig as ec
@@ -49,7 +50,7 @@ else:
 class Runner:
     """Helper class for running experiments.
     """
-    def __init__(self, agent, train_env, test_env, domain_name, curiosity_name, run_name:Union[str, None]):
+    def __init__(self, agent, train_env, test_env, domain_name, curiosity_name, experiment_log_path:Union[str, None]):
         """Runs a single train/test experiment.
 
         Args:
@@ -58,7 +59,7 @@ class Runner:
             test_env (PDDLEnv): 
             domain_name (str): 
             curiosity_name (str): 
-            run_name (str or None): None if not doing logging, otherwise the directory path for the log.
+            experiment_log_path (str or None): None if not doing logging, otherwise the directory path for the experiment log.
         """
         self.agent = agent
         self.train_env = train_env
@@ -68,7 +69,7 @@ class Runner:
         self.num_train_iters = ac.num_train_iters[domain_name]
         self._variational_dist_transitions = self._initialize_variational_distance_transitions()
 
-        self.run_path = run_name
+        self.experiment_log_path = experiment_log_path
 
     def _initialize_variational_distance_transitions(self):
         print("Getting transitions for variational distance...")
@@ -120,22 +121,40 @@ class Runner:
         episode_done = True
         episode_time_step = 0
         itrs_on = None
+
+        # Variables for logging
+        babbled_or_not = []
+        actions = []
+        iters_where_plan_found = []
+
         for itr in range(self.num_train_iters):
-            if gc.verbosity > 0:
-                print("\nIteration {} of {}".format(itr, self.num_train_iters))
+
+            if ec.logging:
+                iter_path = os.path.join(self.experiment_log_path, f"iter_{itr}")
+                os.makedirs(iter_path)
+            else:
+                iter_path = None
+
+            if gc.verbosity > 0: print("\nIteration {} of {}".format(itr, self.num_train_iters))
 
             # Gather training data
-            if gc.verbosity > 2:
-                print("Gathering training data...")
+            if gc.verbosity > 2: print("Gathering training data...")
 
             if episode_done or episode_time_step > ac.max_train_episode_length[self.domain_name]:
                 obs, _ = self.train_env.reset()
                 self.agent.reset_episode(obs)
                 episode_time_step = 0
 
-            print("Goal:", obs.goal)
-            action = self.agent.get_action(obs)
-            print("Selected action", action)
+            if gc.verbosity > 3: print("Goal:", obs.goal)
+
+            action, following_plan, plan_found = self.agent.get_action(obs, iter_path)
+
+            if ec.logging:
+                babbled_or_not.append(int(following_plan))
+                actions.append(stringify_grounded_action(action))
+                if plan_found: iters_where_plan_found.append(itr)
+
+            if gc.verbosity > 3: print("Selected action", action)
 
             next_obs, _, episode_done, _ = self.train_env.step(action)
             self.agent.observe(obs, action, next_obs)
@@ -189,7 +208,21 @@ class Runner:
             itrs_on = self.num_train_iters
         curiosity_avg_time = self.agent.curiosity_time/itrs_on
 
+        self._save_experiment_summary(babbled_or_not, actions, iters_where_plan_found)
+
         return results, curiosity_avg_time
+
+    def _save_experiment_summary(self, babbled_or_not, actions, iters_where_plan_found):
+        """Save explorer summary for this experiment.
+
+        Args:
+            babbled_or_not (list[bool]): list of 1,0 where 1 if action taken influenced by babble or 0 if fallback to random action
+            actions (list[str]): list of parseable grounded action strings
+            iters_where_plan_found (list[int]): list of iteration #s where plan was found
+        """
+        with open(os.path.join(self.experiment_log_path, "explorer_summary.json"), 'w') as f:
+            json.dump({"babbled_or_not": babbled_or_not, "actions": actions, "plans": iters_where_plan_found}, f, indent=4)
+            
 
     def _evaluate_operators(self):
         """Test current operators. Return (solve rate on test suite,
@@ -244,7 +277,19 @@ class Runner:
         variational_dist /= len(self._variational_dist_transitions)
         return float(num_successes)/num_problems, variational_dist
 
-def _run_single_seed(seed, domain_name, curiosity_name, learning_name, run_name):
+def _run_single_seed(seed, domain_name, curiosity_name, learning_name, experiment_log_path):
+    """Run single experiment of one explorer on one domain.
+
+    Args:
+        seed (int): seed for random number generator.
+        domain_name (str)
+        curiosity_name (str)
+        learning_name (str)
+        experiment_log_path (str): path to the experiment log
+
+    Returns:
+        dict[str, dict]
+    """
     start = time.time()
 
     ac.seed = seed
@@ -255,9 +300,9 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, run_name)
     train_env.seed(ec.seed)
     agent = Agent(domain_name, train_env.action_space,
                   train_env.observation_space, curiosity_name, learning_name,
-                  planning_module_name=ac.planner_name[domain_name], replay_file_name=ac.goal_action_lifted_sequence_file)
+                  planning_module_name=ac.planner_name[domain_name], experiment_log_path=experiment_log_path)
     test_env = gym.make("PDDLEnv{}Test-v0".format(domain_name))
-    results, curiosity_avg_time = Runner(agent, train_env, test_env, domain_name, curiosity_name, run_name=run_name).run()
+    results, curiosity_avg_time = Runner(agent, train_env, test_env, domain_name, curiosity_name, experiment_log_path=experiment_log_path).run()
     with open("results/timings/{}_{}_{}_{}.txt".format(domain_name, curiosity_name, learning_name, seed), "w") as f:
         f.write("{} {} {} {} {}\n".format(domain_name, curiosity_name, learning_name, seed, curiosity_avg_time))
 
@@ -307,10 +352,10 @@ def _main():
                         curiosity_name, seed))
                     if ec.logging:
                         single_seed_results = _run_single_seed(
-                            seed, domain_name, curiosity_name, ac.learning_name, run_name=experiment_path)
+                            seed, domain_name, curiosity_name, ac.learning_name, experiment_log_path=experiment_path)
                     else:
                         single_seed_results = _run_single_seed(
-                            seed, domain_name, curiosity_name, ac.learning_name, run_name=None)
+                            seed, domain_name, curiosity_name, ac.learning_name, experiment_log_path=None)
                     for cur_name, results in single_seed_results.items():
                         all_results[cur_name].append(results)
                     plot_results(domain_name, ac.learning_name, all_results)

@@ -11,7 +11,7 @@ from collections import defaultdict
 
 class ZPKOperatorLearningModule:
 
-    def __init__(self, learned_operators, domain_name):
+    def __init__(self, learned_operators, domain_name, experiment_log_path):
         self._domain_name = domain_name
         self._learned_operators = learned_operators
         self._transitions = defaultdict(list)
@@ -20,6 +20,7 @@ class ZPKOperatorLearningModule:
         self._learning_on = True
         self._ndrs = {}
         self._fits_all_data = defaultdict(bool)
+        self._experiment_log_path = experiment_log_path
 
     def observe(self, state, action, effects):
         if not self._learning_on:
