@@ -272,7 +272,7 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
                 explorer_dict = {
                     "babbled": babbled_goal_actions,
                     "action": action_str,
-                    "no_plan_found": True,
+                    "found_no_plans_so_random_action": True,
                 }
 
             else:

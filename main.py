@@ -123,7 +123,7 @@ class Runner:
         itrs_on = None
 
         # Variables for logging
-        babbled_or_not = []
+        random_or_not = []
         actions = []
         iters_where_plan_found = []
 
@@ -147,12 +147,12 @@ class Runner:
 
             if gc.verbosity > 3: print("Goal:", obs.goal)
 
-            action, following_plan, plan_found = self.agent.get_action(obs, iter_path)
+            action, following_plan, grounded_action = self.agent.get_action(obs, iter_path)
 
             if ec.logging:
-                babbled_or_not.append(int(following_plan))
+                random_or_not.append(int(grounded_action or following_plan))
                 actions.append(stringify_grounded_action(action))
-                if plan_found: iters_where_plan_found.append(itr)
+                if (following_plan and (not grounded_action)): iters_where_plan_found.append(itr)
 
             if gc.verbosity > 3: print("Selected action", action)
 
@@ -208,7 +208,7 @@ class Runner:
             itrs_on = self.num_train_iters
         curiosity_avg_time = self.agent.curiosity_time/itrs_on
 
-        self._save_experiment_summary(babbled_or_not, actions, iters_where_plan_found)
+        self._save_experiment_summary(random_or_not, actions, iters_where_plan_found)
 
         return results, curiosity_avg_time
 
@@ -221,7 +221,7 @@ class Runner:
             iters_where_plan_found (list[int]): list of iteration #s where plan was found
         """
         with open(os.path.join(self.experiment_log_path, "explorer_summary.json"), 'w') as f:
-            json.dump({"babbled_or_not": babbled_or_not, "actions": actions, "plans": iters_where_plan_found}, f, indent=4)
+            json.dump({"random_or_not": babbled_or_not, "actions": actions, "plans": iters_where_plan_found}, f, indent=4)
             
 
     def _evaluate_operators(self):

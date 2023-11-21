@@ -173,9 +173,7 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
         if (not (self._current_goal_action is None)) and (len(self._plan) == 0):
             action = self._get_ground_action_to_execute(state)
             if action != None:
-                print("*** Finished the plan, now executing the action", action)
                 # Execute the action
-                self.line_stats.append(1)
                 return action, True, False
         # Either continue executing a plan or make a new one (or fall back to random)
         return super()._get_action(state, iter_path)
@@ -233,11 +231,9 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
         # Note that these are already in random order as per _iw_reset
         if len(self._untried_episode_goal_actions) > 0:
             goal, action = self._untried_episode_goal_actions.pop(0)
-            # print("sampling goal-action", goal,action)
             self._current_goal_action = (goal, action)
             return self._structify_goal(goal), goal, action
         # No goals left to try
-        # print("no goals left")
         return None, None, None
 
     def _ground_babbled_action(self, plan):
@@ -253,7 +249,6 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
         # If the plan is empty, then we want to immediately take the action.
         if len(plan) == 0:
             action = self._get_ground_action_to_execute(self._last_state)
-            print("Goal is satisfied in the current state; taking action now:", action)
             if action is None:
                 # There was no way to bind the lifted action. Fallback
                 action = self._get_fallback_action(self._last_state)
@@ -284,7 +279,6 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
             if len(assignments) > 0:
                 newly_seen_goal_actions.append(goal_action)
         for new_goal_action in newly_seen_goal_actions:
-            # print("Removing goal-action:", new_goal_action)
             self._unseen_goal_actions.remove(new_goal_action)
 
 

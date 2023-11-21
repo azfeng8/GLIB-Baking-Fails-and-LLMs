@@ -71,7 +71,7 @@ Loading will only load one "experiment": one explorer on one domain for one run.
 
 "actions": a list of actions taken on each iteration
 
-"babbled_or_not": a list with 1s,0s. 1 if the action taken that iteration was result of a babble and plan, or 0 if used fallback to a random action.
+"random_or_not": a list with 1s,0s. 1 if the action taken that iteration was result of a babble and plan, or 0 if used fallback to a random action.
 
 
 ## iteration-level logs:
@@ -103,7 +103,7 @@ Loading will only load one "experiment": one explorer on one domain for one run.
             "plan": the plan found (list of grounded actions, should be empty)
         }
 
-"no_plan_found": True if random action is taken because no plans were found within the budget of sampling tries
+"found_no_plans_so_random_action": True if random action is taken because no plans were found within the budget of sampling tries
 
 "empty_plan_so_random_action": True if random action is taken because the planner returned an empty plan and the babbled lifted action is not able to be grounded in the current state
 
