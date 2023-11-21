@@ -30,7 +30,9 @@ def create_curiosity_module(
         module = GLIBLSCuriosityModule
     else:
         raise Exception(
-            "Unrecognized curiosity module or module not supported for replay yet '{}'".format(curiosity_module_name)
+            "Unrecognized curiosity module or module not supported for replay yet '{}'".format(
+                curiosity_module_name
+            )
         )
     return module(
         action_space,

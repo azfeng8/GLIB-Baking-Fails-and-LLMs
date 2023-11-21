@@ -8,6 +8,7 @@ from planning_modules.base_planner import PlannerTimeoutException, NoPlanFoundEx
 from settings import AgentConfig as ac
 from curiosity_modules import BaseCuriosityModule
 
+
 def stringify_grounded_action(action):
     """Turn the PDDLGym struct into a parseable string.
 
@@ -18,6 +19,7 @@ def stringify_grounded_action(action):
     """
     return f"{action.predicate.name}," + ",".join(action.pddl_variables())
 
+
 def stringify_lifted_goal(goal_tuple):
     """Puts the goal into a parseable string.
 
@@ -26,7 +28,7 @@ def stringify_lifted_goal(goal_tuple):
 
     Returns:
         str: parseable string representation of a goal
-        
+
         AND conjunction of goal(?arg0,?arg1), semicolon-separated
 
         goal_pred_0,?x0,?x1;goal_pred_1,?x1;goal_pred_2...
@@ -57,6 +59,7 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
 
     def _goal_is_valid(self, goal):
         return True
+
     def _finish_plan(self, plan):
         return plan
 
@@ -92,7 +95,9 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
 
         # Continue executing plan?
         if self._plan and (last_state != state):
-            self._save_iteration_explorer_info(iter_path, [], self._plan[0], option="following_plan")
+            self._save_iteration_explorer_info(
+                iter_path, [], self._plan[0], option="following_plan"
+            )
             return self._plan.pop(0), True, False
 
         babbled = []
@@ -139,14 +144,38 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
                 # Do the action babbled, or random if not able to ground it in the current state
                 self._plan, not_random = self._ground_babbled_action(self._plan)
                 if not_random:
-                    self._save_iteration_explorer_info(iter_path, babbled, self._plan[0],  'ground_action', goal_lifted, action_lifted, self._plan)
+                    self._save_iteration_explorer_info(
+                        iter_path,
+                        babbled,
+                        self._plan[0],
+                        "ground_action",
+                        goal_lifted,
+                        action_lifted,
+                        self._plan,
+                    )
                     return self._plan.pop(0), False, True
                 else:
-                    self._save_iteration_explorer_info(iter_path, babbled, self._plan[0],  'random_action', goal_lifted, action_lifted, self._plan,)
+                    self._save_iteration_explorer_info(
+                        iter_path,
+                        babbled,
+                        self._plan[0],
+                        "random_action",
+                        goal_lifted,
+                        action_lifted,
+                        self._plan,
+                    )
                     return self._plan.pop(0), False, False
             else:
                 # Follow the plan found
-                self._save_iteration_explorer_info(iter_path, babbled, self._plan[0], 'following_new_plan', goal_lifted, action_lifted, self._plan)
+                self._save_iteration_explorer_info(
+                    iter_path,
+                    babbled,
+                    self._plan[0],
+                    "following_new_plan",
+                    goal_lifted,
+                    action_lifted,
+                    self._plan,
+                )
                 return self._plan.pop(0), True, False
 
         # No plan found within budget; take a random action
@@ -174,7 +203,16 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
         line += f"{action.predicate.name}," + ",".join(action.pddl_variables())
         return line
 
-    def _save_iteration_explorer_info(self, iter_path, babbled_goal_actions, action, option, lifted_goal=None, lifted_action=None, plan=None):
+    def _save_iteration_explorer_info(
+        self,
+        iter_path,
+        babbled_goal_actions,
+        action,
+        option,
+        lifted_goal=None,
+        lifted_action=None,
+        plan=None,
+    ):
         """Format the explorer.json (iteration-level explorer information) and save it.
 
         Args:
@@ -186,32 +224,59 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
             plan (list[PDDLGym.Literal]): sequence of actions to take, or None if random action
         """
         if iter_path:
-
             action_str = stringify_grounded_action(action)
 
             if option == "following_new_plan":
                 goal_str = stringify_lifted_goal(lifted_goal)
                 lifted_action = stringify_grounded_action(lifted_action)
                 plan_strings = [stringify_grounded_action(act) for act in plan]
-                explorer_dict = {"babbled": babbled_goal_actions, "action": action_str, "plan_found": {"goal": goal_str, "action": lifted_action, "plan": plan_strings}}
+                explorer_dict = {
+                    "babbled": babbled_goal_actions,
+                    "action": action_str,
+                    "plan_found": {
+                        "goal": goal_str,
+                        "action": lifted_action,
+                        "plan": plan_strings,
+                    },
+                }
 
             elif option == "following_plan":
-                explorer_dict = {"babbled": [], "action": action_str, "following_plan": True}
+                explorer_dict = {
+                    "babbled": [],
+                    "action": action_str,
+                    "following_plan": True,
+                }
 
             elif option == "random_action":
-                explorer_dict = {"babbled": babbled_goal_actions, "action": action_str, "random_action": True}
+                explorer_dict = {
+                    "babbled": babbled_goal_actions,
+                    "action": action_str,
+                    "empty_plan_so_random_action": True,
+                }
 
             elif option == "ground_action":
                 goal_str = stringify_lifted_goal(lifted_goal)
                 lifted_action = stringify_grounded_action(lifted_action)
                 plan_strings = [stringify_grounded_action(act) for act in plan]
-                explorer_dict = {"babbled": babbled_goal_actions, "action": action_str, "empty_plan_so_grounded_action": {"goal": goal_str, "action": lifted_action, "plan": plan_strings}}
+                explorer_dict = {
+                    "babbled": babbled_goal_actions,
+                    "action": action_str,
+                    "empty_plan_so_grounded_action": {
+                        "goal": goal_str,
+                        "action": lifted_action,
+                        "plan": plan_strings,
+                    },
+                }
 
             elif option == "no_plan_found":
-                explorer_dict = {"babbled": babbled_goal_actions, "action": action_str, "no_plan_found": True}
+                explorer_dict = {
+                    "babbled": babbled_goal_actions,
+                    "action": action_str,
+                    "no_plan_found": True,
+                }
 
             else:
                 raise Exception("Logging option not found")
             fname = os.path.join(iter_path, "explorer.json")
-            with open(fname, 'w') as f:
+            with open(fname, "w") as f:
                 json.dump(explorer_dict, f, indent=4)

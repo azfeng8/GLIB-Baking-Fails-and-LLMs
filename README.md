@@ -83,18 +83,31 @@ Loading will only load one "experiment": one explorer on one domain for one run.
 
 ### explorer.json
 
-"babbled": list of goal,action strings that were babbled
+"babbled": list of parseable goal,action strings that were babbled
 
 "action": string parseable grounded action taken
 
-"plan_found": false, or:
+"plan_found":
         
         {
-            "goal": the grounded goal babbled
+            "goal": the lifted goal babbled
+            "action": the lifted action babbled
             "plan": the plan found (list of grounded actions)
         }
 
-"random_action": true if action taken is random, or false if following a plan found
+"empty_plan_so_grounded_action": planner returned an empty plan
+
+        {
+            "goal": the lifted goal babbled
+            "action": the lifted action babbled
+            "plan": the plan found (list of grounded actions, should be empty)
+        }
+
+"no_plan_found": True if random action is taken because no plans were found within the budget of sampling tries
+
+"empty_plan_so_random_action": True if random action is taken because the planner returned an empty plan and the babbled lifted action is not able to be grounded in the current state
+
+"following_plan": True if following a previously found plan
 
 # Verbosity levels
 
