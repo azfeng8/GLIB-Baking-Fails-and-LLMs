@@ -174,7 +174,8 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
             action = self._get_ground_action_to_execute(state)
             if action != None:
                 # Execute the action
-                return action, True, False
+                self._save_iteration_explorer_info(iter_path, [], action, 'babbled_action', None, None, None)
+                return action, True, True
         # Either continue executing a plan or make a new one (or fall back to random)
         return super()._get_action(state, iter_path)
 

@@ -109,6 +109,8 @@ Loading will only load one "experiment": one explorer on one domain for one run.
 
 "following_plan": True if following a previously found plan
 
+"action_after_plan": True if executing the babbled action after following a plan
+
 # Verbosity levels
 
 0

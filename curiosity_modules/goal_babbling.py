@@ -72,9 +72,9 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
         Returns:
             action (PDDLGym.Literal??)
         """
-        action, following_plan, plan_found = self._get_action(state, iter_path)
+        action, following_plan, ground_action = self._get_action(state, iter_path)
         self._num_steps += 1
-        return action, following_plan, plan_found
+        return action, following_plan, ground_action
 
     def _get_action(self, state, iter_path=None):
         """Babble goals # sampling tries until found a plan to that goal; if no plans found, then fallback to random action.
@@ -275,6 +275,12 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
                     "found_no_plans_so_random_action": True,
                 }
 
+            elif option == "babbled_action":
+                explorer_dict = {
+                    "babbled": babbled_goal_actions,
+                    "action": action_str,
+                    "action_after_plan": True
+                }
             else:
                 raise Exception("Logging option not found")
             fname = os.path.join(iter_path, "explorer.json")

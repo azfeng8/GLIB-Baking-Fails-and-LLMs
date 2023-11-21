@@ -130,7 +130,7 @@ class Runner:
         for itr in range(self.num_train_iters):
 
             if ec.logging:
-                iter_path = os.path.join(self.experiment_log_path, f"iter_{itr}")
+                iter_path = os.path.join(self.experiment_log_path, f"itr{itr}")
                 os.makedirs(iter_path)
             else:
                 iter_path = None
