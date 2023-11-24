@@ -1,4 +1,5 @@
 import numpy as np
+import os
 from settings import AgentConfig as ac
 from pddlgym.parser import Operator
 from pddlgym.structs import Predicate, Literal, LiteralConjunction, NULLTYPE
@@ -25,6 +26,7 @@ class ZPKOperatorLearningModule:
         self._seed = ac.seed
         self._rand_state = np.random.RandomState(seed=ac.seed)
         self._learning_on = True
+        # PDDLGym.Literal to NDR
         self._ndrs = {}
         self._fits_all_data = defaultdict(bool)
         self._experiment_log_path = experiment_log_path
@@ -40,7 +42,15 @@ class ZPKOperatorLearningModule:
             if not self._ndr_fits_data(ndr, state, action, effects):
                 self._fits_all_data[action.predicate] = False
 
-    def learn(self):
+    def learn(self, iter_path=None):
+        """Use ZPK learning algorithm to learn a set of operators from the dataset of transitions.
+
+        Args:
+            iter_path (str, optional): if not None, save the NDRs to this folder. Defaults to None.
+
+        Returns:
+            bool: if operators were updated.
+        """
         if not self._learning_on:
             return False
 
@@ -96,7 +106,15 @@ class ZPKOperatorLearningModule:
                         continue
                     self._learned_operators.add(operator)
 
-            # print_rule_set(self._ndrs)
+            if iter_path is not None:
+                file = ''
+                for action_predicate in self._ndrs:
+                    for rule in self._ndrs[action_predicate]:
+                        file += str(rule) + "\n"
+                with open(os.path.join(iter_path, "ndrs.txt"), 'w') as f:
+                    f.write(file)
+
+                    
 
         return is_updated
 

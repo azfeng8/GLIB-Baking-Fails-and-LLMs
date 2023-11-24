@@ -224,14 +224,14 @@ class BaseCuriosityModule:
 
     def _compute_lifted_mutex_literals(self, initial_state):
         """Lifted mutex computation using MMM sampling-based algorithm."""
-        print("Computing mutexes...(cache size = {})".format(len(self._mutex_cache)))
+        # print("Computing mutexes...(cache size = {})".format(len(self._mutex_cache)))
         if initial_state.literals in self._mutex_cache:
             mutex_pairs = self._mutex_cache[initial_state.literals]
             print("\tUsing cache with {} mutex pairs".format(len(mutex_pairs)))
             return mutex_pairs
         reachable_states = set()
         start_time = time.time()
-        print("\tStep 1/2: constructing reachable states...")
+        # print("\tStep 1/2: constructing reachable states...")
         for _1 in range(ac.mutex_num_episodes[self._domain_name]):
             state = initial_state
             reachable_states.add(state.literals)
@@ -245,7 +245,7 @@ class BaseCuriosityModule:
                     state = self._execute_effects(state, ground_effects)
                     reachable_states.add(state.literals)
                     break
-        print("\tStep 2/2: finding mutex pairs...")
+        # print("\tStep 2/2: finding mutex pairs...")
         mutex_pairs = set()
         for pred_pair in itertools.combinations(self._observation_space.predicates, 2):
             ph_to_pred_slot = {}
@@ -281,11 +281,11 @@ class BaseCuriosityModule:
                         for state_lits in reachable_states
                     ):
                         mutex_pairs.add(frozenset(lit_pair))
-        print(
-            "\tFound {} mutex pairs in {} seconds".format(
-                len(mutex_pairs), time.time() - start_time
-            )
-        )
+        # print(
+            # "\tFound {} mutex pairs in {} seconds".format(
+                # len(mutex_pairs), time.time() - start_time
+            # )
+        # )
         self._mutex_cache[initial_state.literals] = mutex_pairs
         return mutex_pairs
 

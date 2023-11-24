@@ -55,12 +55,13 @@ Loading will only load one "experiment": one explorer on one domain for one run.
         experiment_{ID}/
             settings.py
             explorer_summary.json
-            final_operators.txt
             results.pkl
 
             iter_{#}/
                 explorer.json
-                learner.json
+                after.pddl
+                ndrs.txt
+                successes.txt
 ```
 
 ## experiment-level logs:
@@ -76,10 +77,19 @@ Loading will only load one "experiment": one explorer on one domain for one run.
 
 ## iteration-level logs:
 
-### learner.json
-"operators_before":
-"operators_after":
-"operators_changed"
+### after.pddl
+
+Domain file with updated operators after taking the action in that iteration. This filename exists in the iterations when the operators were updated.
+
+Operators should have the maximum likelihood (determinized) effects from ndrs.txt.
+
+### ndrs.txt
+
+Human-readable file to see the noisy deictic rule set after taking the action and learning in that iteration. This filename exists in the iterations when operators were updated.
+
+### successes.txt
+
+Array of 1's 0's, ordered in the PDDLGym test problem indices. 1 if reached the goal for the problem using the operators after the action in this iteration, else 0.
 
 ### explorer.json
 
@@ -111,18 +121,7 @@ Loading will only load one "experiment": one explorer on one domain for one run.
 
 "action_after_plan": True if executing the babbled action after following a plan
 
-# Verbosity levels
 
-0
-
-1
-
-2
-
-3
-
-4
-
-GLIB: Efficient Exploration for Relational Model-Based Reinforcement Learning via Goal-Literal Babbling
+## GLIB: Efficient Exploration for Relational Model-Based Reinforcement Learning via Goal-Literal Babbling
 
 Link to paper: https://arxiv.org/abs/2001.08299

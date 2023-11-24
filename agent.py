@@ -46,7 +46,6 @@ class Agent:
         """Get an exploratory action to collect more training data.
            Not used for testing. Planner is used for testing."""
         start_time = time.time()
-        if iter_path is None: raise Exception
         action = self._curiosity_module.get_action(state, iter_path)
         self.curiosity_time += time.time()-start_time
         return action
@@ -70,7 +69,7 @@ class Agent:
         Returns:
         """
         # Learn (probably less frequently than observing)
-        some_operator_changed = self._operator_learning_module.learn()
+        some_operator_changed = self._operator_learning_module.learn(iter_path)
         if some_operator_changed:
             start_time = time.time()
             self._curiosity_module.learning_callback()

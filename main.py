@@ -42,7 +42,7 @@ else:
     from settings import EnvConfig as ec
     from settings import GeneralConfig as gc
 
-if 'loadSave' or 'runSave' in settings:
+if 'loadSave' in settings or 'runSave' in settings:
     ec.logging = True
 else:
     ec.logging = False
@@ -170,7 +170,8 @@ class Runner:
                 if self.domain_name == "PybulletBlocks" and self.curiosity_name == "oracle":
                     operators_changed = True
                 else:
-                    operators_changed = self.agent.learn()
+
+                    operators_changed = self.agent.learn(iter_path)
 
                 # Only rerun tests if operators have changed, or stochastic env
                 if operators_changed or ac.planner_name[self.domain_name] == "ffreplan" or \
@@ -183,7 +184,7 @@ class Runner:
                     if gc.verbosity > 1:
                         print("Testing...")
 
-                    test_solve_rate, variational_dist = self._evaluate_operators()
+                    test_solve_rate, variational_dist = self._evaluate_operators(iter_path)
 
                     if gc.verbosity > 1:
                         print("Result:", test_solve_rate, variational_dist)
@@ -228,12 +229,13 @@ class Runner:
             json.dump({"random_or_not": babbled_or_not, "actions": actions, "plans": iters_where_plan_found}, f, indent=4)
             
 
-    def _evaluate_operators(self):
+    def _evaluate_operators(self, iter_path=None):
         """Test current operators. Return (solve rate on test suite,
         average variational distance).
+
+        Args:
+            iter_path (str, optional): if not None, save the success/failures to this path, ordered by test problem index.
         """
-        for op in self.agent.learned_operators:
-            print(op, '\n')
         if self.domain_name == "PybulletBlocks" and self.curiosity_name == "oracle":
             # Disable oracle for pybullet.
             return 0.0, 1.0
@@ -242,14 +244,14 @@ class Runner:
             num_problems = ec.num_test_problems[self.domain_name]
         else:
             num_problems = len(self.test_env.problems)
+        problem_successes = []
         for problem_idx in range(num_problems):
-            print("\tStarting test case {} of {}, {} successes so far".format(
-                problem_idx+1, num_problems, num_successes), end="\r")
             self.test_env.fix_problem_index(problem_idx)
             obs, debug_info = self.test_env.reset()
             try:
                 policy = self.agent.get_policy(debug_info["problem_file"])
             except (NoPlanFoundException, PlannerTimeoutException):
+                problem_successes.append(0)
                 # Automatic failure
                 continue
             # Test plan open-loop
@@ -265,9 +267,10 @@ class Runner:
             # Reward is 1 iff goal is reached
             if reward == 1.:
                 num_successes += 1
+                problem_successes.append(1)
             else:
                 assert reward == 0.
-        print()
+                problem_successes.append(0)
         variational_dist = 0
         for state, action, next_state in self._variational_dist_transitions:
             if ac.learning_name.startswith("groundtruth"):
@@ -278,6 +281,9 @@ class Runner:
                predicted_next_state.literals != next_state.literals:
                 variational_dist += 1
         variational_dist /= len(self._variational_dist_transitions)
+
+        if iter_path:
+            np.savetxt(os.path.join(iter_path, "successes.txt"), np.array(problem_successes), delimiter="\n", fmt="%.1f")
         return float(num_successes)/num_problems, variational_dist
 
 def _run_single_seed(seed, domain_name, curiosity_name, learning_name, experiment_log_path):
