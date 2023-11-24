@@ -99,3 +99,7 @@ class Agent:
     def get_policy(self, problem_fname):
         """Get a plan given the learned operators and a PDDL problem file."""
         return self._planning_module.get_policy(problem_fname)
+    
+    ## logging utility
+    def get_domain_file(self):
+        return self._planning_module.create_domain_file()

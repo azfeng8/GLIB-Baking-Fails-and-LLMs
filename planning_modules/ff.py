@@ -27,7 +27,7 @@ class FastForwardPlanner(Planner):
         # If there are no operators yet, we're not going to be able to find a plan
         if not self._learned_operators:
             raise NoPlanFoundException()
-        domain_fname = self._create_domain_file()
+        domain_fname = self.create_domain_file()
         problem_fname, objects = self._create_problem_file(raw_problem_fname, use_cache=use_cache)
         cmd_str = self._get_cmd_str(domain_fname, problem_fname)
         start_time = time.time()

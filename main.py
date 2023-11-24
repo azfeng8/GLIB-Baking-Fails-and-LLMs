@@ -175,6 +175,10 @@ class Runner:
                 # Only rerun tests if operators have changed, or stochastic env
                 if operators_changed or ac.planner_name[self.domain_name] == "ffreplan" or \
                    itr + ac.learning_interval[self.domain_name] >= self.num_train_iters:  # last:
+
+                    if ec.logging:
+                        shutil.copyfile(self.agent.get_domain_file(), os.path.join(iter_path, "after.pddl"))
+
                     start = time.time()
                     if gc.verbosity > 1:
                         print("Testing...")
@@ -203,7 +207,7 @@ class Runner:
                     if gc.verbosity > 1:
                         print("Result:", test_solve_rate, variational_dist)
                 results.append((itr, test_solve_rate, variational_dist))
-
+            
         if itrs_on is None:
             itrs_on = self.num_train_iters
         curiosity_avg_time = self.agent.curiosity_time/itrs_on
@@ -243,7 +247,6 @@ class Runner:
                 problem_idx+1, num_problems, num_successes), end="\r")
             self.test_env.fix_problem_index(problem_idx)
             obs, debug_info = self.test_env.reset()
-            print("Test Goal:", obs.goal)
             try:
                 policy = self.agent.get_policy(debug_info["problem_file"])
             except (NoPlanFoundException, PlannerTimeoutException):
@@ -331,7 +334,7 @@ def _main():
         for curiosity_name in ac.curiosity_methods_to_run:
 
             if ec.logging:
-                experiment_path = f"/home/catalan/glib_log/{domain_name}/{curiosity_name}/experiment_{time.strftime('%Y-%m-%d_%H:%M:%S', time.gmtime(start))}"
+                experiment_path = f"/home/catalan/glib_log/{domain_name}/{curiosity_name}/experiment_{time.strftime('%Y-%m-%d_%H:%M:%S', time.gmtime(time.time()))}"
                 os.makedirs(experiment_path)
                 shutil.copyfile(settings_file, os.path.join(experiment_path, "settings.py"))
 

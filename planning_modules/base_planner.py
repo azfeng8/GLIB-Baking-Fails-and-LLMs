@@ -30,7 +30,7 @@ class Planner:
     def get_policy(self, raw_problem_fname):
         pass
 
-    def _create_domain_file(self):
+    def create_domain_file(self):
         dom_str = self._create_domain_file_header()
         dom_str += self._create_domain_file_types()
         dom_str += self._create_domain_file_predicates()

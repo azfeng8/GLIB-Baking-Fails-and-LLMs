@@ -120,6 +120,7 @@ def print_rule_set(rule_set):
     for action_predicate in sorted(rule_set):
         print(colored(action_predicate, attrs=['bold']))
         for rule in rule_set[action_predicate]:
+            print(type(rule))
             print(rule)
 
 def print_transition(transition):

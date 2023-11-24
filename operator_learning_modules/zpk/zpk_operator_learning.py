@@ -12,6 +12,13 @@ from collections import defaultdict
 class ZPKOperatorLearningModule:
 
     def __init__(self, learned_operators, domain_name, experiment_log_path):
+        """_summary_
+
+        Args:
+            learned_operators (set):
+            domain_name (str): _description_
+            experiment_log_path (str): path to the experiment log
+        """
         self._domain_name = domain_name
         self._learned_operators = learned_operators
         self._transitions = defaultdict(list)
@@ -89,7 +96,7 @@ class ZPKOperatorLearningModule:
                         continue
                     self._learned_operators.add(operator)
 
-            print_rule_set(self._ndrs)
+            # print_rule_set(self._ndrs)
 
         return is_updated
 
