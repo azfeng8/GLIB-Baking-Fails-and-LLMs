@@ -43,9 +43,9 @@ else:
     from settings import GeneralConfig as gc
 
 if 'loadSave' in settings or 'runSave' in settings:
-    ec.logging = True
+    LOGGING = True
 else:
-    ec.logging = False
+    LOGGING = False
 
 class Runner:
     """Helper class for running experiments.
@@ -114,6 +114,10 @@ class Runner:
 
     def run(self):
         """Run primitive operator learning loop.
+
+        Returns:
+            list[tuple]: (iteration #, solve_rate, variational_distance)
+            float: avg time taken using curiosity module per iteration
         """
         # MAJOR HACK. Only used by oracle_curiosity.py.
         ac.train_env = self.train_env
@@ -129,7 +133,7 @@ class Runner:
 
         for itr in range(self.num_train_iters):
 
-            if ec.logging:
+            if LOGGING:
                 iter_path = os.path.join(self.experiment_log_path, f"itr{itr}")
                 os.makedirs(iter_path)
             else:
@@ -149,7 +153,7 @@ class Runner:
 
             action, following_plan, grounded_action = self.agent.get_action(obs, iter_path)
 
-            if ec.logging:
+            if LOGGING:
                 random_or_not.append(int(grounded_action or following_plan))
                 actions.append(stringify_grounded_action(action))
                 if (following_plan and (not grounded_action)): iters_where_plan_found.append(itr)
@@ -177,7 +181,7 @@ class Runner:
                 if operators_changed or ac.planner_name[self.domain_name] == "ffreplan" or \
                    itr + ac.learning_interval[self.domain_name] >= self.num_train_iters:  # last:
 
-                    if ec.logging:
+                    if LOGGING:
                         shutil.copyfile(self.agent.get_domain_file(), os.path.join(iter_path, "after.pddl"))
 
                     start = time.time()
@@ -294,7 +298,7 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, experimen
         domain_name (str)
         curiosity_name (str)
         learning_name (str)
-        experiment_log_path (str): path to the experiment log
+        experiment_log_path (str): path to the experiment log.
 
     Returns:
         dict[str, dict]
@@ -312,14 +316,12 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, experimen
                   planning_module_name=ac.planner_name[domain_name], experiment_log_path=experiment_log_path)
     test_env = gym.make("PDDLEnv{}Test-v0".format(domain_name))
     results, curiosity_avg_time = Runner(agent, train_env, test_env, domain_name, curiosity_name, experiment_log_path=experiment_log_path).run()
-    with open("results/timings/{}_{}_{}_{}.txt".format(domain_name, curiosity_name, learning_name, seed), "w") as f:
+    with open("{}/timings/{}_{}_{}_{}.txt".format(experiment_log_path, domain_name, curiosity_name, learning_name, seed), "w") as f:
         f.write("{} {} {} {} {}\n".format(domain_name, curiosity_name, learning_name, seed, curiosity_avg_time))
 
-    outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                          "results", domain_name, learning_name, curiosity_name)
-    if not os.path.exists(outdir):
-        os.makedirs(outdir, exist_ok=True)
-    cache_file = os.path.join(outdir, "{}_{}_{}_{}.pkl".format(
+    # outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+    #                       "results", domain_name, learning_name, curiosity_name)
+    cache_file = os.path.join(experiment_log_path, "{}_{}_{}_{}.pkl".format(
         domain_name, learning_name, curiosity_name, seed))
     with open(cache_file, 'wb') as f:
         pickle.dump(results, f)
@@ -339,9 +341,9 @@ def _main():
 
         for curiosity_name in ac.curiosity_methods_to_run:
 
-            if ec.logging:
-                experiment_path = f"/home/catalan/glib_log/{domain_name}/{curiosity_name}/experiment_{time.strftime('%Y-%m-%d_%H:%M:%S', time.gmtime(time.time()))}"
-                os.makedirs(experiment_path)
+            experiment_path = f"/home/catalan/glib_log/{domain_name}/{curiosity_name}/experiment_{time.strftime('%Y-%m-%d_%H:%M:%S', time.gmtime(time.time()))}"
+            os.makedirs(experiment_path)
+            if LOGGING:
                 shutil.copyfile(settings_file, os.path.join(experiment_path, "settings.py"))
 
             if curiosity_name in ac.cached_results_to_load:
@@ -359,12 +361,8 @@ def _main():
                     seed = seed+20
                     print("\nRunning curiosity method: {}, with seed: {}\n".format(
                         curiosity_name, seed))
-                    if ec.logging:
-                        single_seed_results = _run_single_seed(
-                            seed, domain_name, curiosity_name, ac.learning_name, experiment_log_path=experiment_path)
-                    else:
-                        single_seed_results = _run_single_seed(
-                            seed, domain_name, curiosity_name, ac.learning_name, experiment_log_path=None)
+                    single_seed_results = _run_single_seed(
+                        seed, domain_name, curiosity_name, ac.learning_name, experiment_log_path=experiment_path)
                     for cur_name, results in single_seed_results.items():
                         all_results[cur_name].append(results)
                     plot_results(domain_name, ac.learning_name, all_results)

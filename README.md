@@ -121,6 +121,18 @@ Array of 1's 0's, ordered in the PDDLGym test problem indices. 1 if reached the 
 
 "action_after_plan": True if executing the babbled action after following a plan
 
+# Plotting
+
+To run multiple experiments and plot data from different explorers, put the .pkl results from the experiment logs into the `results/` folder, and run with `AgentConfig.cached_results_to_load = True`.
+
+```
+results/
+    domain_name/
+        learning_name/
+            curiosity_name/
+                *.pkl
+```
+
 
 ## GLIB: Efficient Exploration for Relational Model-Based Reinforcement Learning via Goal-Literal Babbling
 
