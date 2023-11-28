@@ -237,7 +237,7 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
         # No goals left to try
         return None, None, None
 
-    def _ground_babbled_action(self, plan):
+    def _finish_plan(self, plan):
         """Try to ground the lifted action babbled, or fallback to random action.
 
         Args:

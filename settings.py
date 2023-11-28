@@ -6,11 +6,8 @@ class EnvConfig:
     """Environment-specific constants.
     """
     domain_name = ["Baking"]
-    # domain_name = ["Glibblocks"]
-    # domain_name = ["Easygripper"]
-    # domain_name = ["Glibdoors"  ]
-    # domain_name = ["Tireworld"  ]
-    # domain_name = ["Explodingblocks"]
+    # domain_name = ["Glibdoors", "Tireworld", "Glibblocks", "Explodingblocks"]
+    # domain_name = ["Gripper", "Travel"]
     seed = 0
     
     # Number of test problems. Only needed for non-PDDLGym envs.
@@ -25,6 +22,7 @@ class EnvConfig:
         "Rearrangement": 1000,
         "Glibrearrangement": 1000,
         "Easygripper": 1000,
+        "Gripper": 1000,
         "Doors": 1000,
         "Glibdoors": 1000,
         "Tireworld": 1000,
@@ -39,12 +37,13 @@ class AgentConfig:
     """Agent-specific constants.
     """
     curiosity_methods_to_run = [
-        "GLIB_L2",
-        # "GLIB_Seq"
+        # "GLIB_L2",
+        # "GLIB_G1",
         # "oracle",
         # "random",
+        # "GLIB_Seq"
+        "LLMOracle"
     ]
-    goal_action_lifted_sequence_file = '/home/catalan/GLIB-Baking-Fails-and-LLMs/curiosity_modules/goal_files/log1.txt'
 
     cached_results_to_load = [
         # "GLIB_L2",
@@ -61,6 +60,7 @@ class AgentConfig:
         "Tsp": "ff",
         "Rearrangement": "ff",
         "Easygripper": "ff",
+        "Gripper": "ff",
         "Glibrearrangement": "ff",
         "Doors": "ff",
         "Glibdoors": "ff",
@@ -81,6 +81,7 @@ class AgentConfig:
         "Rearrangement": 1,
         "Glibrearrangement": 1,
         "Easygripper": 1,
+        "Gripper": 1,
         "Doors": 1,
         "Glibdoors": 1,
         "Tireworld": 10,
@@ -98,6 +99,7 @@ class AgentConfig:
         "Rearrangement": 25,
         "Glibrearrangement": 25,
         "Easygripper": 25,
+        "Gripper": 25,
         "Doors": 25,
         "Glibdoors": 25,
         "Tireworld": 8,
@@ -115,6 +117,7 @@ class AgentConfig:
         "Rearrangement": 25,
         "Glibrearrangement": 25,
         "Easygripper": 100,
+        "Gripper": 100,
         "Doors": 25,
         "Glibdoors": 25,
         "Tireworld": 25,
@@ -135,6 +138,7 @@ class AgentConfig:
         "Rearrangement": 1501,
         "Glibrearrangement": 1501,
         "Easygripper": 3001,
+        "Gripper": 3001,
         "Doors": 2501,
         "Glibdoors": 2501,
         "Tireworld": 401,
@@ -142,7 +146,7 @@ class AgentConfig:
         "River": 1001,
         "PybulletBlocks" : 501,
         "NDRBlocks" : 1501,
-        "Baking": 1501
+        "Baking": 1801
     }
 
     ## Constants for curiosity modules. ##
@@ -158,6 +162,7 @@ class AgentConfig:
         "Rearrangement": 35,
         "Glibrearrangement": 35,
         "Easygripper": 35,
+        "Gripper": 35,
         "Doors": 35,
         "Glibdoors": 35,
         "Tireworld": 35,
@@ -174,6 +179,7 @@ class AgentConfig:
         "Rearrangement": 35,
         "Glibrearrangement": 35,
         "Easygripper": 35,
+        "Gripper": 35,
         "Doors": 35,
         "Glibdoors": 35,
         "Tireworld": 35,
@@ -199,6 +205,7 @@ class AgentConfig:
         "Rearrangement": 25,
         "Glibrearrangement": 25,
         "Easygripper": 25,
+        "Gripper": 25,
         "Doors": 25,
         "Glibdoors": 25,
         "Tireworld": float("inf"),
@@ -215,6 +222,7 @@ class AgentConfig:
         "Rearrangement": None,
         "Glibrearrangement": None,
         "Easygripper": None,
+        "Gripper": None,
         "Doors": None,
         "Glibdoors": None,
         "Tireworld": None,
@@ -231,6 +239,7 @@ class AgentConfig:
         "Rearrangement": False,
         "Glibrearrangement": False,
         "Easygripper": False,
+        "Gripper": False,
         "Doors": False,
         "Glibdoors": False,
         "Tireworld": True,

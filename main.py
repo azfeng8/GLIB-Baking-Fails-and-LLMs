@@ -127,9 +127,10 @@ class Runner:
         itrs_on = None
 
         # Variables for logging
-        random_or_not = []
+        planned_action_or_not = []
         actions = []
         iters_where_plan_found = []
+        random_action_no_change = []
 
         for itr in range(self.num_train_iters):
 
@@ -151,19 +152,27 @@ class Runner:
 
             if gc.verbosity > 3: print("Goal:", obs.goal)
 
-            action, following_plan, grounded_action = self.agent.get_action(obs, iter_path)
 
-            if LOGGING:
-                random_or_not.append(int(grounded_action or following_plan))
+            if LOGGING and (("GLIB_L2" in self.experiment_log_path) or ("GLIB_G1" in self.experiment_log_path)):
+                action, following_plan, grounded_action = self.agent.get_action(obs, iter_path)
+                planned_action_or_not.append(int(grounded_action or following_plan))
                 actions.append(stringify_grounded_action(action))
                 if (following_plan and (not grounded_action)): iters_where_plan_found.append(itr)
+            else:
+                action = self.agent.get_action(obs, iter_path)
 
             if gc.verbosity > 3: print("Selected action", action)
 
             next_obs, _, episode_done, _ = self.train_env.step(action)
-            self.agent.observe(obs, action, next_obs)
+            state_changed:bool = self.agent.observe(obs, action, next_obs)
             obs = next_obs
             episode_time_step += 1
+
+            if LOGGING and ("GLIB_L2" in self.experiment_log_path):
+                took_random_action = (not following_plan) and (not grounded_action)
+                if took_random_action and not state_changed:
+                    random_action_no_change.append(itr)
+                _save_state(next_obs, iter_path)
 
             # Learn and test
             if itr % ac.learning_interval[self.domain_name] == 0:
@@ -217,20 +226,21 @@ class Runner:
             itrs_on = self.num_train_iters
         curiosity_avg_time = self.agent.curiosity_time/itrs_on
 
-        self._save_experiment_summary(random_or_not, actions, iters_where_plan_found)
+        self._save_experiment_summary(planned_action_or_not, actions, iters_where_plan_found, random_action_no_change)
 
         return results, curiosity_avg_time
 
-    def _save_experiment_summary(self, babbled_or_not, actions, iters_where_plan_found):
+    def _save_experiment_summary(self, babbled_or_not, actions, iters_where_plan_found, random_action_no_change):
         """Save explorer summary for this experiment.
 
         Args:
             babbled_or_not (list[bool]): list of 1,0 where 1 if action taken influenced by babble or 0 if fallback to random action
             actions (list[str]): list of parseable grounded action strings
             iters_where_plan_found (list[int]): list of iteration #s where plan was found
+            random_action_no_change (list[int]): list of iteration #s where random action was taken and state did not change
         """
         with open(os.path.join(self.experiment_log_path, "explorer_summary.json"), 'w') as f:
-            json.dump({"random_or_not": babbled_or_not, "actions": actions, "plans": iters_where_plan_found}, f, indent=4)
+            json.dump({"planned_action_or_not": babbled_or_not, "actions": actions, "plans": iters_where_plan_found, "random_action_no_change": random_action_no_change}, f, indent=4)
             
 
     def _evaluate_operators(self, iter_path=None):
@@ -290,6 +300,16 @@ class Runner:
             np.savetxt(os.path.join(iter_path, "successes.txt"), np.array(problem_successes), delimiter="\n", fmt="%.1f")
         return float(num_successes)/num_problems, variational_dist
 
+def _save_state(state, path):
+    state_str_prompt = "The state is:\n"
+    for l in state.literals:
+        state_str_prompt += f"{l.predicate}(" + ",".join(l.pddl_variables()) + ")\n"
+    state_str_prompt += "The objects in the state are defined as:\n"
+    for o in state.objects:
+        state_str_prompt += f"{o.name} - {o.var_type}\n"
+    with open(os.path.join(path, "state.txt"), 'w') as f:
+        f.write(state_str_prompt)
+
 def _run_single_seed(seed, domain_name, curiosity_name, learning_name, experiment_log_path):
     """Run single experiment of one explorer on one domain.
 
@@ -316,9 +336,9 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, experimen
                   planning_module_name=ac.planner_name[domain_name], experiment_log_path=experiment_log_path)
     test_env = gym.make("PDDLEnv{}Test-v0".format(domain_name))
     results, curiosity_avg_time = Runner(agent, train_env, test_env, domain_name, curiosity_name, experiment_log_path=experiment_log_path).run()
+    os.makedirs(os.path.join(experiment_log_path, 'timings'),exist_ok=True)
     with open("{}/timings/{}_{}_{}_{}.txt".format(experiment_log_path, domain_name, curiosity_name, learning_name, seed), "w") as f:
         f.write("{} {} {} {} {}\n".format(domain_name, curiosity_name, learning_name, seed, curiosity_avg_time))
-
     # outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
     #                       "results", domain_name, learning_name, curiosity_name)
     cache_file = os.path.join(experiment_log_path, "{}_{}_{}_{}.pkl".format(
@@ -341,11 +361,6 @@ def _main():
 
         for curiosity_name in ac.curiosity_methods_to_run:
 
-            experiment_path = f"/home/catalan/glib_log/{domain_name}/{curiosity_name}/experiment_{time.strftime('%Y-%m-%d_%H:%M:%S', time.gmtime(time.time()))}"
-            os.makedirs(experiment_path)
-            if LOGGING:
-                shutil.copyfile(settings_file, os.path.join(experiment_path, "settings.py"))
-
             if curiosity_name in ac.cached_results_to_load:
                 for pkl_fname in glob.glob(os.path.join(
                         "results/", domain_name, ac.learning_name,
@@ -361,6 +376,12 @@ def _main():
                     seed = seed+20
                     print("\nRunning curiosity method: {}, with seed: {}\n".format(
                         curiosity_name, seed))
+
+                    experiment_path = f"/home/catalan/glib_log/{domain_name}/{curiosity_name}/experiment_noemptyplan_seed{seed}_{time.strftime('%Y-%m-%d_%H:%M:%S', time.gmtime(time.time()))}"
+                    os.makedirs(experiment_path)
+                    if LOGGING:
+                        shutil.copyfile(settings_file, os.path.join(experiment_path, "settings.py"))
+
                     single_seed_results = _run_single_seed(
                         seed, domain_name, curiosity_name, ac.learning_name, experiment_log_path=experiment_path)
                     for cur_name, results in single_seed_results.items():

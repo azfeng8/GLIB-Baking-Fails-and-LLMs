@@ -47,7 +47,7 @@ Loading will only load one "experiment": one explorer on one domain for one run.
 <b>experiment_id</b> (str): ID of the experiment (the suffix name of the folder in the folder structure in the next section)
 
 
-# Folder structure of experiments log (WIP)
+# Folder structure of experiments log
 
 ```
 {domain_name}
@@ -62,6 +62,7 @@ Loading will only load one "experiment": one explorer on one domain for one run.
                 after.pddl
                 ndrs.txt
                 successes.txt
+                state.txt
 ```
 
 ## experiment-level logs:
@@ -72,7 +73,9 @@ Loading will only load one "experiment": one explorer on one domain for one run.
 
 "actions": a list of actions taken on each iteration
 
-"random_or_not": a list with 1s,0s. 1 if the action taken that iteration was result of a babble and plan, or 0 if used fallback to a random action.
+"planned_action_or_not": a list with 1s,0s. 1 if the action taken that iteration was result of a babble and plan, or 0 if used fallback to a random action.
+
+"random_action_no_change": a list of iteration # where random action was taken and no change in the state was observed.
 
 
 ## iteration-level logs:
@@ -90,6 +93,10 @@ Human-readable file to see the noisy deictic rule set after taking the action an
 ### successes.txt
 
 Array of 1's 0's, ordered in the PDDLGym test problem indices. 1 if reached the goal for the problem using the operators after the action in this iteration, else 0.
+
+### State
+
+State to be given as a prompt to the LLM.
 
 ### explorer.json
 

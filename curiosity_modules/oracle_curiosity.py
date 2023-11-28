@@ -27,7 +27,7 @@ class OracleCuriosityModule(BaseCuriosityModule):
     def turn_off(self):
         self._oracle_on = False
 
-    def get_action(self, state):
+    def get_action(self, state, iter_path=None):
         action = self._get_action(state, depth=0, max_depth=ac.oracle_max_depth)[0]
         self._num_steps += 1
         return action

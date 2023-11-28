@@ -13,5 +13,5 @@ class RandomCuriosityModule(BaseCuriosityModule):
     def reset_episode(self, state):
         pass
 
-    def get_action(self, state):
+    def get_action(self, state, iter_path=None):
         return self._action_space.sample(state)

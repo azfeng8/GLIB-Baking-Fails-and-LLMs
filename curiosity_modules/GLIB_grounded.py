@@ -15,8 +15,6 @@ class GLIBG1CuriosityModule(GoalBabblingCuriosityModule):
         self._rand_state = np.random.RandomState(seed=ac.seed)
         self._name = "glibg1"
         self._static_preds = self._compute_static_preds()
-        # Keep track of the number of times that we follow a plan
-        self.line_stats = []
 
     def reset_episode(self, state):
         self._recompute_unseen_lits_acts(state)
@@ -34,7 +32,7 @@ class GLIBG1CuriosityModule(GoalBabblingCuriosityModule):
                 self._unseen_lits_acts.add((lit, act))
         self._unseen_lits_acts = sorted(self._unseen_lits_acts)
 
-    def _get_action(self, state):
+    def _get_action(self, state, iter_path=None):
         if self._unseen_lits_acts is None:
             self._recompute_unseen_lits_acts(state)
         action = super()._get_action(state)
@@ -50,15 +48,16 @@ class GLIBG1CuriosityModule(GoalBabblingCuriosityModule):
 
     def _sample_goal(self, state):
         if not self._unseen_lits_acts:
-            return None
+            return None, None, None
         goal, act = self._unseen_lits_acts[
             self._rand_state.choice(len(self._unseen_lits_acts))
         ]
         self._last_sampled_action = act
-
+        return goal, None, act
+    
     def _goal_is_valid(self, goal):
         return not (goal is None)
 
     def _finish_plan(self, plan):
         self._last_state = None
-        return plan + [self._last_sampled_action]
+        return plan + [self._last_sampled_action], False

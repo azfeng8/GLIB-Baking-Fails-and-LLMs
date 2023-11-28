@@ -44,13 +44,28 @@ class Agent:
     ## Training time methods
     def get_action(self, state, iter_path):
         """Get an exploratory action to collect more training data.
-           Not used for testing. Planner is used for testing."""
+           Not used for testing. Planner is used for testing.
+
+        Returns:
+            action: action
+            or
+            action: tuple of (action, bool, bool) when using GLIB curiosity
+        """
         start_time = time.time()
         action = self._curiosity_module.get_action(state, iter_path)
         self.curiosity_time += time.time()-start_time
         return action
 
     def observe(self, state, action, next_state):
+        """
+
+        Args:
+            state (_type_): _description_
+            action (_type_): _description_
+            next_state (_type_): _description_
+        Returns:
+            bool: True if action had effect. False if action had no effect.
+        """
         # Get effects
         effects = self._compute_effects(state, next_state)
         # Add data
@@ -59,6 +74,8 @@ class Agent:
         start_time = time.time()
         self._curiosity_module.observe(state, action, effects)
         self.curiosity_time += time.time()-start_time
+
+        return len(effects) != 0
 
     def learn(self, iter_path=None):
         """

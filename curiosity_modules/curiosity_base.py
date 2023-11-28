@@ -227,7 +227,7 @@ class BaseCuriosityModule:
         # print("Computing mutexes...(cache size = {})".format(len(self._mutex_cache)))
         if initial_state.literals in self._mutex_cache:
             mutex_pairs = self._mutex_cache[initial_state.literals]
-            print("\tUsing cache with {} mutex pairs".format(len(mutex_pairs)))
+            # print("\tUsing cache with {} mutex pairs".format(len(mutex_pairs)))
             return mutex_pairs
         reachable_states = set()
         start_time = time.time()

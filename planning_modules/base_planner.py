@@ -30,7 +30,7 @@ class Planner:
     def get_policy(self, raw_problem_fname):
         pass
 
-    def create_domain_file(self):
+    def create_dom_str(self):
         dom_str = self._create_domain_file_header()
         dom_str += self._create_domain_file_types()
         dom_str += self._create_domain_file_predicates()
@@ -38,8 +38,10 @@ class Planner:
         for operator in sorted(self._learned_operators, key=lambda o:o.name):
             dom_str += self._create_domain_file_operator(operator)
         dom_str += '\n)'
+        return dom_str
 
-        return self._create_domain_file_from_str(dom_str)
+    def create_domain_file(self):
+        return self._create_domain_file_from_str(self.create_dom_str())
 
     def _create_domain_file_header(self):
         return """(define (domain {})\n\t(:requirements :strips :typing)\n""".format(

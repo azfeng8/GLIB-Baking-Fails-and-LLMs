@@ -142,7 +142,7 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
 
             if len(self._plan) == 0:
                 # Do the action babbled, or random if not able to ground it in the current state
-                self._plan, not_random = self._ground_babbled_action(self._plan)
+                self._plan, not_random = self._finish_plan(self._plan)
                 if not_random:
                     self._save_iteration_explorer_info(
                         iter_path,
@@ -155,16 +155,17 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
                     )
                     return self._plan.pop(0), False, True
                 else:
-                    self._save_iteration_explorer_info(
-                        iter_path,
-                        babbled,
-                        self._plan[0],
-                        "random_action",
-                        goal_lifted,
-                        action_lifted,
-                        self._plan,
-                    )
-                    return self._plan.pop(0), False, False
+                    continue
+                    # self._save_iteration_explorer_info(
+                    #     iter_path,
+                    #     babbled,
+                    #     self._plan[0],
+                    #     "random_action",
+                    #     goal_lifted,
+                    #     action_lifted,
+                    #     self._plan,
+                    # )
+                    # return self._plan.pop(0), False, False
             else:
                 # Follow the plan found
                 self._save_iteration_explorer_info(
