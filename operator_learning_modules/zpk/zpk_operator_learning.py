@@ -26,7 +26,7 @@ class ZPKOperatorLearningModule:
         self._seed = ac.seed
         self._rand_state = np.random.RandomState(seed=ac.seed)
         self._learning_on = True
-        # PDDLGym.Literal to NDR
+        # PDDLGym.Literal (action predicate) to NDR
         self._ndrs = {}
         self._fits_all_data = defaultdict(bool)
         self._experiment_log_path = experiment_log_path

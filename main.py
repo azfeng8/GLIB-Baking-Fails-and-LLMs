@@ -21,7 +21,7 @@ import shutil
 import sys
 from typing import Union
 
-# Use settings.json to decide to replay or run from settings.py
+# Use settings.json to collect / analyze / replay experiments. Use settings.py to set experiment details.
 with open('settings.json', 'r') as f:
     settings = json.load(f)
 
@@ -46,6 +46,8 @@ if 'loadSave' in settings or 'runSave' in settings:
     LOGGING = True
 else:
     LOGGING = False
+
+
 
 class Runner:
     """Helper class for running experiments.

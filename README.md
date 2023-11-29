@@ -1,5 +1,6 @@
+Wrote some logging and loading utilities to analyze the methods and implementations more clearly.
 
-# Modify settings.json and settings.py to run `python main.py`
+## Modify settings.json to collect,analyze,replay (or not) experiments. To modify each experiment's details, use settings.py.
 
 Pick one of four modes to write in settings.json.
 
@@ -7,19 +8,18 @@ Pick one of four modes to write in settings.json.
 {
     # "run": true,
     # "runSave": true,
-    # "loadRun": {
-        # "explorer": "GLIB_G1",
-        # "domain": "Baking"
-        # "path": ""
-        # "experiment_no": 0
-    # }
-    "loadSave": {
-        "explorer": "GLIB_L2",
-        "domain": "Baking"
-        "path": "path_to_settings.py"
-        "experiment_no": 0
+     "loadRun": {
+        "experiment_path": "", # defines the domain, explorer, and seed
+        "operators": 39, # initializes the learned model and NDRs from iteration 39
+    #    "actions": 39, # iteration to start executing actions. most of time will be same iter # as the operators
+    #    "goalactions": 39,  #iteration to start babbling goalactions. most of time will be same iter as the operators
+    #    "goalactions_random": 39,
+     }
+    # "loadSave": {
+    #    "experiment_path": "",
+    #    "operators": 39,
+    #    "replay_experiment": true # initializes LNDR at iteration 0, and executes logged actions. to check for randomness in LNDR implementation.
     },
-
 }
 
 ```
@@ -34,18 +34,23 @@ Pick one of four modes to write in settings.json.
 
 <b>"loadRun" </b>: load the settings from the path specified, running the experiment specified by the number. 
 
-Loading will only load one "experiment": one explorer on one domain for one run. NOTE that the explorer and domain name must be specified in the settings.py file to be valid.
 
 ### 'loadSave' and 'loadRun' fields:
 
-<b>path</b> (str): path to the settings.py to load from
+<b>path</b> (str): path to the experiment folder
 
-<b>explorer</b> (str): name of explorer to run, one of the names in the AgentConfig of the python settings file.
+<b> operators</b> (int): iteration number of the PDDL and NDRs to load.
 
-<b>domain</b> (str): name of domain to run on, must be a valid PDDLGym environment name
+<b> actions </b> (int): iteration number of the actions to load. Specify at most one of ["goalactions", "actions", "goalactions_random"].
 
-<b>experiment_id</b> (str): ID of the experiment (the suffix name of the folder in the folder structure in the next section)
+<b> goalactions </b> (int):  iteration number of the babbled (goal, action) pairs to load, with the same action fallbacks. Specify at most one of ["goalactions", "actions", "goalactions_random"].
 
+<b> goalactions_random> </b> (int): iteration number of the babbled (goal, action) pairs to load, with random sampled action fallbacks (should be same b/c same seed?). Specify at most one of ["goalactions", "actions", "goalactions_random"].
+
+
+### 'loadSave' field:
+
+<b> replay_experiment </b> (bool): if this field is true, the previous 3 fields are nullified. Makes sense to use for testing reproducibility / randomness in implementation.
 
 # Folder structure of experiments log
 
@@ -130,7 +135,7 @@ State to be given as a prompt to the LLM.
 
 # Plotting
 
-To run multiple experiments and plot data from different explorers, put the .pkl results from the experiment logs into the `results/` folder, and run with `AgentConfig.cached_results_to_load = True`.
+To plot data together from curiosity modules from multiple experiments, put the .pkl results from the experiment logs into the `results/` folder, and run with `AgentConfig.cached_results_to_load` field with the explorer.
 
 ```
 results/
