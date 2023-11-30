@@ -155,11 +155,12 @@ class Runner:
             if gc.verbosity > 3: print("Goal:", obs.goal)
 
 
-            if LOGGING and (("GLIB_L2" in self.experiment_log_path) or ("GLIB_G1" in self.experiment_log_path)):
+            if self.curiosity_name in ["GLIB_L2", "GLIB_G1"]:
                 action, following_plan, grounded_action = self.agent.get_action(obs, iter_path)
-                planned_action_or_not.append(int(grounded_action or following_plan))
-                actions.append(stringify_grounded_action(action))
-                if (following_plan and (not grounded_action)): iters_where_plan_found.append(itr)
+                if LOGGING:
+                    planned_action_or_not.append(int(grounded_action or following_plan))
+                    actions.append(stringify_grounded_action(action))
+                    if (following_plan and (not grounded_action)): iters_where_plan_found.append(itr)
             else:
                 action = self.agent.get_action(obs, iter_path)
 
@@ -170,7 +171,7 @@ class Runner:
             obs = next_obs
             episode_time_step += 1
 
-            if LOGGING and ("GLIB_L2" in self.experiment_log_path):
+            if LOGGING and ("GLIB_L2" == self.curiosity_name):
                 took_random_action = (not following_plan) and (not grounded_action)
                 if took_random_action and not state_changed:
                     random_action_no_change.append(itr)
@@ -379,9 +380,9 @@ def _main():
                     print("\nRunning curiosity method: {}, with seed: {}\n".format(
                         curiosity_name, seed))
 
-                    experiment_path = f"/home/catalan/glib_log/{domain_name}/{curiosity_name}/experiment_noemptyplan_seed{seed}_{time.strftime('%Y-%m-%d_%H:%M:%S', time.gmtime(time.time()))}"
-                    os.makedirs(experiment_path)
+                    experiment_path = f"/home/catalan/glib_log/{domain_name}/{curiosity_name}/experiment_seed{seed}_{time.strftime('%Y-%m-%d_%H:%M:%S', time.gmtime(time.time()))}"
                     if LOGGING:
+                        os.makedirs(experiment_path)
                         shutil.copyfile(settings_file, os.path.join(experiment_path, "settings.py"))
 
                     single_seed_results = _run_single_seed(

@@ -1,6 +1,17 @@
-Wrote some logging and loading utilities to analyze the methods and implementations more clearly.
+# Logging and loading
 
-## Modify settings.json to collect,analyze,replay (or not) experiments. To modify each experiment's details, use settings.py.
+This branch contains utilities for logging and loading.
+
+## Purposes
+Wrote some logging and loading utilities. Purposes are:
+
+1. To analyze the methods and implementations more clearly.
+2. Replay experiments in a way to be able to compare outputs for isolating the effects of the learner, planner, and explorer. (holding all other variables (modules) constant)
+3. Load transition model: for LLM warm-starting.
+
+## Instructions
+
+Modify settings.json to collect,analyze,replay (or not) experiments. To modify each experiment's details, use settings.py.
 
 Pick one of four modes to write in settings.json.
 
@@ -133,9 +144,17 @@ State to be given as a prompt to the LLM.
 
 "action_after_plan": True if executing the babbled action after following a plan
 
-# Plotting
+# Scripts to analyze experiment data
 
-To plot data together from curiosity modules from multiple experiments, put the .pkl results from the experiment logs into the `results/` folder, and run with `AgentConfig.cached_results_to_load` field with the explorer.
+### Identify checkpoints
+
+### Get % random actions taken, and % of random actions that have null effect
+
+
+
+# Plotting success rate and variational distance
+
+To plot and compare data from curiosity modules from multiple experiments, put the .pkl results from the experiment logs into the `results/` folder, and run with `AgentConfig.cached_results_to_load` field with the explorer.
 
 ```
 results/

@@ -5,8 +5,8 @@
 class EnvConfig:
     """Environment-specific constants.
     """
-    domain_name = ["Baking"]
-    # domain_name = ["Glibdoors", "Tireworld", "Glibblocks", "Explodingblocks"]
+    # domain_name = ["Baking"]
+    domain_name = ["Glibdoors", "Tireworld", "Glibblocks", "Explodingblocks"]
     # domain_name = ["Gripper", "Travel"]
     seed = 0
     
@@ -37,12 +37,12 @@ class AgentConfig:
     """Agent-specific constants.
     """
     curiosity_methods_to_run = [
-        # "GLIB_L2",
+        "GLIB_L2",
         # "GLIB_G1",
         # "oracle",
         # "random",
         # "GLIB_Seq"
-        "LLMOracle"
+        # "LLMOracle"
     ]
 
     cached_results_to_load = [
