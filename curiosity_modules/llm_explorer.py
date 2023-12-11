@@ -36,7 +36,7 @@ class LLMOracle(BaseCuriosityModule):
         self._rand_state = np.random.RandomState(seed=ac.seed)
         self._name = "llm-oracle"
         self._episode_start_state = None
-        self._client = client = openai.OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+        self._client = openai.OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
     
     def _get_domain_pddl(self):
         return self._planning_module.create_dom_str()

@@ -5,24 +5,24 @@
 class EnvConfig:
     """Environment-specific constants.
     """
-    domain_name = "Glibblocks"
-    # domain_name = "Easygripper"
-    # domain_name = "Glibdoors"
-    # domain_name = "Tireworld"
-    # domain_name = "Explodingblocks"
+    domain_name = ["Baking"]
+    # domain_name = ["Glibdoors", "Tireworld", "Glibblocks", "Explodingblocks"]
+    # domain_name = ["Gripper", "Travel"]
     seed = 0
-
+    
     # Number of test problems. Only needed for non-PDDLGym envs.
     num_test_problems = {}
 
     # Number of transitions to use for variational distance computation.
     num_var_dist_trans = {
+        'Baking': 1000,
         "Blocks": 1000,
         "Glibblocks": 1000,
         "Tsp": 1000,
         "Rearrangement": 1000,
         "Glibrearrangement": 1000,
         "Easygripper": 1000,
+        "Gripper": 1000,
         "Doors": 1000,
         "Glibdoors": 1000,
         "Tireworld": 1000,
@@ -30,27 +30,29 @@ class EnvConfig:
         "River": 1000,
         "NDRBlocks": 100,
     }
+    logging = True
 
 
 class AgentConfig:
     """Agent-specific constants.
     """
     curiosity_methods_to_run = [
-        "LLM+GLIB_L2",
+        "LLM+GLIB_L2"
         # "GLIB_L2",
         # "GLIB_G1",
         # "oracle",
         # "random",
+        # "GLIB_Seq"
+        # "LLMOracle"
     ]
+
     cached_results_to_load = [
-        # "LLM+GLIB_L2",
         # "GLIB_L2",
         # "GLIB_G1",
         # "oracle",
         # "random",
     ]
     # learning_name = "TILDE"
-    # learning_name = "LNDR"
     learning_name = "LLM+LNDR"
     # learning_name = "groundtruth-PDDLEnv"+EnvConfig.domain_name+"-v0"
     planner_name = {
@@ -59,6 +61,7 @@ class AgentConfig:
         "Tsp": "ff",
         "Rearrangement": "ff",
         "Easygripper": "ff",
+        "Gripper": "ff",
         "Glibrearrangement": "ff",
         "Doors": "ff",
         "Glibdoors": "ff",
@@ -66,6 +69,7 @@ class AgentConfig:
         "Tireworld": "ffreplan",
         "Explodingblocks": "ffreplan",
         "River": "ffreplan",
+        "Baking": "ff"
     }
 
     # Random seed optionally used by curiosity modules.
@@ -78,12 +82,14 @@ class AgentConfig:
         "Rearrangement": 1,
         "Glibrearrangement": 1,
         "Easygripper": 1,
+        "Gripper": 1,
         "Doors": 1,
         "Glibdoors": 1,
         "Tireworld": 10,
         "Explodingblocks": 10,
         "River": 10,
         "NDRBlocks": 25,
+        "Baking": 1
     }
 
     # Max training episode length.
@@ -94,6 +100,7 @@ class AgentConfig:
         "Rearrangement": 25,
         "Glibrearrangement": 25,
         "Easygripper": 25,
+        "Gripper": 25,
         "Doors": 25,
         "Glibdoors": 25,
         "Tireworld": 8,
@@ -101,6 +108,7 @@ class AgentConfig:
         "River": 25,
         "PybulletBlocks" : 10,
         "NDRBlocks" : 25,
+        "Baking": 25
     }
     # Max test episode length.
     max_test_episode_length = {
@@ -110,6 +118,7 @@ class AgentConfig:
         "Rearrangement": 25,
         "Glibrearrangement": 25,
         "Easygripper": 100,
+        "Gripper": 100,
         "Doors": 25,
         "Glibdoors": 25,
         "Tireworld": 25,
@@ -117,6 +126,7 @@ class AgentConfig:
         "River": 25,
         "PybulletBlocks" : 25,
         "NDRBlocks" : 25,
+        "Baking": 25
     }
     # Timeout for planner.
     planner_timeout = None  # set in main.py
@@ -129,6 +139,7 @@ class AgentConfig:
         "Rearrangement": 1501,
         "Glibrearrangement": 1501,
         "Easygripper": 3001,
+        "Gripper": 3001,
         "Doors": 2501,
         "Glibdoors": 2501,
         "Tireworld": 401,
@@ -136,6 +147,7 @@ class AgentConfig:
         "River": 1001,
         "PybulletBlocks" : 501,
         "NDRBlocks" : 1501,
+        "Baking": 1801
     }
 
     ## Constants for curiosity modules. ##
@@ -151,6 +163,7 @@ class AgentConfig:
         "Rearrangement": 35,
         "Glibrearrangement": 35,
         "Easygripper": 35,
+        "Gripper": 35,
         "Doors": 35,
         "Glibdoors": 35,
         "Tireworld": 35,
@@ -158,6 +171,7 @@ class AgentConfig:
         "River": 35,
         "PybulletBlocks": 35,
         "NDRBlocks": 35,
+        "Baking": 35
     }
     mutex_episode_len = {
         "Blocks": 35,
@@ -166,6 +180,7 @@ class AgentConfig:
         "Rearrangement": 35,
         "Glibrearrangement": 35,
         "Easygripper": 35,
+        "Gripper": 35,
         "Doors": 35,
         "Glibdoors": 35,
         "Tireworld": 35,
@@ -173,6 +188,7 @@ class AgentConfig:
         "River": 35,
         "PybulletBlocks": 35,
         "NDRBlocks": 35,
+        "Baking": 35
     }
     mutex_num_action_samples = 10
 
@@ -190,6 +206,7 @@ class AgentConfig:
         "Rearrangement": 25,
         "Glibrearrangement": 25,
         "Easygripper": 25,
+        "Gripper": 25,
         "Doors": 25,
         "Glibdoors": 25,
         "Tireworld": float("inf"),
@@ -197,6 +214,7 @@ class AgentConfig:
         "River": 25,
         "PybulletBlocks": float("inf"),
         "NDRBlocks": float("inf"),
+        "Baking": 25
     }
     max_zpk_action_batch_size = {
         "Blocks": None,
@@ -205,6 +223,7 @@ class AgentConfig:
         "Rearrangement": None,
         "Glibrearrangement": None,
         "Easygripper": None,
+        "Gripper": None,
         "Doors": None,
         "Glibdoors": None,
         "Tireworld": None,
@@ -212,6 +231,7 @@ class AgentConfig:
         "River": None,
         "PybulletBlocks": None,
         "NDRBlocks": None,
+        "Baking": None
     }
     zpk_initialize_from_previous_rule_set = {
         "Blocks": False,
@@ -220,6 +240,7 @@ class AgentConfig:
         "Rearrangement": False,
         "Glibrearrangement": False,
         "Easygripper": False,
+        "Gripper": False,
         "Doors": False,
         "Glibdoors": False,
         "Tireworld": True,
@@ -227,6 +248,7 @@ class AgentConfig:
         "River": False,
         "PybulletBlocks": False,
         "NDRBlocks": False,
+        "Baking": False
     }
 
     # Major hacks. Only used by oracle_curiosity.py.
@@ -236,5 +258,5 @@ class AgentConfig:
 class GeneralConfig:
     """General configuration constants.
     """
-    verbosity = 5
-    num_seeds = 10
+    verbosity = 0
+    num_seeds = 5
