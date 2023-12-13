@@ -144,6 +144,7 @@ class LLMZPKOperatorLearningModule(ZPKOperatorLearningModule):
         prompt = self._create_prompt()
         llm_output = self._query_llm(prompt)
         operators = self._llm_output_to_operators(llm_output)
+        print(operators)
         self._learned_operators.update(operators)
         # Also need to initialize ndrs!
         for op in operators:
@@ -213,15 +214,13 @@ class LLMZPKOperatorLearningModule(ZPKOperatorLearningModule):
         # TODO: cache and make settings
         # reference: https://github.com/Learning-and-Intelligent-Systems/llm4pddl/blob/main/llm4pddl/llm_interface.py
 
-        # TODO: uncomment. Leaving commented for now to avoid spurious queries
-        # of the expensive open AI API. Also we might want to use ChatGPT instead...
         completion = self._openai.chat.completions.create(
             model="gpt-4",
-            messages = [prompt],
-            max_tokens=4096,
+            messages = [{"role":"user", "content": prompt}],
+            max_tokens=3096,
             temperature=0,
         )
-        response = completion.choices[0].text
+        response = completion.choices[0].message.content
         print("Got response", response)
         return response
     
@@ -233,7 +232,7 @@ class LLMZPKOperatorLearningModule(ZPKOperatorLearningModule):
             types (set[str]): set of object types allowed in this domain
             operator_str (str): string containing a PDDL operator definition
         Returns:
-            bool, str: returns False, error_msg if the string is malformed.
+            [str, bool], str: returns False, error_msg if the string is malformed. Returns the action_predicate if no errors detected.
             
         """
         action_name = re.search("[\w]+", operator_str).group(0)
@@ -263,26 +262,25 @@ class LLMZPKOperatorLearningModule(ZPKOperatorLearningModule):
             for predicate_str in re.findall("\([\w]+[\s\?\w]*", pre_or_eff):
                 if "and" in predicate_str or "not" in predicate_str: continue
                 pred_name = re.search("[\w]+", predicate_str).group(0)
-                if pred_name != action_name: # extra predicate in preconditions to differ operators vs. actions in PDDLGym
-                    if pred_name not in obs_preds:
-                        return False, f"Predicate name not valid: {pred_name}, in precondition {pre_or_eff}"
-                    # assert pred_name in obs_preds, f"Predicate name not valid: {pred_name}, in precondition {pre_or_eff}"
+                if pred_name not in obs_preds:
+                    return False, f"Predicate name not valid: {pred_name}, in precondition {pre_or_eff}"
                 arg_types = []
                 for arg_name in re.findall("\?[\w\d]+", predicate_str):
                     arg_name = arg_name[1:] # remove the "?" in front
                     if arg_name not in param_names:
                         return False,f"Argument for {pred_name} in {pre_or_eff} not in parameters: {arg_name}"
-                    # assert arg_name in param_names, f"Argument for {pred_name} in {pre_or_eff} not in parameters: {arg_name}"
                     arg_types.append(param_types[param_names.index(arg_name)])
-                if pred_name == action_name:
-                    if arg_types != action_preds[pred_name].var_types:
-                        return False, f"Types don't match for predicate {pred_name}: {arg_types} vs. {action_preds[pred_name].var_types}"
-                    # assert arg_types == action_preds[pred_name].var_types, f"Types don't match for predicate {pred_name}: {arg_types} vs. {action_preds[pred_name].var_types}"
-                else:
-                    if arg_types != obs_preds[pred_name].var_types:
-                        return False,f"Types don't match for predicate {pred_name} in action {action_name}: {arg_types} vs. {obs_preds[pred_name].var_types}"
-                    # assert arg_types == obs_preds[pred_name].var_types, f"Types don't match for predicate {pred_name} in action {action_name}: {arg_types} vs. {obs_preds[pred_name].var_types}"
-        return True, ""
+                if arg_types != obs_preds[pred_name].var_types:
+                    return False,f"Types don't match for predicate {pred_name} in action {action_name}: {arg_types} vs. {obs_preds[pred_name].var_types}"
+        action_pred_types = action_preds[action_name].var_types
+        action_pred = f"\n\t\t\t\t({action_name} "
+        for t in action_pred_types:
+            if t not in param_types:
+                return False,f"Action parameter of type {t} must be a subset of the LLM's generated parameters: {param_types}"
+            action_pred += f"?{param_names[param_types.index(t)]} "
+        action_pred += ")\n"
+                
+        return action_pred, ""
 
     def _llm_output_to_operators(self, llm_output):
         # Parse the LLM output using PDDLGym.
@@ -306,30 +304,43 @@ class LLMZPKOperatorLearningModule(ZPKOperatorLearningModule):
         for match in operator_matches[::-1]: # Read matches from end of file to top of file
             start = match.end()
             operator_str = llm_output[start:end]
-            success, debug_msg = self._check_operator_string(types, operator_str)
-            if success:
-                # Count parantheses: look for the closing to "(:action" to get the operator string.
-                open = 0
-                close = 0
-                i = start
-                for c in operator_str:
-                    if close > open:
-                        action_pddls.append("(:action " + llm_output[start:i])
-                        break
-                    if c == "(":
-                        open += 1
-                    elif c == ")":
-                        close += 1
-                    i+=1
+
+            # Count parantheses: look for the closing to "(:action" to get the operator string.
+            open_parans = 0
+            close = 0
+            i = start
+            for c in operator_str:
+                if close > open_parans:
+                    operator_str = llm_output[start:i]
+                    break
+                if c == "(":
+                    open_parans += 1
+                elif c == ")":
+                    close += 1
+                i+=1
             
+            # Add in the PDDLGym syntax for operator vs. action
+            action_pred, debug_msg = self._check_operator_string(types, operator_str)
+            word_match = re.search("\([\w]+[\s\?\w]*", operator_str)
+            if action_pred:
+                word = word_match.group(0).strip()
+                assert word == "(and", word
+                begin = word_match.end()
+                operator_str = "(:action " + operator_str[:begin] +  f"\t\t\t\t{action_pred}\t\t\t\t" + operator_str[begin:]
+                action_pddls.append(operator_str)
+            else:
+                print(debug_msg)
+
             end = match.start()
 
 
         header = self._create_header()
-        llm_output = header + "\n".join(action_pddls)
+        output = header + "\n".join(action_pddls)
+
+        print("Parsed:\n", output)
 
         domain_fname = tempfile.NamedTemporaryFile(delete=False).name
         with open(domain_fname, "w", encoding="utf-8") as f:
-            f.write(llm_output)
+            f.write(output)
         domain = PDDLDomainParser(domain_fname)
         return list(domain.operators.values())
