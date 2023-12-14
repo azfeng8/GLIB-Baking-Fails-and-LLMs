@@ -8,7 +8,6 @@ class EnvConfig:
     domain_name = ["Baking"]
     # domain_name = ["Glibdoors", "Tireworld", "Glibblocks", "Explodingblocks"]
     # domain_name = ["Gripper", "Travel"]
-    seed = 0
     
     # Number of test problems. Only needed for non-PDDLGym envs.
     num_test_problems = {}
@@ -37,11 +36,11 @@ class AgentConfig:
     """Agent-specific constants.
     """
     curiosity_methods_to_run = [
-        "LLM+GLIB_L2"
+        # "LLM+GLIB_L2"
         # "GLIB_L2",
         # "GLIB_G1",
         # "oracle",
-        # "random",
+        "random",
         # "GLIB_Seq"
         # "LLMOracle"
     ]
@@ -260,3 +259,15 @@ class GeneralConfig:
     """
     verbosity = 0
     num_seeds = 5
+
+class LLMConfig:
+    """LLM Configuration."""
+    model = "gpt-4"
+    cache_dir = "/home/catalan/llm_cache"
+    max_tokens = 4096
+
+class PlottingConfig:
+    """Plotting from cached results.
+    """
+    domains = ["Baking"]
+    learner_explorer = [("LLM+LNDR", "GLIB_L2"), ("LNDR", ("GLIB_G1")), ("LNDR", "GLIB_L2"), ("LNDR", "oracle")]#, ("LNDR", "random")]

@@ -5,6 +5,7 @@ from pddlgym.structs import TypedEntity, ground_literal
 from ndr.learn import run_main_search as learn_ndrs
 from ndr.learn import get_transition_likelihood, print_rule_set, iter_variable_names
 from ndr.ndrs import NOISE_OUTCOME, NDR, NDRSet
+from openai_interface import OpenAI_Model
 import re
 import openai
 import os
@@ -116,7 +117,7 @@ class ZPKOperatorLearningModule:
 class LLMZPKOperatorLearningModule(ZPKOperatorLearningModule):
     """The ZPK operator learner but initialized with operators output by an LLM."""
 
-    def __init__(self, learned_operators, domain_name):
+    def __init__(self, learned_operators, domain_name, llm):
         super().__init__(learned_operators, domain_name)
 
         # # Initialize the dataset with fake transitions induced from the LLM.
@@ -138,7 +139,7 @@ class LLMZPKOperatorLearningModule(ZPKOperatorLearningModule):
         #     self._fits_all_data[action.predicate] = False
         # self.learn()
 
-        self._openai = openai.OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+        self._llm:OpenAI_Model = llm
 
         # # Initialize the operators from the LLM.
         prompt = self._create_prompt()
@@ -214,13 +215,7 @@ class LLMZPKOperatorLearningModule(ZPKOperatorLearningModule):
         # TODO: cache and make settings
         # reference: https://github.com/Learning-and-Intelligent-Systems/llm4pddl/blob/main/llm4pddl/llm_interface.py
 
-        completion = self._openai.chat.completions.create(
-            model="gpt-4",
-            messages = [{"role":"user", "content": prompt}],
-            max_tokens=3096,
-            temperature=0,
-        )
-        response = completion.choices[0].message.content
+        response = self._llm.sample_completions([{"role": "user", "content": prompt}], temperature=0, seed=0, num_completions=1)[0]
         print("Got response", response)
         return response
     
@@ -324,9 +319,15 @@ class LLMZPKOperatorLearningModule(ZPKOperatorLearningModule):
             word_match = re.search("\([\w]+[\s\?\w]*", operator_str)
             if action_pred:
                 word = word_match.group(0).strip()
-                assert word == "(and", word
-                begin = word_match.end()
-                operator_str = "(:action " + operator_str[:begin] +  f"\t\t\t\t{action_pred}\t\t\t\t" + operator_str[begin:]
+                if word == "(and":
+                    begin = word_match.end()
+                    operator_str = "(:action " + operator_str[:begin] +  f"\t\t\t\t{action_pred}\t\t\t\t" + operator_str[begin:]
+                elif word == "(not":
+                    begin = word_match.start()
+                    precond_end = re.search("\)[\s]*:effect", operator_str).start()
+                    operator_str = f"(:action " + operator_str[:begin] + f"(and \t\t\t\t{action_pred}\t\t\t\t" + operator_str[begin:precond_end] + ")" + operator_str[precond_end:]
+                else:
+                    raise Exception(f"got word {word} in str: {operator_str}")
                 action_pddls.append(operator_str)
             else:
                 print(debug_msg)

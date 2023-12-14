@@ -2,6 +2,8 @@ from curiosity_modules import create_curiosity_module
 from operator_learning_modules import create_operator_learning_module
 from planning_modules import create_planning_module
 from pddlgym.structs import Anti
+from settings import LLMConfig as lc
+from openai_interface import OpenAI_Model
 import time
 import numpy as np
 
@@ -26,12 +28,16 @@ class Agent:
         self.curiosity_module_name = curiosity_module_name
         self.operator_learning_name = operator_learning_name
         self.planning_module_name = planning_module_name
+
         # The main objective of the agent is to learn good operators
         self.learned_operators = set()
+
+        self.llm = OpenAI_Model()
+
         # The operator learning module learns operators. It should update the
         # agent's learned operators set
         self._operator_learning_module = create_operator_learning_module(
-            operator_learning_name, self.learned_operators, self.domain_name)
+            operator_learning_name, self.learned_operators, self.domain_name, self.llm)
         # The planning module uses the learned operators to plan at test time.
         self._planning_module = create_planning_module(
             planning_module_name, self.learned_operators, domain_name,
@@ -42,6 +48,7 @@ class Agent:
             curiosity_module_name, action_space, observation_space,
             self._planning_module, self.learned_operators,
             self._operator_learning_module, domain_name)
+        
 
     ## Training time methods
     def get_action(self, state):

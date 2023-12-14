@@ -1,7 +1,14 @@
+import glob
 import matplotlib.pyplot as plt
 import numpy as np
 import os
 import seaborn as sns
+import pickle
+
+from collections import defaultdict
+
+from settings import PlottingConfig as pc
+
 sns.set(style="darkgrid")
 
 def smooth_curve(x, y):
@@ -63,3 +70,48 @@ def plot_results(domain_name, learning_name, all_results, outdir="results",
     plt.tight_layout()
     plt.savefig(outfile, dpi=300)
     print("Wrote out to {}".format(outfile))
+
+def main():
+    """Plot the results in results/, specified by settings."""
+    results_path = "results"
+    min_seeds = np.inf
+    max_seeds = 0
+    for domain in pc.domains:
+        outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), results_path)
+        domain_path = os.path.join(results_path, domain)
+        for dist_succ in ["dist", "succ"]:
+            plt.figure()
+            for learner, explorer in pc.learner_explorer:
+                seeds_path = os.path.join(domain_path, learner, explorer)
+                results = []
+                for pkl_fname in glob.glob(os.path.join(seeds_path, "*.pkl")):
+                    with open(pkl_fname, "rb") as f:
+                        saved_results = pickle.load(f)
+                    results.append(saved_results)
+                min_seeds = min(min_seeds, len(results))
+                max_seeds = max(max_seeds, len(results))
+                results = np.array(results)
+                label = f"{learner}, {explorer}"
+                xs = results[0,:,0]
+                if dist_succ == "dist":
+                    ys = results[:, :, 2]
+                else:
+                    ys = results[:, :, 1]
+                results_mean = np.mean(ys, axis=0)
+                plt.plot(xs, results_mean, label=label.replace("_", " "))
+                if min_seeds == max_seeds:
+                    title = f"{domain} Domain ({min_seeds} seeds)"
+                else:
+                    title = f"{domain} Domain, ({min_seeds} to {max_seeds} seeds)"
+                plt.title(title)
+                plt.ylim((-0.1, 1.1))
+                plt.legend(loc="lower right")
+                plt.tight_layout()
+            outfile = os.path.join(outdir, "{}_{}.png".format(
+                domain, dist_succ))
+            plt.savefig(outfile, dpi=300)
+            print("Wrote out to {}".format(outfile))
+
+    
+if __name__ == "__main__":
+    main()

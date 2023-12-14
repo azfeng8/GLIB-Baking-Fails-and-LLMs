@@ -39,7 +39,7 @@ class OracleCuriosityModule(BaseCuriosityModule):
             return self._action_space.sample(state), False
         if ac.learning_name == "TILDE":
             action_preds_with_learned_rules = set(self._operator_learning_module.learned_dts)
-        elif ac.learning_name == "LNDR":
+        elif ac.learning_name == "LNDR" or ac.learning_name == "LLM+LNDR":
             action_preds_with_learned_rules = set(self._operator_learning_module._ndrs)
         else:
             import ipdb; ipdb.set_trace()

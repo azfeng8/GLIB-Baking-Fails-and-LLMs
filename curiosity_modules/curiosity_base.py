@@ -89,7 +89,7 @@ class BaseCuriosityModule:
                     return prediction
                 effects = [structs.effect_to_literal(effect) for effect in prediction]
                 return self._execute_effects(state, effects)
-        elif ac.learning_name == "LNDR":
+        elif ac.learning_name == "LNDR" or ac.learning_name == "LLM+LNDR":
             for act_pred, ndrs in self._operator_learning_module._ndrs.items():
                 if act_pred.name != action.predicate.name:
                     continue

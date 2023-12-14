@@ -81,8 +81,8 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
 
             if self._plan_is_good():
                 self._plan = self._finish_plan(self._plan)
-                print("\tGOAL:", goal)
-                print("\tPLAN:", self._plan)
+                # print("\tGOAL:", goal)
+                # print("\tPLAN:", self._plan)
                 # import ipdb; ipdb.set_trace()
                 # Take the first step in the plan
                 self.line_stats.append(1)
@@ -90,7 +90,7 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
             self._plan = []
 
         # No plan found within budget; take a random action
-        print("falling back to random")
+        # print("falling back to random")
         return self._get_fallback_action(state)
 
     def _get_fallback_action(self, state):
