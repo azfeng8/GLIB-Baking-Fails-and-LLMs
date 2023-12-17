@@ -7,8 +7,6 @@ from ndr.learn import get_transition_likelihood, print_rule_set, iter_variable_n
 from ndr.ndrs import NOISE_OUTCOME, NDR, NDRSet
 from openai_interface import OpenAI_Model
 import re
-import openai
-import os
 
 from collections import defaultdict
 import tempfile
@@ -93,7 +91,7 @@ class ZPKOperatorLearningModule:
                         continue
                     self._learned_operators.add(operator)
 
-            print_rule_set(self._ndrs)
+            # print_rule_set(self._ndrs)
 
         return is_updated
 
@@ -145,7 +143,6 @@ class LLMZPKOperatorLearningModule(ZPKOperatorLearningModule):
         prompt = self._create_prompt()
         llm_output = self._query_llm(prompt)
         operators = self._llm_output_to_operators(llm_output)
-        print(operators)
         self._learned_operators.update(operators)
         # Also need to initialize ndrs!
         for op in operators:
@@ -180,7 +177,7 @@ class LLMZPKOperatorLearningModule(ZPKOperatorLearningModule):
             s = f"({p.name} " + " ".join(p.pddl_variables()) + ")"
             lines.append(s)
         predicates = "(:predicates\n" + "\n".join(lines) + ")"
-        actions = '; (:actions ' + ' '.join([p.name for p in env.action_space.predicates]) + ")"
+        actions = '; (:actions ' + ' '.join([p.name for p in env.action_space.predicates]) + ")\n"
         types = "(:types " + " ".join(types) + ")"
 
         return f"(define (domain {self._domain_name.lower()})\n(:requirements :typing)\n{types}\n{predicates}\n\n{actions}"
@@ -212,16 +209,87 @@ class LLMZPKOperatorLearningModule(ZPKOperatorLearningModule):
         return prompt
 
     def _query_llm(self, prompt):
-        # TODO: cache and make settings
-        # reference: https://github.com/Learning-and-Intelligent-Systems/llm4pddl/blob/main/llm4pddl/llm_interface.py
+        # response = self._llm.sample_completions([{"role": "user", "content": prompt}], temperature=0, seed=self._seed, num_completions=1)[0]
+        response = """(define (domain glibblocks)
+        (:types robot block)
+        (:predicates
+                (clear ?v0 - block)
+                (handempty ?v0 - robot)
+                (handfull ?v0 - robot)
+                (holding ?v0 - block ?v1 - robot)
+                (on ?v0 - block ?v1 - block)
+                (ontable ?v0 - block)
+        )
 
-        response = self._llm.sample_completions([{"role": "user", "content": prompt}], temperature=0, seed=0, num_completions=1)[0]
+        (:action pickup
+                :parameters (?v0 - block ?v1 - robot)
+                :precondition (and
+                                (clear ?v0)
+                                (handempty ?v1)
+                                (ontable ?v0)
+                )
+                :effect (and
+                                (not (handempty ?v1))
+                                (handfull ?v1)
+                                (holding ?v0 ?v1)
+                                (not (ontable ?v0))
+                )
+        )
+        (:action putdown
+                :parameters (?v0 - block ?v1 - robot)
+                :precondition (and
+                                (holding ?v0 ?v1)
+                                (handfull ?v1)
+                )
+                :effect (and
+                                (not (holding ?v0 ?v1))
+                                (handempty ?v1)
+                                (not (handfull ?v1))
+                                (ontable ?v0)
+                )
+        )
+        (:action stack
+                :parameters (?v0 - block ?v1 - block ?v2 - robot)
+                :precondition (and
+                                (holding ?v0 ?v2)
+                                (clear ?v1)
+                )
+                :effect (and
+                                (not (holding ?v0 ?v2))
+                                (handempty ?v2)
+                                (on ?v0 ?v1)
+                                (not (clear ?v1))
+                                (clear ?v0)
+                )
+        )
+        (:action unstack
+                :parameters (?v0 - block ?v1 - block ?v2 - robot)
+                :precondition (and
+                                (on ?v0 ?v1)
+                                (clear ?v0)
+                                (handempty ?v2)
+                )
+                :effect (and
+                                (holding ?v0 ?v2)
+                                (not (on ?v0 ?v1))
+                                (not (clear ?v0))
+                                (clear ?v1)
+                )
+        )
+)"""
         print("Got response", response)
         return response
     
-    def _check_operator_string(self, types, operator_str):
+    def _check_and_fix_operator_string(self, types, operator_str):
         """
-        Parses the PDDL operator from the string and returns False if the operator string is malformed.
+        Parses the PDDL operator from the string and returns False if the operator string is malformed and can't be fixed, or the fixed string.
+
+        Fixes:
+           - Insert the action predicate into the preconditions as needed by PDDLGym.
+           - If the predicate's arguments is a superset of the actual arguments, then drop the extra arguments.
+
+        Throws:
+            Exception if fixing went wrong.
 
         Args:
             types (set[str]): set of object types allowed in this domain
@@ -246,36 +314,92 @@ class LLMZPKOperatorLearningModule(ZPKOperatorLearningModule):
             param_names.append(param_name)
             param_types.append(var_type)
             if var_type not in types:
-                return False, f"type not found: {var_type} in parameters: {parameter_str}"
-            # assert var_type in types, f"type not found: {var_type} in parameters: {parameter_str}"
+                return False, f"type not valid: {var_type} in parameters: {parameter_str}. accepted types: {types}"
+        # Make immutable
+        param_names:tuple = tuple(param_names)
+        param_types:tuple = tuple(param_types)
 
         # Check each precondition and effect have 1. valid predicate name, 2.predicate argument names match params, 3. predicate argument types match params 
         obs_preds = {o.name:o for o in ac.train_env.observation_space.predicates}
-        precond_str = re.search(":precondition([\s\S]*?):effect", operator_str).group(0)[:-7] # trim the ":effect" at the end
-        effect_str = re.search(":effect([\s\S]*?)\s\)", operator_str).group(0)
+        precond_str_match = re.search(":precondition([\s\S]*?):effect", operator_str)
+        precond_str_start, precond_str_end = (precond_str_match.start(), precond_str_match.end() - len(":effect"))
+        precond_str = precond_str_match.group(0)[:-7] # trim the ":effect" at the end
+        effect_str_match = re.search(":effect([\s\S]*?)\s\)", operator_str)
+        effect_str_start, effect_str_end = (effect_str_match.start(), effect_str_match.end())
+        effect_str = effect_str_match.group(0)
+        # Contains 2 strings: precondition and effect parts
+        edited_parts = []
+
+        # The same editing happens for clauses in preconditions and effects
         for pre_or_eff in [precond_str, effect_str]:
-            for predicate_str in re.findall("\([\w]+[\s\?\w]*", pre_or_eff):
+
+            edited_predicate_strings:list[tuple[str,int,int]] = []
+
+            for predicate_str_match in re.finditer("\([\w]+[\s\?\w]*\)", pre_or_eff):
+                predicate_str = predicate_str_match.group(0)
                 if "and" in predicate_str or "not" in predicate_str: continue
                 pred_name = re.search("[\w]+", predicate_str).group(0)
                 if pred_name not in obs_preds:
                     return False, f"Predicate name not valid: {pred_name}, in precondition {pre_or_eff}"
                 arg_types = []
+                arg_names = []
                 for arg_name in re.findall("\?[\w\d]+", predicate_str):
                     arg_name = arg_name[1:] # remove the "?" in front
                     if arg_name not in param_names:
                         return False,f"Argument for {pred_name} in {pre_or_eff} not in parameters: {arg_name}"
+                    arg_names.append(arg_name)
                     arg_types.append(param_types[param_names.index(arg_name)])
-                if arg_types != obs_preds[pred_name].var_types:
-                    return False,f"Types don't match for predicate {pred_name} in action {action_name}: {arg_types} vs. {obs_preds[pred_name].var_types}"
-        action_pred_types = action_preds[action_name].var_types
+
+                # Collect the arguments of the predicate in order
+                args = []
+                for arg_type in obs_preds[pred_name].var_types:
+                    if arg_type not in arg_types:
+                        return False,f"Types don't match for predicate: {pred_name} in action: {action_name}: {arg_types} vs. {obs_preds[pred_name].var_types}"
+                    i = arg_types.index(arg_type)
+                    arg_types.pop(i)
+                    args.append("?" + arg_names.pop(i))
+                # Edit the operator string: drop the extra arguments in this predicate, if any
+                edited_pred_str = f"({pred_name} " + " ".join(args) + ")"
+                edited_predicate_strings.append((edited_pred_str, predicate_str_match.start(), predicate_str_match.end()))
+
+            # Cut and paste the edited parts back into the original string of the precondition or effect part.
+            edited_pre_or_eff = ""
+            i = 0
+            for edited_s, start_i, end_i in edited_predicate_strings:
+                edited_pre_or_eff += pre_or_eff[i:start_i] + edited_s
+                i = end_i
+            edited_pre_or_eff += pre_or_eff[i:]
+
+            edited_parts.append(edited_pre_or_eff)
+
+        # Cut and paste the edited parts back into the original string of the whole operator.
+        operator_str = operator_str[:precond_str_start] + edited_parts[0] + operator_str[precond_str_end:effect_str_start] + edited_parts[1] + operator_str[effect_str_end:]
+
+        # Insert the action predicate
+        action_pred_types:list[str] = action_preds[action_name].var_types
         action_pred = f"\n\t\t\t\t({action_name} "
+        p_names, p_types = list(param_names), list(param_types)
         for t in action_pred_types:
-            if t not in param_types:
-                return False,f"Action parameter of type {t} must be a subset of the LLM's generated parameters: {param_types}"
-            action_pred += f"?{param_names[param_types.index(t)]} "
+            if t not in p_types:
+                return False,f"Action parameter of type {t} must be a subset of the LLM's generated parameters. {action_pred_types}, but found: {param_types}"
+            i = p_types.index(t)
+            p_types.pop(i)
+            action_pred += f"?{p_names.pop(i)} "
         action_pred += ")\n"
+
+        word_match = re.search("\([\w]+[\s\?\w]*", operator_str)
+        word = word_match.group(0).strip()
+        if word == "(and":
+            begin = word_match.end()
+            operator_str = "(:action " + operator_str[:begin] +  f"\t\t\t\t{action_pred}\t\t\t\t" + operator_str[begin:]
+        elif word == "(not":
+            begin = word_match.start()
+            precond_end = re.search("\)[\s]*:effect", operator_str).start()
+            operator_str = f"(:action " + operator_str[:begin] + f"(and \t\t\t\t{action_pred}\t\t\t\t" + operator_str[begin:precond_end] + ")" + operator_str[precond_end:]
+        else:
+            raise Exception(f"got word {word} in str while inserting action pred into: {operator_str}")
                 
-        return action_pred, ""
+        return operator_str, ""
 
     def _llm_output_to_operators(self, llm_output):
         # Parse the LLM output using PDDLGym.
@@ -290,7 +414,7 @@ class LLMZPKOperatorLearningModule(ZPKOperatorLearningModule):
 
         # Collect the object types in this domain.
         types = set()
-        for p in ac.train_env.action_space.predicates:
+        for p in (ac.train_env.action_space.predicates + ac.train_env.observation_space.predicates):
             for t in p.var_types:
                 types.add(t)
 
@@ -315,19 +439,8 @@ class LLMZPKOperatorLearningModule(ZPKOperatorLearningModule):
                 i+=1
             
             # Add in the PDDLGym syntax for operator vs. action
-            action_pred, debug_msg = self._check_operator_string(types, operator_str)
-            word_match = re.search("\([\w]+[\s\?\w]*", operator_str)
-            if action_pred:
-                word = word_match.group(0).strip()
-                if word == "(and":
-                    begin = word_match.end()
-                    operator_str = "(:action " + operator_str[:begin] +  f"\t\t\t\t{action_pred}\t\t\t\t" + operator_str[begin:]
-                elif word == "(not":
-                    begin = word_match.start()
-                    precond_end = re.search("\)[\s]*:effect", operator_str).start()
-                    operator_str = f"(:action " + operator_str[:begin] + f"(and \t\t\t\t{action_pred}\t\t\t\t" + operator_str[begin:precond_end] + ")" + operator_str[precond_end:]
-                else:
-                    raise Exception(f"got word {word} in str: {operator_str}")
+            operator_str, debug_msg = self._check_and_fix_operator_string(types, operator_str)
+            if operator_str:
                 action_pddls.append(operator_str)
             else:
                 print(debug_msg)

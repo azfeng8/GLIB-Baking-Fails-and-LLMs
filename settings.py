@@ -5,7 +5,7 @@
 class EnvConfig:
     """Environment-specific constants.
     """
-    domain_name = ["Baking"]
+    domain_name = ["Glibblocks", "Glibdoors"]
     # domain_name = ["Glibdoors", "Tireworld", "Glibblocks", "Explodingblocks"]
     # domain_name = ["Gripper", "Travel"]
     
@@ -37,10 +37,10 @@ class AgentConfig:
     """
     curiosity_methods_to_run = [
         # "LLM+GLIB_L2"
-        # "GLIB_L2",
-        # "GLIB_G1",
+        "GLIB_L2",
+        "GLIB_G1",
         # "oracle",
-        "random",
+        # "random",
         # "GLIB_Seq"
         # "LLMOracle"
     ]
@@ -257,7 +257,8 @@ class AgentConfig:
 class GeneralConfig:
     """General configuration constants.
     """
-    verbosity = 0
+    verbosity = -1
+    start_seed = 0
     num_seeds = 5
 
 class LLMConfig:
@@ -270,4 +271,4 @@ class PlottingConfig:
     """Plotting from cached results.
     """
     domains = ["Baking"]
-    learner_explorer = [("LLM+LNDR", "GLIB_L2"), ("LNDR", ("GLIB_G1")), ("LNDR", "GLIB_L2"), ("LNDR", "oracle")]#, ("LNDR", "random")]
+    learner_explorer = [("LLM+LNDR", "GLIB_L2"), ("LLM+LNDR", "GLIB_G1"),("LNDR", ("GLIB_G1")), ("LNDR", "GLIB_L2"), ("LNDR", "oracle")]#, ("LNDR", "random")]

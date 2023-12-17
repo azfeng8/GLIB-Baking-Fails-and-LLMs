@@ -214,14 +214,14 @@ class BaseCuriosityModule:
     def _compute_lifted_mutex_literals(self, initial_state):
         """Lifted mutex computation using MMM sampling-based algorithm.
         """
-        print("Computing mutexes...(cache size = {})".format(len(self._mutex_cache)))
+        # print("Computing mutexes...(cache size = {})".format(len(self._mutex_cache)))
         if initial_state.literals in self._mutex_cache:
             mutex_pairs = self._mutex_cache[initial_state.literals]
-            print("\tUsing cache with {} mutex pairs".format(len(mutex_pairs)))
+            # print("\tUsing cache with {} mutex pairs".format(len(mutex_pairs)))
             return mutex_pairs
         reachable_states = set()
         start_time = time.time()
-        print("\tStep 1/2: constructing reachable states...")
+        # print("\tStep 1/2: constructing reachable states...")
         for _1 in range(ac.mutex_num_episodes[self._domain_name]):
             state = initial_state
             reachable_states.add(state.literals)
@@ -235,7 +235,7 @@ class BaseCuriosityModule:
                     state = self._execute_effects(state, ground_effects)
                     reachable_states.add(state.literals)
                     break
-        print("\tStep 2/2: finding mutex pairs...")
+        # print("\tStep 2/2: finding mutex pairs...")
         mutex_pairs = set()
         for pred_pair in itertools.combinations(
                 self._observation_space.predicates, 2):
@@ -270,8 +270,8 @@ class BaseCuriosityModule:
                     if not any(len(find_satisfying_assignments(state_lits, lit_pair)) > 0
                                for state_lits in reachable_states):
                         mutex_pairs.add(frozenset(lit_pair))
-        print("\tFound {} mutex pairs in {} seconds".format(
-            len(mutex_pairs), time.time()-start_time))
+        # print("\tFound {} mutex pairs in {} seconds".format(
+            # len(mutex_pairs), time.time()-start_time))
         self._mutex_cache[initial_state.literals] = mutex_pairs
         return mutex_pairs
 
@@ -314,6 +314,8 @@ class BaseCuriosityModule:
         for op in self._learned_operators:
             assignments = self._preconds_satisfied(state, action, op.preconds.literals)
             if assignments is not None:
+                #TODO: If cannot ground the variable b/c the variable doesn't appear in precondition,
+                # then any assignment of an object in the kb should work.
                 ground_effects = [structs.ground_literal(l, assignments)
                                   for l in op.effects.literals]
                 return ground_effects

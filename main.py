@@ -53,7 +53,7 @@ class Runner:
             if all(c >= num_trans_per_act for c in total_counts.values()):
                 break
             obs, _ = self.test_env.reset()
-            for _1 in range(ec.num_var_dist_trans[self.domain_name]//num_problems):
+            for _ in range(ec.num_var_dist_trans[self.domain_name]//num_problems):
                 action = self.test_env.action_space.sample(obs)
                 next_obs, _, done, _ = self.test_env.step(action)
                 null_effect = (next_obs.literals == obs.literals)
@@ -208,8 +208,7 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name):
     ec.seed = seed
     ac.planner_timeout = 60 if "oracle" in curiosity_name else 10
 
-    train_env = gym.make("PDDLEnv{}-v0".format(domain_name))
-    train_env.seed(ec.seed)
+    train_env = gym.make("PDDLEnv{}-v0".format(domain_name), seed=ec.seed)
     # MAJOR HACK. Only used by oracle_curiosity.py and by the LLM-based
     # learner, which uses the environment to access the predicates and
     # action names.
@@ -261,8 +260,7 @@ def _main():
                     print("WARNING: Found no results to load for {}".format(
                         curiosity_name))
             else:
-                for seed in range(gc.num_seeds):
-                    seed = seed+20
+                for seed in range(gc.start_seed, gc.start_seed + gc.num_seeds):
                     print("\nRunning curiosity method: {}, with seed: {}\n".format(
                         curiosity_name, seed))
                     single_seed_results = _run_single_seed(

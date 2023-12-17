@@ -51,7 +51,6 @@ class OpenAI_Model:
         cache_filename = f"{prompts_id}_{config_id}.pkl"
         cache_filepath = os.path.join(self._cache_dir, cache_filename)
         if not os.path.exists(cache_filepath) or disable_cache:
-            print("here")
             completions = self._sample_completions(conversation, temperature, seed, num_completions)
             with open(cache_filepath, 'wb') as f:
                 pickle.dump(completions, f)
@@ -95,6 +94,8 @@ def str_to_identifier(x: str) -> str:
     References:
         https://stackoverflow.com/questions/45015180
         https://stackoverflow.com/questions/5297448
+
+    TODO: this doesn't work sometimes
     """
     return hashlib.md5(x.encode('utf-8')).hexdigest()
 
