@@ -1,5 +1,7 @@
 """Top-level script for learning operators.
 """
+import logging
+
 import matplotlib
 matplotlib.use("Agg")
 from agent import Agent
@@ -89,7 +91,7 @@ class Runner:
                 print("Gathering training data...")
 
             if episode_done or episode_time_step > ac.max_train_episode_length[self.domain_name]:
-                obs, _ = self.train_env.reset()
+                obs, _ = self.train_env.reset(seed=ec.seed)
                 self.agent.reset_episode(obs)
                 episode_time_step = 0
 
@@ -153,8 +155,8 @@ class Runner:
         """Test current operators. Return (solve rate on test suite,
         average variational distance).
         """
-        for op in self.agent.learned_operators:
-            print(op)
+        # for op in self.agent.learned_operators:
+            # print(op)
         if self.domain_name == "PybulletBlocks" and self.curiosity_name == "oracle":
             # Disable oracle for pybullet.
             return 0.0, 1.0
@@ -208,7 +210,7 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name):
     ec.seed = seed
     ac.planner_timeout = 60 if "oracle" in curiosity_name else 10
 
-    train_env = gym.make("PDDLEnv{}-v0".format(domain_name), seed=ec.seed)
+    train_env = gym.make("PDDLEnv{}-v0".format(domain_name))
     # MAJOR HACK. Only used by oracle_curiosity.py and by the LLM-based
     # learner, which uses the environment to access the predicates and
     # action names.

@@ -5,7 +5,8 @@
 class EnvConfig:
     """Environment-specific constants.
     """
-    domain_name = ["Glibblocks", "Glibdoors"]
+    domain_name = ["Rearrangement"]#["Minecraft", "Rearrangement", "Travel", "Baking"]
+    # domain_name = ['Tireworld']
     # domain_name = ["Glibdoors", "Tireworld", "Glibblocks", "Explodingblocks"]
     # domain_name = ["Gripper", "Travel"]
     
@@ -28,6 +29,8 @@ class EnvConfig:
         "Explodingblocks": 1000,
         "River": 1000,
         "NDRBlocks": 100,
+        "Minecraft": 1000,
+        "Travel": 1000
     }
     logging = True
 
@@ -37,7 +40,7 @@ class AgentConfig:
     """
     curiosity_methods_to_run = [
         # "LLM+GLIB_L2"
-        "GLIB_L2",
+        # "GLIB_L2",
         "GLIB_G1",
         # "oracle",
         # "random",
@@ -52,6 +55,7 @@ class AgentConfig:
         # "random",
     ]
     # learning_name = "TILDE"
+    # learning_name = "LNDR"
     learning_name = "LLM+LNDR"
     # learning_name = "groundtruth-PDDLEnv"+EnvConfig.domain_name+"-v0"
     planner_name = {
@@ -68,7 +72,9 @@ class AgentConfig:
         "Tireworld": "ffreplan",
         "Explodingblocks": "ffreplan",
         "River": "ffreplan",
-        "Baking": "ff"
+        "Baking": "ff",
+        "Minecraft": "ff",
+        "Travel": "ff"
     }
 
     # Random seed optionally used by curiosity modules.
@@ -88,7 +94,9 @@ class AgentConfig:
         "Explodingblocks": 10,
         "River": 10,
         "NDRBlocks": 25,
-        "Baking": 1
+        "Baking": 1,
+        "Minecraft": 1,
+        "Travel": 1
     }
 
     # Max training episode length.
@@ -107,7 +115,9 @@ class AgentConfig:
         "River": 25,
         "PybulletBlocks" : 10,
         "NDRBlocks" : 25,
-        "Baking": 25
+        "Baking": 25,
+        "Minecraft": 30,
+        "Travel": 25
     }
     # Max test episode length.
     max_test_episode_length = {
@@ -125,7 +135,9 @@ class AgentConfig:
         "River": 25,
         "PybulletBlocks" : 25,
         "NDRBlocks" : 25,
-        "Baking": 25
+        "Baking": 25,
+        "Travel": 25,
+        "Minecraft": 100
     }
     # Timeout for planner.
     planner_timeout = None  # set in main.py
@@ -146,7 +158,9 @@ class AgentConfig:
         "River": 1001,
         "PybulletBlocks" : 501,
         "NDRBlocks" : 1501,
-        "Baking": 1801
+        "Baking": 1801,
+        "Travel": 1501,
+        "Minecraft": 2501
     }
 
     ## Constants for curiosity modules. ##
@@ -170,7 +184,9 @@ class AgentConfig:
         "River": 35,
         "PybulletBlocks": 35,
         "NDRBlocks": 35,
-        "Baking": 35
+        "Baking": 35,
+        "Travel": 35,
+        "Minecraft": 35
     }
     mutex_episode_len = {
         "Blocks": 35,
@@ -187,7 +203,9 @@ class AgentConfig:
         "River": 35,
         "PybulletBlocks": 35,
         "NDRBlocks": 35,
-        "Baking": 35
+        "Baking": 35,
+        "Minecraft": 35,
+        "Travel": 35
     }
     mutex_num_action_samples = 10
 
@@ -213,7 +231,9 @@ class AgentConfig:
         "River": 25,
         "PybulletBlocks": float("inf"),
         "NDRBlocks": float("inf"),
-        "Baking": 25
+        "Baking": 25,
+        "Minecraft": 25,
+        "Travel": 25
     }
     max_zpk_action_batch_size = {
         "Blocks": None,
@@ -230,7 +250,9 @@ class AgentConfig:
         "River": None,
         "PybulletBlocks": None,
         "NDRBlocks": None,
-        "Baking": None
+        "Baking": None,
+        "Minecraft": None,
+        "Travel": None
     }
     zpk_initialize_from_previous_rule_set = {
         "Blocks": False,
@@ -247,7 +269,9 @@ class AgentConfig:
         "River": False,
         "PybulletBlocks": False,
         "NDRBlocks": False,
-        "Baking": False
+        "Baking": False,
+        "Minecraft": False,
+        "Travel": False
     }
 
     # Major hacks. Only used by oracle_curiosity.py.
@@ -258,7 +282,7 @@ class GeneralConfig:
     """General configuration constants.
     """
     verbosity = -1
-    start_seed = 0
+    start_seed = 20
     num_seeds = 5
 
 class LLMConfig:
@@ -270,5 +294,5 @@ class LLMConfig:
 class PlottingConfig:
     """Plotting from cached results.
     """
-    domains = ["Baking"]
-    learner_explorer = [("LLM+LNDR", "GLIB_L2"), ("LLM+LNDR", "GLIB_G1"),("LNDR", ("GLIB_G1")), ("LNDR", "GLIB_L2"), ("LNDR", "oracle")]#, ("LNDR", "random")]
+    domains = ["Glibdoors"]#,"Baking", "Glibblocks", ]
+    learner_explorer = [("LLM+LNDR", "GLIB_L2"), ("LLM+LNDR", "GLIB_G1"), ("LNDR", "GLIB_L2"), ("LNDR", "oracle"), ("LNDR", "random") ]

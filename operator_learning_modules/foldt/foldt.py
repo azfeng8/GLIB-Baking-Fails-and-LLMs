@@ -861,7 +861,7 @@ class DecisionTreeClassifier:
             self._graph_tree_helper(dot, node.left, parent=(name, "False"))
             self._graph_tree_helper(dot, node.right, parent=(name, "True"))
 
-    def get_conditional_literals(self, node):
+    def get_conditional_literals(self, node:DTNode):
         if node.is_leaf:
             return [([], node.label)]
 

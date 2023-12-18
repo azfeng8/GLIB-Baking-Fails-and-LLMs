@@ -1,4 +1,4 @@
-from pddlgym.structs import Predicate, ground_literal, LiteralConjunction
+from pddlgym.structs import Predicate, ground_literal, LiteralConjunction, State
 from pddlgym.parser import Operator
 from pddlgym.inference import find_satisfying_assignments
 import numpy as np
@@ -124,6 +124,9 @@ class NDR:
 
     def covers_transition(self, transition):
         """Check whether the action and preconditions cover the transition
+
+        Args:
+            transition (tuple[state.literals, action, set(literals)])
         """
         state, action, effects = transition
         sigma = self.find_substitutions(state, action)
@@ -206,18 +209,40 @@ class NDR:
         return self.objects_are_referenced(state, action, objs)
 
     def _predict(self, state, action, ind):
+        """
+        state (PDDLGym.structs.State)
+        action (_type_): _description_
+        ind (_type_): _description_
+
+        """
         lifted_effects = self._effects[ind]
-        sigma = self.find_substitutions(state, action)
+        sigma = self.find_substitutions(state.literals, action)
+
+        # If cannot ground the variable b/c the variable doesn't appear in precondition,
+        # then any assignment of an object in the kb should work.
+        v = []
+        for l in lifted_effects:
+            v.extend(l.variables)
+        for var in v:
+            if var not in sigma:
+                for obj in state.objects:
+                    if obj.var_type == var.var_type:
+                        sigma[var] = obj
+
         return { ground_literal(e, sigma) for e in lifted_effects }
 
-    def predict_max(self, state, action):
+    def predict_max(self, state:State, action):
         """Make the most likely prediction
+
+        state: PDDLGym.structs.State
         """
         ind = np.argmax(self._effect_probs)
         return self._predict(state, action, ind)
 
     def predict_sample(self, state, action):
         """Sample a prediction
+
+        state (PDDLGym.structs.State)
         """
         ind = np.random.choice(len(self._effect_probs), p=self._effect_probs)
         return self._predict(state, action, ind)
@@ -230,7 +255,11 @@ class NDR:
         max_idx = np.argmax(probs)
         max_effects = LiteralConjunction(sorted(effs[max_idx]))
         preconds = LiteralConjunction(sorted(self.preconditions) + [self.action])
-        params = sorted({ v for lit in preconds.literals for v in lit.variables })
+        params = set()
+        for lit in preconds.literals + max_effects.literals:
+            for v in lit.variables:
+                params.add(v)
+        params= sorted(params)
         return Operator(op_name, params, preconds, max_effects)
 
 
@@ -315,13 +344,15 @@ class NDRSet:
     def predict_max(self, state, action):
         """Make the most likely prediction
         """
-        rule = self.find_rule((state, action, None))
+        rule = self.find_rule((state.literals, action, None))
         return rule.predict_max(state, action)
 
     def predict_sample(self, state, action):
         """Sample a prediction
+
+        state: PDDLGym.structs.State
         """
-        rule = self.find_rule((state, action, None))
+        rule = self.find_rule((state.literals, action, None))
         return rule.predict_sample(state, action)
 
     def is_valid(self, transitions):

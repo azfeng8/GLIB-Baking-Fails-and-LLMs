@@ -33,12 +33,14 @@ class FastForwardPlanner(Planner):
         start_time = time.time()
         output = subprocess.getoutput(cmd_str)
         end_time = time.time()
+        if end_time - start_time > 0.9*ac.planner_timeout:
+            raise PlannerTimeoutException()
+        # print(domain_fname, problem_fname)
+        plan = self._output_to_plan(output)
         os.remove(domain_fname)
         if not use_cache:
             os.remove(problem_fname)
-        if end_time - start_time > 0.9*ac.planner_timeout:
-            raise PlannerTimeoutException()
-        plan = self._output_to_plan(output)
+ 
         actions = self._plan_to_actions(plan, objects)
         return actions
 

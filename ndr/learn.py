@@ -5,9 +5,10 @@ from pddlgym.structs import Not, Anti, ground_literal
 from collections import defaultdict
 from termcolor import colored
 from scipy.optimize import minimize
+import pddlgym
 import heapq as hq
 import numpy as np
-import copy
+from typing import Iterable
 import time
 import abc
 import itertools
@@ -22,13 +23,23 @@ DEBUG = False
 class SearchOperator:
 
     @abc.abstractmethod
-    def get_children(self, node):
+    def get_children(self, node:NDRSet) -> Iterable[tuple[float, NDRSet]]:
+        """
+        Args:
+            node (NDRSet)
+
+        Returns:
+            Iterable[tuple[float, NDRSet]]: yields tuples of (score, rule set)
+        """
         raise NotImplementedError()
 
 
-def run_greedy_search(search_operators, init_state, init_score, greedy_break=False, ndr_settings=None,
+def run_greedy_search(search_operators:list[SearchOperator], init_state, init_score, greedy_break=False, ndr_settings=None,
                       max_timeout=None, max_node_expansions=1000, rng=None, verbose=False):
     """Greedy search
+
+    Args:
+        init_state (NDRSet)
     """
     start_time = time.time()
 
@@ -804,7 +815,7 @@ class ExplainExamples(SearchOperator):
                 continue
             
             # Step 3: Create a new rule set containing r
-            new_rule_set = self._create_new_rule_set(action_rule_set, new_rule, ndr_settings=ndr_settings)
+            new_rule_set:NDRSet = self._create_new_rule_set(action_rule_set, new_rule, ndr_settings=ndr_settings)
             # Add R' to the return rule sets R_O
             score = score_action_rule_set(new_rule_set, self.transitions_for_action, ndr_settings=ndr_settings)
             yield score, new_rule_set
@@ -966,7 +977,7 @@ class SplitOnLits(AddLits):
                 yield score, new_rule_set
 
 
-def get_search_operators(action, transitions_for_action, ndr_settings=None, **kwargs):
+def get_search_operators(action, transitions_for_action, ndr_settings=None, **kwargs) -> list[SearchOperator]:
     """Main search operators
     """
     explain_examples = ExplainExamples(action, transitions_for_action, 
@@ -992,6 +1003,10 @@ def run_main_search(transition_dataset, max_node_expansions=1000, rng=None,
                     init_rule_sets=None, search_method="greedy", allow_redundant_variables=False, 
                     **kwargs):
     """Run the main search
+
+    Args:
+        transition_dataset (dict[predicate, list of (state.literals, action, effects)])
+        init_rule_sets (dict[pddlgym.structs.predicate, NDRSet])
     """
     if rng is None:
         rng = np.random.RandomState(seed=0)
@@ -1008,7 +1023,7 @@ def run_main_search(transition_dataset, max_node_expansions=1000, rng=None,
             batch_probs = get_batch_probs(transitions_for_action)
             idxs = rng.choice(len(transitions_for_action), 
                 size=max_action_batch_size, replace=False, p=batch_probs)
-            transitions_for_action = [transitions_for_action[i] for i in idxs]
+            transitions_for_action:list[tuple[frozenset[pddlgym.structs.Literal], pddlgym.structs.Literal, set[pddlgym.structs.Literal]]] = [transitions_for_action[i] for i in idxs]
 
         search_operators = get_search_operators(action, transitions_for_action, 
             ndr_settings=ndr_settings, rng=rng, **kwargs)

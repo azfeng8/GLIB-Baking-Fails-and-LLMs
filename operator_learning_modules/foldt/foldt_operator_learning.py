@@ -148,7 +148,7 @@ class FOLDTOperatorLearningModule:
             final_prediction = [Effect(cls._NoChange())]
         return sorted(list(final_prediction))
 
-    def _foldt_to_operators(self, dt, action_name, suffix=''):
+    def _foldt_to_operators(self, dt:FOLDTClassifier, action_name, suffix=''):
         op_counter = 0
         operators = set()
         for (path, leaf) in dt.get_conditional_literals(dt.root):
@@ -165,6 +165,7 @@ class FOLDTOperatorLearningModule:
             preconds = LiteralConjunction(path)
             effects = LiteralConjunction([effect_to_literal(l) for l in leaf])
             params = self._get_params_from_preconds(preconds)
+            # TODO: Should also get params from effects?
             operator = Operator(name, params, preconds, effects)
             operators.add(operator)
         return operators

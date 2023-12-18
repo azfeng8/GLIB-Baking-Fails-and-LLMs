@@ -90,6 +90,8 @@ def main():
                     results.append(saved_results)
                 min_seeds = min(min_seeds, len(results))
                 max_seeds = max(max_seeds, len(results))
+                if len(results) == 0:
+                    raise Exception(f"Data not found: {seeds_path}")
                 results = np.array(results)
                 label = f"{learner}, {explorer}"
                 xs = results[0,:,0]

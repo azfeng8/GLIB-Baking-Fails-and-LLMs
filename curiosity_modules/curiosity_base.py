@@ -93,7 +93,7 @@ class BaseCuriosityModule:
             for act_pred, ndrs in self._operator_learning_module._ndrs.items():
                 if act_pred.name != action.predicate.name:
                     continue
-                prediction = ndrs.predict_max(state.literals, action)
+                prediction = ndrs.predict_max(state, action)
                 return self._execute_effects(state, prediction)
         else:
             raise NotImplementedError()
@@ -112,7 +112,7 @@ class BaseCuriosityModule:
             for act_pred, ndrs in self._operator_learning_module._ndrs.items():
                 if act_pred.name != action.predicate.name:
                     continue
-                prediction = ndrs.predict_sample(state.literals, action)
+                prediction = ndrs.predict_sample(state, action)
                 return self._execute_effects(state, prediction)
         else:
             raise NotImplementedError()
@@ -313,9 +313,20 @@ class BaseCuriosityModule:
     def _get_ground_effects(self, state, action):
         for op in self._learned_operators:
             assignments = self._preconds_satisfied(state, action, op.preconds.literals)
+
             if assignments is not None:
-                #TODO: If cannot ground the variable b/c the variable doesn't appear in precondition,
+                # If cannot ground the variable b/c the variable doesn't appear in precondition,
                 # then any assignment of an object in the kb should work.
+                v = []
+                for l in op.effects.literals:
+                    v.extend(l.variables)
+                for var in v:
+                    if var not in assignments:
+                        for obj in state.objects:
+                            if obj.var_type == var.var_type:
+                                assignments[var] = obj
+
+                # Ground the literals to assignments found.
                 ground_effects = [structs.ground_literal(l, assignments)
                                   for l in op.effects.literals]
                 return ground_effects

@@ -56,6 +56,7 @@ class OpenAI_Model:
                 pickle.dump(completions, f)
         else:
             with open(cache_filepath, 'rb') as f:
+                print("Cache hit", cache_filepath)
                 completions = pickle.load(f)
         return completions
 

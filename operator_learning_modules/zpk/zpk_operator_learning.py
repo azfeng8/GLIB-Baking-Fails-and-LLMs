@@ -9,7 +9,9 @@ from openai_interface import OpenAI_Model
 import re
 
 from collections import defaultdict
+from typing import Dict
 import tempfile
+import pddlgym
 
 
 class ZPKOperatorLearningModule:
@@ -21,7 +23,7 @@ class ZPKOperatorLearningModule:
         self._seed = ac.seed
         self._rand_state = np.random.RandomState(seed=ac.seed)
         self._learning_on = True
-        self._ndrs = {}
+        self._ndrs:Dict[pddlgym.structs.Predicate,NDRSet] = {}
         self._fits_all_data = defaultdict(bool)
 
     def observe(self, state, action, effects):
@@ -106,8 +108,8 @@ class ZPKOperatorLearningModule:
         selected_ndr = ndr_set.find_rule(transition)
         return get_transition_likelihood(transition, selected_ndr)
 
-    def _ndr_fits_data(self, ndr, state, action, effects):
-        prediction = ndr.predict_max(state.literals, action)
+    def _ndr_fits_data(self, ndr:NDR, state, action, effects):
+        prediction = ndr.predict_max(state, action)
         return sorted(prediction) == sorted(effects)
         # return abs(1 - self.get_probability((state.literals, action, effects))) < 1e-5
 
@@ -210,73 +212,58 @@ class LLMZPKOperatorLearningModule(ZPKOperatorLearningModule):
 
     def _query_llm(self, prompt):
         # response = self._llm.sample_completions([{"role": "user", "content": prompt}], temperature=0, seed=self._seed, num_completions=1)[0]
-        response = """(define (domain glibblocks)
-        (:types robot block)
+        response = """(define (domain rearrangement)
+        (:types moveable static)
         (:predicates
-                (clear ?v0 - block)
-                (handempty ?v0 - robot)
-                (handfull ?v0 - robot)
-                (holding ?v0 - block ?v1 - robot)
-                (on ?v0 - block ?v1 - block)
-                (ontable ?v0 - block)
+                (at ?v0 - moveable ?v1 - static)
+                (handsfree ?v0 - moveable)
+                (holding ?v0 - moveable)
+                (isbear ?v0 - moveable)
+                (isgoal ?v0 - static)
+                (ismonkey ?v0 - moveable)
+                (ispawn ?v0 - moveable)
+                (isrobot ?v0 - moveable)
         )
 
-        (:action pickup
-                :parameters (?v0 - block ?v1 - robot)
+        (:action moveto
+                :parameters (?v0 - moveable ?v1 - static)
                 :precondition (and
-                                (clear ?v0)
-                                (handempty ?v1)
-                                (ontable ?v0)
+                                (handsfree ?v0)
+                                (at ?v0 ?v2)
                 )
                 :effect (and
-                                (not (handempty ?v1))
-                                (handfull ?v1)
-                                (holding ?v0 ?v1)
-                                (not (ontable ?v0))
+                                (not (at ?v0 ?v2))
+                                (at ?v0 ?v1)
                 )
         )
-        (:action putdown
-                :parameters (?v0 - block ?v1 - robot)
+        (:action pick
+                :parameters (?v0 - moveable ?v1 - moveable)
                 :precondition (and
-                                (holding ?v0 ?v1)
-                                (handfull ?v1)
+                                (handsfree ?v0)
+                                (at ?v0 ?v2)
+                                (at ?v1 ?v2)
                 )
                 :effect (and
-                                (not (holding ?v0 ?v1))
-                                (handempty ?v1)
-                                (not (handfull ?v1))
-                                (ontable ?v0)
+                                (not (handsfree ?v0))
+                                (holding ?v1)
+                                (not (at ?v1 ?v2))
                 )
         )
-        (:action stack
-                :parameters (?v0 - block ?v1 - block ?v2 - robot)
+        (:action place
+                :parameters (?v0 - moveable ?v1 - moveable)
                 :precondition (and
-                                (holding ?v0 ?v2)
-                                (clear ?v1)
+                                (not (handsfree ?v0))
+                                (holding ?v1)
+                                (at ?v0 ?v2)
                 )
                 :effect (and
-                                (not (holding ?v0 ?v2))
-                                (handempty ?v2)
-                                (on ?v0 ?v1)
-                                (not (clear ?v1))
-                                (clear ?v0)
-                )
-        )
-        (:action unstack
-                :parameters (?v0 - block ?v1 - block ?v2 - robot)
-                :precondition (and
-                                (on ?v0 ?v1)
-                                (clear ?v0)
-                                (handempty ?v2)
-                )
-                :effect (and
-                                (holding ?v0 ?v2)
-                                (not (on ?v0 ?v1))
-                                (not (clear ?v0))
-                                (clear ?v1)
+                                (handsfree ?v0)
+                                (not (holding ?v1))
+                                (at ?v1 ?v2)
                 )
         )
 )"""
+
         print("Got response", response)
         return response
     
@@ -301,7 +288,7 @@ class LLMZPKOperatorLearningModule(ZPKOperatorLearningModule):
         action_name = re.search("[\w]+", operator_str).group(0)
         action_preds = {p.name:p for p in ac.train_env.action_space.predicates}
         if action_name not in action_preds:
-            return False,f"Invalid action found: {action_name}"
+            return False,f"Invalid operator found: {action_name}"
         # assert action_name in action_preds, f"Invalid action found: {action_name}"
         parameter_str = re.search("\:parameters[^\)]*\)", operator_str).group(0)
         pddl_variables = re.findall("\?[\w\d\s\-]+", parameter_str)
@@ -340,7 +327,9 @@ class LLMZPKOperatorLearningModule(ZPKOperatorLearningModule):
                 if "and" in predicate_str or "not" in predicate_str: continue
                 pred_name = re.search("[\w]+", predicate_str).group(0)
                 if pred_name not in obs_preds:
-                    return False, f"Predicate name not valid: {pred_name}, in precondition {pre_or_eff}"
+                    # Drop the predicate if there are still predicates left in this precondition or effect
+                    edited_predicate_strings.append(("", predicate_str_match.start(), predicate_str_match.end()))
+                    continue
                 arg_types = []
                 arg_names = []
                 for arg_name in re.findall("\?[\w\d]+", predicate_str):
@@ -352,15 +341,28 @@ class LLMZPKOperatorLearningModule(ZPKOperatorLearningModule):
 
                 # Collect the arguments of the predicate in order
                 args = []
+                types_dont_match = False
                 for arg_type in obs_preds[pred_name].var_types:
                     if arg_type not in arg_types:
-                        return False,f"Types don't match for predicate: {pred_name} in action: {action_name}: {arg_types} vs. {obs_preds[pred_name].var_types}"
+                        # Drop the predicate if there are still predicates left in this precondition or effect
+                        edited_predicate_strings.append(("", predicate_str_match.start(), predicate_str_match.end()))
+                        types_dont_match = True
+                        break
                     i = arg_types.index(arg_type)
                     arg_types.pop(i)
                     args.append("?" + arg_names.pop(i))
+                if types_dont_match:
+                    continue
                 # Edit the operator string: drop the extra arguments in this predicate, if any
                 edited_pred_str = f"({pred_name} " + " ".join(args) + ")"
                 edited_predicate_strings.append((edited_pred_str, predicate_str_match.start(), predicate_str_match.end()))
+
+            empty_pre_or_eff:bool = True
+            for p, _, _ in edited_predicate_strings:
+                if p != "": empty_pre_or_eff = False
+
+            if empty_pre_or_eff or len(edited_predicate_strings) == 0:
+                return False, f"No valid predicates parsed for operator: {action_name}."
 
             # Cut and paste the edited parts back into the original string of the precondition or effect part.
             edited_pre_or_eff = ""
@@ -404,8 +406,7 @@ class LLMZPKOperatorLearningModule(ZPKOperatorLearningModule):
     def _llm_output_to_operators(self, llm_output):
         # Parse the LLM output using PDDLGym.
         
-        # Automatically detect malformed LLM output.
-        # To correct LLM output, currently drop the predicates whose types do not match.
+        # Automatically detect and correct malformed LLM output.
 
         # Split the response into chunks separated by "(:action ", and discard the first chunk with the header and LLM chat.
         operator_matches = list(re.finditer("\(\:action\s", llm_output))
