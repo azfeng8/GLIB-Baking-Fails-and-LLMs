@@ -56,8 +56,10 @@ class AgentConfig:
     ]
     # learning_name = "TILDE"
     # learning_name = "LNDR"
-    learning_name = "LLM+LNDR"
+    # learning_name = "LLM+LNDR"
+    learning_name = "LLMIterative+ZPK"
     # learning_name = "groundtruth-PDDLEnv"+EnvConfig.domain_name+"-v0"
+
     planner_name = {
         "Blocks": "ff",
         "Glibblocks": "ff",
@@ -97,6 +99,14 @@ class AgentConfig:
         "Baking": 1,
         "Minecraft": 1,
         "Travel": 1
+    }
+
+    # How often to use the LLM to learn operators. Interval units are learning intervals, not iterations.
+    LLM_learn_interval = {
+        "Baking": 20
+    }
+    LLM_trajectory_length = {
+        "Baking": 10
     }
 
     # Max training episode length.

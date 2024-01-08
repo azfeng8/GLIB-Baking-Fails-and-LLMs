@@ -1,4 +1,5 @@
 from .zpk import ZPKOperatorLearningModule, LLMZPKOperatorLearningModule
+from .llm_plus import LLMZPKIterativeOperatorLearningModule
 from .foldt import FOLDTOperatorLearningModule
 from .groundtruth import GroundTruthOperatorLearningModule
 
@@ -12,4 +13,6 @@ def create_operator_learning_module(operator_learning_name, learned_operators, d
         return LLMZPKOperatorLearningModule(learned_operators, domain_name, llm)
     if operator_learning_name == "TILDE":
         return FOLDTOperatorLearningModule(learned_operators)
+    if operator_learning_name == "LLMIterative+ZPK":
+        return LLMZPKIterativeOperatorLearningModule(learned_operators, domain_name, llm)
     raise Exception("Unrecognized operator learning module '{}'".format(operator_learning_name))
