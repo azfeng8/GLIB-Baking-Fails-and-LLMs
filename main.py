@@ -26,8 +26,8 @@ import pickle
 class Runner:
     """Helper class for running experiments.
     """
-    def __init__(self, agent, train_env, test_env, domain_name, curiosity_name):
-        self.agent = agent
+    def __init__(self, agent:Agent, train_env, test_env, domain_name, curiosity_name):
+        self.agent:Agent = agent
         self.train_env = train_env
         self.test_env = test_env
         self.domain_name = domain_name
@@ -98,6 +98,11 @@ class Runner:
             action = self.agent.get_action(obs)
 
             next_obs, _, episode_done, _ = self.train_env.step(action)
+
+            # # Exclude no-ops
+            # while len(self.agent._compute_effects(obs, next_obs)) == 0:
+            #     next_obs, _, episode_done, _ = self.train_env.step(action)
+
             self.agent.observe(obs, action, next_obs)
             obs = next_obs
             episode_time_step += 1

@@ -5,7 +5,7 @@
 class EnvConfig:
     """Environment-specific constants.
     """
-    domain_name = ["Rearrangement"]#["Minecraft", "Rearrangement", "Travel", "Baking"]
+    domain_name = ["Baking"]#["Minecraft", "Rearrangement", "Travel", "Baking"]
     # domain_name = ['Tireworld']
     # domain_name = ["Glibdoors", "Tireworld", "Glibblocks", "Explodingblocks"]
     # domain_name = ["Gripper", "Travel"]

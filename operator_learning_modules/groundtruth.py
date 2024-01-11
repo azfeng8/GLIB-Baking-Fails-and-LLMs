@@ -8,7 +8,7 @@ class GroundTruthOperatorLearningModule:
             learned_operators.add(operator)
         self._changed = True
 
-    def observe(self, state, action, effects):
+    def observe(self, state, action, effects, **kwargs):
         pass
 
     def learn(self):

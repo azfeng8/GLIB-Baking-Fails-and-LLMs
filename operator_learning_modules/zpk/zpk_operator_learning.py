@@ -26,7 +26,7 @@ class ZPKOperatorLearningModule:
         self._ndrs:Dict[pddlgym.structs.Predicate,NDRSet] = {}
         self._fits_all_data = defaultdict(bool)
 
-    def observe(self, state, action, effects):
+    def observe(self, state, action, effects, **kwargs):
         if not self._learning_on:
             return
         self._transitions[action.predicate].append((state.literals, action, effects))
@@ -212,58 +212,107 @@ class LLMZPKOperatorLearningModule(ZPKOperatorLearningModule):
 
     def _query_llm(self, prompt):
         # response = self._llm.sample_completions([{"role": "user", "content": prompt}], temperature=0, seed=self._seed, num_completions=1)[0]
-        response = """(define (domain rearrangement)
-        (:types moveable static)
+        response = """(define (domain baking)
+        (:types ingredient oven pan soap)
         (:predicates
-                (at ?v0 - moveable ?v1 - static)
-                (handsfree ?v0 - moveable)
-                (holding ?v0 - moveable)
-                (isbear ?v0 - moveable)
-                (isgoal ?v0 - static)
-                (ismonkey ?v0 - moveable)
-                (ispawn ?v0 - moveable)
-                (isrobot ?v0 - moveable)
+                (hypothetical ?v0 - ingredient)
+                (inoven ?v0 - pan ?v1 - oven)
+                (inpan ?v0 - ingredient ?v1 - pan)
+                (iscake ?v0 - ingredient)
+                (isegg ?v0 - ingredient)
+                (isflour ?v0 - ingredient)
+                (ismixed ?v0 - pan)
+                (issouffle ?v0 - ingredient)
+                (ovenisfull ?v0 - oven)
+                (panhasegg ?v0 - pan)
+                (panhasflour ?v0 - pan)
+                (paninoven ?v0 - pan)
+                (panisclean ?v0 - pan)
+                (soapconsumed ?v0 - soap)
         )
 
-        (:action moveto
-                :parameters (?v0 - moveable ?v1 - static)
+        (:action bakecake
+                :parameters (?v0 - ingredient ?v1 - oven)
                 :precondition (and
-                                (handsfree ?v0)
-                                (at ?v0 ?v2)
+                                (panhasegg ?v0 - ?v1)
                 )
                 :effect (and
-                                (not (at ?v0 ?v2))
-                                (at ?v0 ?v1)
+                                (iscake ?v0)
                 )
         )
-        (:action pick
-                :parameters (?v0 - moveable ?v1 - moveable)
+        (:action bakesouffle
+                :parameters (?v0 - ingredient ?v1 - oven)
                 :precondition (and
-                                (handsfree ?v0)
-                                (at ?v0 ?v2)
-                                (at ?v1 ?v2)
+                                (inpan ?v0 - ?v2)
+                                (ismixed ?v2)
+                                (paninoven ?v2 - ?v1)
                 )
                 :effect (and
-                                (not (handsfree ?v0))
-                                (holding ?v1)
-                                (not (at ?v1 ?v2))
+                                (issouffle ?v0)
                 )
         )
-        (:action place
-                :parameters (?v0 - moveable ?v1 - moveable)
+        (:action cleanpan
+                :parameters (?v0 - pan ?v1 - soap)
                 :precondition (and
-                                (not (handsfree ?v0))
-                                (holding ?v1)
-                                (at ?v0 ?v2)
+                                (panisclean ?v0)
+                                (soapconsumed ?v1)
                 )
                 :effect (and
-                                (handsfree ?v0)
-                                (not (holding ?v1))
-                                (at ?v1 ?v2)
+                                (not (panisclean ?v0))
+                )
+        )
+        (:action mix
+                :parameters (?v0 - pan)
+                :precondition (and
+                                (inpan ?v1 - ?v0)
+                                (panhasegg ?v1 - ?v0)
+                                (panhasflour ?v1 - ?v0)
+                )
+                :effect (and
+                                (ismixed ?v0)
+                )
+        )
+        (:action putegginpan
+                :parameters (?v0 - ingredient ?v1 - pan)
+                :precondition (and
+                                (isegg ?v0)
+                                (panisclean ?v1)
+                )
+                :effect (and
+                                (panhasegg ?v0 - ?v1)
+                )
+        )
+        (:action putflourinpan
+                :parameters (?v0 - ingredient ?v1 - pan)
+                :precondition (and
+                                (isflour ?v0)
+                                (panisclean ?v1)
+                )
+                :effect (and
+                                (panhasflour ?v0 - ?v1)
+                )
+        )
+        (:action putpaninoven
+                :parameters (?v0 - pan ?v1 - oven)
+                :precondition (and
+                                (inpan ?v0 - ?v2)
+                                (ismixed ?v2)
+                                (ovenisfull ?v1)
+                )
+                :effect (and
+                                (inoven ?v0 - ?v1)
+                )
+        )
+        (:action removepanfromoven
+                :parameters (?v0 - pan)
+                :precondition (and
+                                (inoven ?v0 - ?v1)
+                )
+                :effect (and
+                                (not (inoven ?v0 - ?v1))
                 )
         )
 )"""
-
         print("Got response", response)
         return response
     

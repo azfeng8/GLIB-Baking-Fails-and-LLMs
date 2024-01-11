@@ -49,6 +49,9 @@ class Agent:
             self._planning_module, self.learned_operators,
             self._operator_learning_module, domain_name)
         
+        # Flag to tell if at the episode start. Unset after observing the first effect.
+        self.episode_start = False
+        
 
     ## Training time methods
     def get_action(self, state):
@@ -63,11 +66,13 @@ class Agent:
         # Get effects
         effects = self._compute_effects(state, next_state)
         # Add data
-        self._operator_learning_module.observe(state, action, effects)
+        self._operator_learning_module.observe(state, action, effects, start_episode=self.episode_start)
         # Some curiosity modules might use transition data
         start_time = time.time()
         self._curiosity_module.observe(state, action, effects)
         self.curiosity_time += time.time()-start_time
+
+        self.episode_start = False
 
     def learn(self):
         # Learn (probably less frequently than observing)
@@ -89,6 +94,7 @@ class Agent:
         start_time = time.time()
         self._curiosity_module.reset_episode(state)
         self.curiosity_time += time.time()-start_time
+        self.episode_start = True
 
     @staticmethod
     def _compute_effects(state, next_state):

@@ -42,7 +42,7 @@ class FOLDTOperatorLearningModule:
         self._fits_all_data = defaultdict(bool)
         self._learning_on = True
 
-    def observe(self, state, action, effects):
+    def observe(self, state, action, effects, **kwargs):
         if not self._learning_on:
             return
         x = (state.literals | {action})

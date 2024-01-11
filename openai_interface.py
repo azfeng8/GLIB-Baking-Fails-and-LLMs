@@ -54,6 +54,7 @@ class OpenAI_Model:
             completions = self._sample_completions(conversation, temperature, seed, num_completions)
             with open(cache_filepath, 'wb') as f:
                 pickle.dump(completions, f)
+            print(f"Saved to {cache_filepath}")
         else:
             with open(cache_filepath, 'rb') as f:
                 print("Cache hit", cache_filepath)
