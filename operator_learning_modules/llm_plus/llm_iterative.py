@@ -1,5 +1,14 @@
+"""
+Strategy: LLM proposes operators based on training data, and score all the learned operators + LLM's operators every once in a while.
+
+Currently, triggered every 20 learning cycles.
+
+Problem: data consists only of successfully executed actions, and LLM only sees this data to improve on the seen operators, not helping explore.
+"""
+import numpy as np
 import pickle
 import re
+from typing import Iterable
 from collections import defaultdict
 from operator_learning_modules import ZPKOperatorLearningModule
 from settings import AgentConfig as ac
@@ -7,14 +16,336 @@ from openai_interface import OpenAI_Model
 from pddlgym.parser import Operator
 from pddlgym.structs import Anti, Type, LiteralConjunction, Literal,TypedEntity
 from abc import abstractmethod
+import pdb
 
-def _score(operators):
-    """Score a set of operators."""
-    raise NotImplementedError("TODO")
 
-def _operator_search(operators, score_fn):
-    """Search over operator sets for best score."""
-    raise NotImplementedError("TODO")
+def _LEAP_operator_search(operators:list[Operator], dataset:list[list[tuple]]) -> list[Operator]:
+    """Hill-climbing search over operator sets for best score.
+
+    Using the following search operators, start search from an empty set:
+        ImproveCoverage search operator
+        ReduceComplexity search operator
+    
+    Inspired by: https://openreview.net/pdf?id=_gZLyRGGuo
+    """
+    def improve_coverage(op_idxes, dataset) -> list[Operator]:
+        """Finds a transition not covered yet in the dataset and adds an operator to better cover it.
+
+        Use notion of "best consistent operator" by counting difference in add and delete effects.
+
+        Prunes out null data operators.
+
+        """
+        # Get the set of transitions not covered.
+        coverage, uncovered_transitions, covered_transitions = LEAP_coverage(dataset, [operators[i] for i in op_idxes])
+        uncovered_transitions = set(uncovered_transitions)
+
+        ### Find the operator, that if added, covers the most uncovered transitions.
+        # For each transition.
+            # Pick the best consistent operator to cover it
+        # Add the operator with most transitions assigned to the operator set.
+        op_to_transitions = defaultdict(list)
+        for uncovered_transition in uncovered_transitions:
+
+            best_op = None
+            best_score = np.inf
+            for i, op in enumerate(operators):
+                if i in op_idxes: continue
+
+                s = consistency_score(op, uncovered_transition)
+                if s == 0 and best_score == 0:
+                    # Tied score, so increment the op being overwritten
+                    op_to_transitions[best_op].append(uncovered_transition)
+                    best_op = i
+                    best_score = s
+                elif s < best_score:
+                    best_op = i
+                    best_score = s
+
+            if best_op is not None:
+                op_to_transitions[best_op].append(uncovered_transition)
+        
+        op_i = max(op_to_transitions, key=lambda x: len(op_to_transitions[x]))
+        op_idxes.add(op_i)
+
+        covered_transitions.extend(op_to_transitions[op_i])
+        op_idxes = prune(op_idxes, covered_transitions)
+
+        return op_idxes
+
+    def consistency_score(op:Operator, transition:tuple):
+        """Integer measure of how much the operator covers the transition.
+
+        Given the ground operator add effects E+ and delete effects E-, and
+        the observed transition add effects e+ and delete effects e-:
+        
+        score = |E+ \ e+| +
+                |e+ \ E+| +
+                |E− \ e-| +
+                |e- \ E−|
+        
+        0 means the operator covers the transition perfectly.
+        np.inf means that the operator does not cover the transition at all.
+        """
+        ### For all valid: Ground operator precondition in state.objects
+
+        state, action, eff = transition
+        lifted_precond = set()
+        action_matches = False
+        for lit in op.preconds.literals:
+            if lit.predicate == action.predicate:
+                action_matches = True
+                continue
+            lifted_precond.add(lit)
+        if not action_matches: return np.inf
+        
+        score = np.inf
+        for precond, assignment in _ground_literals(lifted_precond, state.objects):
+            if precond.issubset(state.literals):
+                ground_effects_assign = _ground_literals(op.effects.literals, state.objects, assignment)
+                assert len(ground_effects_assign) == 1
+                ground_effects, _ = ground_effects_assign[0]
+
+                # calculate score
+                pred_delete_eff = set()
+                pred_add_eff = set()
+                for e in ground_effects:
+                    if e.is_anti:
+                        pred_delete_eff.add(e)
+                    else:
+                        pred_add_eff.add(e)
+                delete_eff = set()
+                add_eff = set()
+                for e in eff:
+                    if e.is_anti:
+                        delete_eff.add(e)
+                    else:
+                        add_eff.add(e)
+                        
+                if ((add_eff & pred_add_eff) == set()) and ((delete_eff & pred_delete_eff) == set()):
+                    s = np.inf
+                else:
+                    s = len(add_eff - pred_add_eff) + len(pred_add_eff - add_eff)  + len(pred_delete_eff - delete_eff) + len(delete_eff - pred_delete_eff)
+                if s < score:
+                    score = s
+            #TODO: if precondition doesn't exactly match, but effects do, then return score > 0
+        return score
+    
+    def prune(op_idxes:set[int], covered_transitions:list[tuple]):
+        """Prune out null data operators.
+
+        If several operators cover a transition, assign the transition to the operator that 'best' describes it.
+        Get rid of operators that don't have any transition assigned to it.
+
+        """
+        op_to_num_transition = defaultdict(lambda: 0)
+        for t in covered_transitions:
+            best_score = np.inf
+            best_ops = []
+            for i in op_idxes:
+                op = operators[i]
+                s = consistency_score(op, t)
+                if s < best_score:
+                    best_score = s
+                    best_ops = [i]
+                elif s == best_score:
+                    best_ops.append(i)
+
+            best_op = np.random(best_ops)
+            op_to_num_transition[best_op] += 1
+        
+        ops = set()
+        for op in op_to_num_transition:
+            if op_to_num_transition[op] != 0:
+                ops.add(op)
+        return ops
+        
+
+    def reduce_complexity(op_idxes, op_i):
+        """Delete a single operator.
+
+        """
+        o = op_idxes - set([op_i])
+        return o
+    op_idxes = set()
+    j_last = np.inf
+    lambda_val = 0.1
+    j_curr = LEAP_score([operators[i] for i in op_idxes], dataset, lambda_val)
+    # print(j_curr)
+    while j_curr < j_last:
+        op_set_prime = improve_coverage(op_idxes, dataset)
+        j = LEAP_score([operators[i] for i in op_idxes], dataset, lambda_val)
+        if j < j_curr:
+            op_idxes = op_set_prime
+            j_curr = j
+        for op_i in op_idxes:
+            op_idxes = reduce_complexity(op_idxes, op_i)
+            j = LEAP_score([operators[i] for i in op_idxes], dataset, lambda_val)
+            if j < j_curr:
+                op_idxes = op_set_prime
+                j_curr = j
+                break
+    return [operators[i] for i in op_idxes]
+
+
+def transition_coverage(op:Operator, transition:tuple) -> bool:
+    """Returns the amount the operator covers the transition.
+    
+    1 if covers exactly.
+    0 if doesn't cover at all.
+
+    max(0, ( len(pred_effects AND pred_effects) - len(pred_effects - pred_effects AND effects) ) / len(effects) ) otherwise.
+
+    Args:
+        op (Operator) 
+        transition (tuple): (state, action, effects)
+    """
+    state, action, eff = transition
+    # if satisfy precond
+    lifted_precond = set()
+    action_matches = False
+    for lit in op.preconds.literals:
+        if lit.predicate == action.predicate:
+            action_matches = True
+            continue
+        lifted_precond.add(lit)
+    if not action_matches: return 0
+    
+    # for all possible groundings
+    score = 0
+    for precond, assignment in _ground_literals(lifted_precond, state.objects):
+        if precond.issubset(state.literals):
+            # compute operator effects
+            ground_effects_assign = _ground_literals(op.effects.literals, state.objects, assignment)
+            assert len(ground_effects_assign) == 1
+            ground_effects, _ = ground_effects_assign[0]
+            # if operator effects match transition
+            if ground_effects == eff:
+                return 1
+            correct = len(ground_effects & eff) 
+            hallucinated = len(ground_effects) - len(ground_effects & eff)
+            s =  max(0, (correct - hallucinated) / len(eff))
+            if s > score:
+                score = s
+    #TODO: if precondition doesn't exactly match, but the effects match, should give score > 0
+    return score 
+                
+def LEAP_coverage(dataset, operators:Iterable[Operator]) -> tuple:
+    """
+    coverage(D,Ω): fraction of transitions the operator set explains
+
+    Args:
+    
+        dataset [ [ transition ] ]: Dataset of episodes of transitions
+        operators [ Operator ] : operator set
+
+    Returns:
+    
+        float: coverage score
+        uncovered_transitions: list of uncovered transitions 
+        covered_transitions:  list of covered transitions 
+
+    """
+    num_covered_transitions = 0
+    total_transitions = 0
+    uncovered_transitions = []
+    covered_transitions = []
+    for episode in dataset:
+        total_transitions += len(episode)
+        for transition in episode:
+            for op in operators:
+                # When using LNDR, better to have a close-but-not-perfect operator effects than no operator at all.
+                c = transition_coverage(op, transition)
+                if c > 0:
+                    num_covered_transitions += c
+                    covered_transitions.append(transition)
+                else:
+                    uncovered_transitions.append(transition)
+            
+    return num_covered_transitions / total_transitions, uncovered_transitions, covered_transitions
+
+
+def LEAP_score(operators:list[Operator], dataset:list[list[tuple]], lambda_val):
+    """Score a set of operators according to:
+    
+    J(Ω) ≜ (1 - coverage(D, Ω)) + λcomplexity(Ω)
+
+    lower is better. J > 0 lower bound.
+
+    D: dataset of transitions, separated by episode
+    Ω: operator set
+    coverage(D,Ω): fraction of transitions the operator set explains
+    complexity(Ω): number of operators
+    lambda: set to not decrease complexity at expense of lower coverage
+        #TODO: experiment with different lambda
+
+    Inspired by: https://openreview.net/pdf?id=_gZLyRGGuo
+    """
+    coverage, _ = LEAP_coverage(dataset, operators)
+    J = 1- coverage + lambda_val * len(operators)
+    return J
+
+
+def _ground_literals(lifted_literals:Iterable[Literal], objects:frozenset[TypedEntity], partial_assignment={}) -> list[tuple[set[Literal], dict]]:
+    """Get all possible groundings of lifted literals with the variable-to-object assignments.
+
+    Args:
+        lifted_precond (set[Literal]): _description_
+        objects (frozenset[TypedEntity]): _description_
+
+    Returns:
+        list[set[Literal]]: list of grounded preconditions
+    """
+    # create a map from var name to type
+    var_to_type = {}
+    for lit in lifted_literals:
+        for v_name, v_type in zip(lit.pddl_variables_typed(), lit.predicate.var_types):
+            var_to_type[v_name] = v_type
+
+    # create a map from type to object
+    type_to_object = defaultdict(list)
+    for o in objects:
+        name, v_type = o._str.split(":")
+        type_to_object[v_type].append(o)
+
+    def dfs(assignment, type_to_object, var_to_type) -> list[dict]:
+        assignments = []
+        for v in var_to_type:
+            possible_objects = type_to_object[var_to_type[v]]
+            if len(possible_objects) == 0:
+                # No assignment possible.
+                return []
+            elif len(possible_objects) == 1:
+                assignment[v] = possible_objects[0] 
+            else:
+                for o in possible_objects:
+                    assignment[v] = o
+                    # Search with this object mapped
+                    type_to_object[var_to_type[v]].remove(o)
+                    v2t = var_to_type.copy()
+                    del v2t[v]
+                    assignments.extend(dfs(assignment, type_to_object, v2t))
+                    type_to_object[var_to_type[v]].append(o)
+                    v2t[v] = var_to_type[v]
+        # At leaf node
+        if len(assignments) == 0:
+            return [assignment]
+        # Passing assignments back up
+        else:
+            return assignments
+
+    # maps of var to object
+    ground_preconds = []
+    for assignment in dfs(partial_assignment, type_to_object, var_to_type):
+        precond = set()
+        for lit in lifted_literals:
+            lit_args = []
+            for v_name in lit.pddl_variables_typed():
+                lit_args.append(assignment[v_name])
+            precond.add(lit.predicate(*lit_args))
+        ground_preconds.append((precond, assignment))
+    return ground_preconds
+        
 
 class BaseLLMIterativeOperatorLearningModule:
     """_summary_
@@ -28,7 +359,10 @@ class BaseLLMIterativeOperatorLearningModule:
         self._action_predicates = {p.name: p for p in ac.train_env.action_space.predicates}
 
         # List of of (s,a,effects) in the current episode
-        self._trajectory = []
+        # self._trajectory = []
+
+        # Dataset of transitions
+        self._trajectories = []
         
     def observe(self, state, action, effects, start_episode=False, **kwargs):
         """Observe a transition.
@@ -43,12 +377,15 @@ class BaseLLMIterativeOperatorLearningModule:
         self.learner.observe(state, action, effects)
 
         # TODO: When episode ends, discard trajectories of length 0.
+        #TODO: store all the episodes
         if start_episode:
-            self._trajectory = []
+            # self._trajectory = []
+            self._trajectories.append([])
 
         # exclude no-ops
         if len(effects) != 0:
-            self._trajectory.append((state, action, effects))
+            # self._trajectory.append((state, action, effects))
+            self._trajectories[-1].append((state, action, effects))
         # else:
         #     print('noop')
 
@@ -89,18 +426,20 @@ class BaseLLMIterativeOperatorLearningModule:
 
         Later can cap the number of actions in trajectory and sample from a random episode. 
         """
-        assert len(self._trajectory) > 0
+        assert len(self._trajectories[-1]) > 0
 
-        init =  self._trajectory[0]
+        #TODO: use the most recent episode if possible. Otherwise sample from some past episode
+        traj = self._trajectories[-1]
+        init =  traj[0]
         init_state, _, _ = init
 
         # Try to get longest trajectory with different goal state than initial state
-        for i,t in enumerate(self._trajectory[::-1]):
+        for i,t in enumerate(traj[::-1]):
             end_state, _, _ = t
             if init_state.literals != end_state.literals:
-                return self._trajectory[:-i]
+                return traj[:-i]
         
-        return self._trajectory
+        return traj
 
     def _propose_operators(self, transitions):
         """
@@ -140,7 +479,7 @@ There is flour (flour-0) as an ingredient, and a pan (pan-0) is in the oven (ove
             else:
                 goal_lits.add(e)
         prompt_goal = prompt_few_shot + f"\nQ:\n" + " ".join([str(l) for l in goal_lits]) + "\nA:\n"
-        #TODO: May vary the temperature on this one
+        #TODO: May vary the temperature
         #TODO: Uncomment. hardcode example to avoid spurious queries during dev
         # goal_state_desription = self._llm.sample_completions([{"role": "user", "content": prompt_goal}], 0, ac.seed, 1)[0]
         goal_state_desription = "The pan (pan-0) is clean and the oven (oven-0) is full. There is a hypothetical new ingredient (new-0). The pan (pan-0) is in the oven (oven-0). There is flour (flour-0) as an ingredient and an egg (egg-0) as another ingredient."
@@ -287,13 +626,15 @@ This operator represents the action of putting a clean pan in an oven that is no
             for v in literal.variables:
                 params.add(v)
 
+        #TODO: need thorough checking of names, types. Importantly, the lifted predicate argument names should be consistent in parameters, preconditions, and effects.
+
         return Operator(op_name, params, preconds, effects)
 
 
     def _score_and_filter(self, ops:list[Operator]) -> list[Operator]:
 
         ops = self._renumber_operators(ops)
-        ops = _operator_search(ops, _score)
+        ops = _LEAP_operator_search(ops, self._trajectories)
         return ops
     
     def _renumber_operators(self, ops:list[Operator]) -> list[Operator]:
@@ -303,7 +644,6 @@ This operator represents the action of putting a clean pan in an oven that is no
         # Strip the trailing digits.
         for op in ops:
             op.name = op.name.rstrip('0123456789')
-            print(op.name)
         # Renumber them.
         unique_names = defaultdict(lambda: 0)
         for op in ops:

@@ -902,7 +902,7 @@ class DropObjects(SearchOperator):
 
 
 class AddLits(SearchOperator):
-    """Search operator that adds one lit per rule from the set
+    """Search operator that adds one lit to the precondition per rule from the set
     """
 
     def __init__(self, transitions_for_action, ndr_settings=None, **kwargs):
