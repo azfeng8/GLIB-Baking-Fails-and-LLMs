@@ -1,4 +1,7 @@
+import sys
+sys.path.append("/home/catalan/GLIB-Baking-Fails-and-LLMs")
 import numpy as np
+import pickle
 from settings import AgentConfig as ac
 from pddlgym.parser import PDDLDomainParser
 from pddlgym.structs import TypedEntity, ground_literal
@@ -23,6 +26,7 @@ class ZPKOperatorLearningModule:
         self._seed = ac.seed
         self._rand_state = np.random.RandomState(seed=ac.seed)
         self._learning_on = True
+        #TODO: make sure that each action predicate can have more than one operator associated with it.
         self._ndrs:Dict[pddlgym.structs.Predicate,NDRSet] = {}
         self._fits_all_data = defaultdict(bool)
 
@@ -37,7 +41,7 @@ class ZPKOperatorLearningModule:
             if not self._ndr_fits_data(ndr, state, action, effects):
                 self._fits_all_data[action.predicate] = False
 
-    def learn(self):
+    def learn(self, iter=-1):
         if not self._learning_on:
             return False
 
@@ -79,6 +83,14 @@ class ZPKOperatorLearningModule:
                 )
                 ndrs_for_action = learned_ndrs[action_predicate]
                 self._ndrs[action_predicate] = ndrs_for_action
+                # if action_predicate.name == 'cleanpan':
+                #     print(self._ndrs[action_predicate])
+                #     with open('/home/catalan/temp/cleanpan_data.pkl', 'wb') as f:
+                #         pickle.dump(self._transitions[action_predicate], f)
+                #     with open('/home/catalan/temp/cleanpan_ndrs.pkl', 'wb') as f:
+                #         pickle.dump(self._ndrs[action_predicate], f)
+                #     with open('/home/catalan/temp/cleanpan_pred.pkl', 'wb') as f:
+                #         pickle.dump(action_predicate, f)
                 self._fits_all_data[action_predicate] = True
                 is_updated = True 
 
@@ -508,3 +520,36 @@ class LLMZPKOperatorLearningModule(ZPKOperatorLearningModule):
             f.write(output)
         domain = PDDLDomainParser(domain_fname)
         return list(domain.operators.values())
+
+# Debug code
+if __name__ == '__main__':
+    def get_batch_probs(data):
+        assert False, "Assumed off"
+        # Favor more recent data
+        p = np.log(np.arange(1, len(data)+1)) + 1e-5
+        # Downweight empty transitions
+        for i in range(len(p)):
+            if len(data[i][2]) == 0:
+                p[i] /= 2.
+        p = p / p.sum()
+        return p
+
+
+    with open('/home/catalan/temp/cleanpan_data.pkl', 'rb') as f:
+        data = pickle.load(f)
+    with open('/home/catalan/temp/cleanpan_ndrs.pkl', 'rb') as f:
+        ndrs = pickle.load(f)
+    with open('/home/catalan/temp/cleanpan_pred.pkl', 'rb') as f:
+        pred = pickle.load(f)
+    ndrs = learn_ndrs({pred: data}, max_timeout=ac.max_zpk_learning_time, max_action_batch_size=ac.max_zpk_action_batch_size['Baking'], get_batch_probs=get_batch_probs,init_rule_sets=None, rng=np.random.RandomState(seed=ac.seed), max_ee_transitions= ac.max_zpk_explain_examples_transitions["Baking"])
+    for ndr in ndrs[pred]:
+        print(ndr.determinize())
+    
+    nonnoop = []
+    for s,a,e in data:
+        if e != set():
+            nonnoop.append((s,a,e))
+    ndrs_nonnoop = learn_ndrs({pred: nonnoop}, max_timeout=ac.max_zpk_learning_time, max_action_batch_size=ac.max_zpk_action_batch_size['Baking'], get_batch_probs=get_batch_probs,init_rule_sets=None, rng=np.random.RandomState(seed=ac.seed), max_ee_transitions= ac.max_zpk_explain_examples_transitions["Baking"])
+    for ndr in ndrs_nonnoop[pred]:
+        print(ndr.determinize())
+ 

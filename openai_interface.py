@@ -32,7 +32,7 @@ class OpenAI_Model:
             self._tokenizer = GPT2TokenizerFast.from_pretrained("gpt2")
             
 
-    def sample_completions(self, conversation, temperature, seed, num_completions, disable_cache=False) -> List[str]:
+    def sample_completions(self, conversation, temperature, seed, num_completions, disable_cache=False) -> tuple[List[str], str]:
         """Cached LLM query.
 
         Args:
@@ -54,12 +54,12 @@ class OpenAI_Model:
             completions = self._sample_completions(conversation, temperature, seed, num_completions)
             with open(cache_filepath, 'wb') as f:
                 pickle.dump(completions, f)
-            print(f"Saved to {cache_filepath}")
+            # print(f"Saved to {cache_filepath}")
         else:
             with open(cache_filepath, 'rb') as f:
-                print("Cache hit", cache_filepath)
+                # print("Cache hit", cache_filepath)
                 completions = pickle.load(f)
-        return completions
+        return completions, cache_filepath
 
     def _sample_completions(self, conversation, temperature, seed, num_completions) -> List[str]:
         """Query the LLM.

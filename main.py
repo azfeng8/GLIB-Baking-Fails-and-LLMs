@@ -116,7 +116,7 @@ class Runner:
                 if self.domain_name == "PybulletBlocks" and self.curiosity_name == "oracle":
                     operators_changed = True
                 else:
-                    operators_changed = self.agent.learn()
+                    operators_changed = self.agent.learn(itr)
 
                 # Only rerun tests if operators have changed, or stochastic env
                 if operators_changed or ac.planner_name[self.domain_name] == "ffreplan" or \
@@ -160,8 +160,6 @@ class Runner:
         """Test current operators. Return (solve rate on test suite,
         average variational distance).
         """
-        # for op in self.agent.learned_operators:
-            # print(op)
         if self.domain_name == "PybulletBlocks" and self.curiosity_name == "oracle":
             # Disable oracle for pybullet.
             return 0.0, 1.0

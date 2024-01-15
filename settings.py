@@ -103,7 +103,7 @@ class AgentConfig:
 
     # How often to use the LLM to learn operators. Interval units are learning intervals, not iterations.
     LLM_learn_interval = {
-        "Baking": 20
+        "Baking": 300
     }
     LLM_trajectory_length = {
         "Baking": 10
@@ -291,9 +291,9 @@ class AgentConfig:
 class GeneralConfig:
     """General configuration constants.
     """
-    verbosity = -1
+    verbosity = 1
     start_seed = 20
-    num_seeds = 5
+    num_seeds = 1   
 
 class LLMConfig:
     """LLM Configuration."""

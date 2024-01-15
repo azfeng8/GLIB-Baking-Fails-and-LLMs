@@ -74,9 +74,9 @@ class Agent:
 
         self.episode_start = False
 
-    def learn(self):
+    def learn(self, itr):
         # Learn (probably less frequently than observing)
-        some_operator_changed = self._operator_learning_module.learn()
+        some_operator_changed = self._operator_learning_module.learn(itr)
         if some_operator_changed:
             start_time = time.time()
             self._curiosity_module.learning_callback()

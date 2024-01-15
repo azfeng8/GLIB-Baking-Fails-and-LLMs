@@ -841,7 +841,7 @@ class DropRules(SearchOperator):
 
 
 class DropLits(SearchOperator):
-    """Search operator that drops one lit per rule from the set
+    """Search operator that drops one lit in the precondition per rule from the set
     """
     def __init__(self, transitions_for_action, ndr_settings=None, **kwargs):
         self.transitions_for_action = transitions_for_action
