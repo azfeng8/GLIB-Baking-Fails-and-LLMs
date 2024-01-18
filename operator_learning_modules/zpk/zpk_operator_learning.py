@@ -383,7 +383,7 @@ class LLMZPKOperatorLearningModule(ZPKOperatorLearningModule):
 
             edited_predicate_strings:list[tuple[str,int,int]] = []
 
-            for predicate_str_match in re.finditer("\([\w]+[\s\?\w]*\)", pre_or_eff):
+            for predicate_str_match in re.finditer("\([\w]+[\s\?\w-]*\)", pre_or_eff):
                 predicate_str = predicate_str_match.group(0)
                 if "and" in predicate_str or "not" in predicate_str: continue
                 pred_name = re.search("[\w]+", predicate_str).group(0)

@@ -81,6 +81,9 @@ class AgentConfig:
 
     # Random seed optionally used by curiosity modules.
     seed = 0
+    # Maximum trajectory length
+    max_traj_len = 10
+
     # How often to learn operators.
     learning_interval = {
         "Blocks": 1,

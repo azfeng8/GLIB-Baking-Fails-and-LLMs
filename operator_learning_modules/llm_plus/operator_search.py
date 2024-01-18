@@ -14,6 +14,7 @@ from pddlgym.structs import Anti, Type, LiteralConjunction, Literal,TypedEntity
 import os
 
 def LEAP_operator_search(operators:list[Operator], dataset:list[list[tuple]], iter) -> list[Operator]:
+    #TODO: [performance] the heavy computation in improve_coverage only needs to be done once.
     #TODO: [performance] cache the dataset partitions and best score / thing that earned the best score. For actions with only 1 operator, automatically take it.
     """Hill-climbing search over operator sets for best score.
 
@@ -58,7 +59,7 @@ def improve_coverage(op_idxes, dataset, operators) -> list[Operator]:
 
     """
     # Get the set of transitions not covered.
-    coverage, uncovered_transitions, covered_transitions = LEAP_coverage(dataset, [operators[i] for i in op_idxes])
+    _, uncovered_transitions, covered_transitions, *_ = LEAP_coverage(dataset, [operators[i] for i in op_idxes])
     if len(uncovered_transitions) == 0:
         # Can't improve coverage more.
         return op_idxes
@@ -271,15 +272,17 @@ def LEAP_coverage(dataset, operators:Iterable[Operator]) -> tuple:
         float: coverage score
         uncovered_transitions: list of uncovered transitions 
         covered_transitions:  list of covered transitions 
+        uncovered_transition_indices: indices (episode index, transition index) into the dataset
 
     """
     num_covered_transitions = 0
     total_transitions = 0
     uncovered_transitions = []
+    uncovered_transition_indices = []
     covered_transitions = []
-    for episode in dataset:
+    for i,episode in enumerate(dataset):
         total_transitions += len(episode)
-        for transition in episode:
+        for j,transition in enumerate(episode):
             best_score = 0
             for op in operators:
                 # When using LNDR, better to have a close-but-not-perfect operator effects than no operator at all.
@@ -292,7 +295,8 @@ def LEAP_coverage(dataset, operators:Iterable[Operator]) -> tuple:
                 covered_transitions.append(transition)
             else:
                 uncovered_transitions.append(transition)
-    return num_covered_transitions / total_transitions, uncovered_transitions, covered_transitions
+                uncovered_transition_indices.append((i,j))
+    return num_covered_transitions / total_transitions, uncovered_transitions, covered_transitions, uncovered_transition_indices
 
 
 def LEAP_score(operators:list[Operator], dataset:list[list[tuple]], lambda_val):
