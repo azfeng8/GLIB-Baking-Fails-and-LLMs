@@ -181,7 +181,7 @@ def transition_score(op:Operator, transition:tuple, coverage=False) -> float:
         coverage_precond_score += len(positive_preconds - state.literals)
 
         ground_effects_assign = _ground_literals(op.effects.literals, state.objects, assignment)
-        if len(ground_effects_assign) > 1: print("Warning: computed multiple effects possible")
+        # if len(ground_effects_assign) > 1: print("Warning: computed multiple effects possible")
 
         for ground_effects, _ in ground_effects_assign:
             # calculate score

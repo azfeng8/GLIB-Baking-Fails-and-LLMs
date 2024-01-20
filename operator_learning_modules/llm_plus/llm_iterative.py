@@ -1,4 +1,5 @@
-#TODO: finish the TODOs on this page, and then run it from logged outputs.
+#TODO: Run with iter 600, cleanpan should be picked up correctly.
+#TODO: Try the operator parsing on all cached LLM PDDL responses.
 """
 Strategy: LLM proposes operators based on training data, and score all the learned operators + LLM's operators every once in a while.
 
@@ -11,7 +12,7 @@ Problem: data consists only of successfully executed actions, and LLM only sees 
 
 from operator_learning_modules.llm_plus.prompts import STATE_TRANSLATION_PROMPT
 from operator_learning_modules.llm_plus.operator_search import LEAP_operator_search, LEAP_coverage
-import queue
+from operator_learning_modules.llm_plus.llm_parsing import LLM_PDDL_Parser
 from typing import Iterable
 import pickle
 import re
@@ -22,27 +23,34 @@ from openai_interface import OpenAI_Model
 from pddlgym.parser import Operator
 from pddlgym.structs import Anti, Type, LiteralConjunction, Literal,TypedEntity
 from abc import abstractmethod
+from ndr.learn import print_rule_set
 import pdb
 import os
 
 ### Debugging params
 LOGGING = False
 READING_DATASET = True
-READING_LLM_RESPONSES = False
+READING_LLM_RESPONSES = True
 READING_LEARNING_MOD_OPS = True
-DEBUG_ITER = 900
-LOG_PATH = f'/home/catalan/temp/iter_{DEBUG_ITER}'
+LOG_PATH_READ = f'/home/catalan/temp/experiment0/iter_600'
+LOG_PATH_WRITE = f'/home/catalan/temp/experiment0'
 
 class BaseLLMIterativeOperatorLearningModule:
-    """_summary_
+    """LLM + learning algorithm combination method. Subclass this with the specific learning algorithm.
     """
     def __init__(self, learned_operators, domain_name, llm):
         self._llm:OpenAI_Model = llm
         self._llm_learn_interval = ac.LLM_learn_interval[domain_name]
         self._learn_iter = 0
         self._learned_operators = learned_operators
-        self._observation_predicates = {p.name: p for p in ac.train_env.observation_space.predicates}
-        self._action_predicates = {p.name: p for p in ac.train_env.action_space.predicates}
+
+        observation_predicates = {p.name: p for p in ac.train_env.observation_space.predicates}
+        action_predicates = {p.name: p for p in ac.train_env.action_space.predicates}
+        types = set()
+        for p in [l for l in ac.train_env.observation_space.predicates] + [a for a in ac.train_env.action_space.predicates]:
+            for v in p.var_types:
+                types.add(v)
+        self._llm_pddl_parser = LLM_PDDL_Parser(action_predicates, observation_predicates, types)
 
         # Dataset of transitions
         self._trajectories = []
@@ -81,16 +89,25 @@ class BaseLLMIterativeOperatorLearningModule:
         """
         is_updated = self.learner.learn()
         self._learned_operators = self.learner._learned_operators
+        # if self._learn_iter % self._llm_learn_interval == 1:
+        #     # Debugging. Check that the learner operators are updated correctly.
+        #     print("\n\nLEARNER OPS, AFTER UPDATING\n")
+        #     for o in self.learner._learned_operators:
+        #         print(o)
+
+        #     print("\n\nLEARNER NDRS, AFTER UPDATING\n")
+        #     print_rule_set(self.learner._ndrs)
+
         if self._learn_iter % self._llm_learn_interval != 0:
             self._learn_iter += 1
             return is_updated
 
         if READING_DATASET:
-            with open(f'/home/catalan/temp/iter_900/trajectories_900.pkl', 'rb') as f:
+            with open(f'{LOG_PATH_READ}/trajectories.pkl', 'rb') as f:
                 self._trajectories = pickle.load(f)
 
         if READING_LEARNING_MOD_OPS:
-            with open(f'/home/catalan/temp/iter_900/learner_ops_900.pkl', 'rb') as f:
+            with open(f'{LOG_PATH_READ}/learner_ops.pkl', 'rb') as f:
                 lops = pickle.load(f)
                 self.learner._learned_operators.clear()
                 for o in lops:
@@ -103,27 +120,33 @@ class BaseLLMIterativeOperatorLearningModule:
         if traj is None:
             return is_updated
 
+        if READING_LLM_RESPONSES:
+            with open(os.path.join(LOG_PATH_READ, "traj.pkl"), 'rb') as f:
+                traj = pickle.load(f)
         if LOGGING:
-            os.makedirs(f'/home/catalan/temp/iter_{itr}', exist_ok=True)
-            with open(f"/home/catalan/temp/iter_{itr}/traj.pkl", 'wb') as f:
+            os.makedirs(f'{LOG_PATH_WRITE}/iter_{itr}', exist_ok=True)
+            with open(f"{LOG_PATH_WRITE}/iter_{itr}/traj.pkl", 'wb') as f:
                 pickle.dump(traj, f)
+            with open(f'{LOG_PATH_WRITE}/iter_{itr}/learner_ops.pkl', 'wb') as f:
+                pickle.dump(self.learner._learned_operators, f)
+            with open(f'{LOG_PATH_WRITE}/iter_{itr}/trajectories.pkl', 'wb') as f:
+                pickle.dump(self._trajectories, f)
 
         # LLM proposes new operator for each of the actions in the trajectory.
 
         ops = self._propose_operators(traj, itr)
 
 
-        print('from llm', ops)
-        print('from learner\n', self.learner._learned_operators)
+        print('\n\nFROM LLM\n')
+        for o in ops:
+            print(o)
+        print('\n\nFROM LEARNER\n')
+        for o in self.learner._learned_operators:
+            print(o)
 
         if LOGGING:
-            with open(f'/home/catalan/temp/iter_{itr}/llm_proposed_ops_{itr}.pkl', 'wb') as f:
+            with open(f'{LOG_PATH_WRITE}/iter_{itr}/llm_proposed_ops.pkl', 'wb') as f:
                 pickle.dump(ops, f)
-            with open(f'/home/catalan/temp/iter_{itr}/learner_ops_{itr}.pkl', 'wb') as f:
-                pickle.dump(self.learner._learned_operators, f)
-            with open(f'/home/catalan/temp/iter_{itr}/trajectories_{itr}.pkl', 'wb') as f:
-                pickle.dump(self._trajectories, f)
-
         # score and filter the PDDL operators
         ops.extend(self.learner._learned_operators)
         ops = self._score_and_filter(ops, itr)
@@ -132,7 +155,7 @@ class BaseLLMIterativeOperatorLearningModule:
         is_updated =  self._update_operator_rep(ops, itr)
 
         if LOGGING:
-            with open(f'/home/catalan/temp/iter_{itr}/ndrs.pkl', 'wb') as f:
+            with open(f'{LOG_PATH_WRITE}/iter_{itr}/ndrs.pkl', 'wb') as f:
                 pickle.dump(self._ndrs, f)
             with open(f'/home/catalan/temp/iter_{itr}/updated_learned_ops.pkl', 'wb') as f:
                 pickle.dump(self._learned_operators, f)
@@ -141,7 +164,15 @@ class BaseLLMIterativeOperatorLearningModule:
         return is_updated
         
             
-    def _update_state_traj(self, window):
+    def _update_state_traj(self, window:tuple):
+        """Return the trajectory of the given window, and update state variables.
+
+        Args:
+            window (tuple): episode_index, start_index, end_index
+
+        Returns:
+            [ transition ]: each transition is tuple of (state literals [frozenset or set], action literal, effects literals [set])
+        """
         episode, start, end = window
         self._llm_proposed_traj.add(window)
         traj = self._trajectories[episode][start:end + 1]
@@ -198,37 +229,48 @@ class BaseLLMIterativeOperatorLearningModule:
         ### 1. 
         # Get uncovered_transitions, the episode index, index within episode
         *_, uncovered_transition_indices = LEAP_coverage(self._trajectories, self.learner._learned_operators)
-        candidates = queue.PriorityQueue()
+        candidates = []
         for ep_i, j in uncovered_transition_indices:
-            state, action, eff = self._trajectories[ep_i][j]
-            llm_seen_action =  (action.predicate.name.rstrip('0123456789') not in self._llm_proposed_actions)
+            _, action, _ = self._trajectories[ep_i][j]
+            llm_seen_action =  (action.predicate.name.rstrip('0123456789') in self._llm_proposed_actions)
             for window in get_windows(ep_i, j):
                 if window not in self._llm_proposed_traj:
                     if llm_seen_action:
-                        candidates.put((1, window))
+                        candidates.append(window)
                     else:
-                        # This is the ideal candidate window.
-                        candidates.put((0, window))
-                        break
+                        # This is the ideal candidate window. Include one per uncovered transition, and choose randomly.
+                        return self._update_state_traj(window)
 
-        if candidates.qsize() > 0:
-            _, window = candidates.get()
+        if len(candidates) > 0:
+            window = candidates[np.random.choice(len(candidates))]
             return self._update_state_traj(window)
                 
-        # TODO: Run with only 1. and 4. implemented. Then fill in 2,3.
-
         ### 2.
         # Look through the learner's dataset to find a transition with action LLM hasn't seen yet
         # If found some, then iterate through the dataset in search for a transition with those action
-        # get_windows(), check if in self._proposed_traj. The first one not in it gets picked.
-
+        #  The first one not seen by LLM gets picked.
         ### 3.
-        # When iterating through dataset in 2. , add the window to priority queue with priority 3 if LLM has seen the actions but not the trajectory yet.
+        # When iterating through dataset in 2. , add the window for consideration if LLM has seen the actions but not the trajectory yet.
+        found_unseen_action = False
+        for action_pred in self.learner._transitions:
+            if action_pred not in self._llm_proposed_actions:
+                found_unseen_action = True
+                break
+        for episode_i in range(len(self._trajectories)):
+            for transition_i in range(len(self._trajectories[episode_i])):
+                action = self._trajectories[episode_i][transition_i][1]
+                if found_unseen_action and action.predicate == action_pred:
+                    for window in get_windows(episode_i, transition_i):
+                        return self._update_state_traj(window)
+                else:
+                    for window in get_windows(episode_i, transition_i):
+                        if window not in self._llm_proposed_traj:
+                            candidates.append(window)
 
-        # if candidates.qsize() > 0:
-        #     _, window = candidates.get()
-        #     return self._update_state_traj(window)
-
+        if len(candidates) > 0:
+            window = candidates[np.random.choice(len(candidates))]
+            return self._update_state_traj(window)
+        
         ### 4. Consider all trajectories.
 
         # Get a random episode's sequence of actions (excluding no-ops)
@@ -252,7 +294,7 @@ class BaseLLMIterativeOperatorLearningModule:
         if LOGGING:
             response_paths = []
         if READING_LLM_RESPONSES:
-            with open('/home/catalan/temp/iter_900/response_files.pkl', 'rb') as f:
+            with open(f'{LOG_PATH_READ}/response_files.pkl', 'rb') as f:
                 response_paths = pickle.load(f)
 
         assert len(transitions) > 0
@@ -316,7 +358,7 @@ class BaseLLMIterativeOperatorLearningModule:
                 response = responses[0]
                 if LOGGING:
                     response_paths.append(f)
-                    with open(f'/home/catalan/temp/iter_{itr}/response_files.pkl', 'wb') as f:
+                    with open(f'{LOG_PATH_WRITE}/iter_{itr}/response_files.pkl', 'wb') as f:
                         pickle.dump(response_paths, f)
 
             op_convos.append([{"role": "user", "content": prompt_operator}, {"role": "assistant", "content": response}])
@@ -329,11 +371,19 @@ class BaseLLMIterativeOperatorLearningModule:
             s = f"({p.name} " + " ".join(p.pddl_variables()) + ")"
             lines.append(s)
         predicates = '\n'.join(lines)
+        objects = set()
+        for pred in (preds + [p for p in env.action_space.predicates]):
+            for v_type in pred.var_types:
+                objects.add(v_type)
+        object_types = '\n'.join(objects)
         operators = []
         for conversation in op_convos:
-            prompt = f"""Given these predicates, translate the description into a PDDL operator:
+            prompt = f"""Given these predicates and object types, translate the description into a PDDL operator:
             Predicates:
             {predicates}
+
+            Object types:
+            {object_types}
 
             Use the format:
             
@@ -356,119 +406,17 @@ class BaseLLMIterativeOperatorLearningModule:
                 response = responses[0]
                 if LOGGING:
                     response_paths.append(f)
-                    with open(f'/home/catalan/temp/iter_{itr}/response_files.pkl', 'wb') as f:
+                    with open(f'{LOG_PATH_WRITE}/iter_{itr}/response_files.pkl', 'wb') as f:
                         pickle.dump(response_paths, f)
 
-            op = self._parse_operator(response)
+            op = self._llm_pddl_parser.parse_operator(response)
             if op is not None:
                 operators.append(op)
 
         if LOGGING:
-            with open(f'/home/catalan/temp/iter_{itr}/response_files.pkl', 'wb') as f:
+            with open(f'{LOG_PATH_WRITE}/iter_{itr}/response_files.pkl', 'wb') as f:
                 pickle.dump(response_paths, f)
         return operators
-
-    def _parse_operator(self, llm_response:str) -> Operator or None:
-        """Parse an Operator from the LLM response.
-
-        Args:
-            llm_response (str)
-
-        Raises:
-            Exception: Used in debugging only, will remove #TODO:.
-
-        Returns:
-            Operator or None: operator that was parsed, or None if not able to parse a non-null-effect operator.
-        """
-        # Find the PDDL operator in the response.
-        match = re.search("\(\:action", llm_response)
-        # Count parantheses: look for the closing to "(:action" to get the operator string.
-        open_parans = 0
-        close = 0
-        i = match.end()
-        operator_str = None
-        for c in llm_response[match.end():]:
-            if c == "(":
-                open_parans += 1
-            elif c == ")":
-                close += 1
-            if close > open_parans:
-                operator_str = llm_response[match.start():i]
-                break
-            i+=1
-
-        if operator_str is None: raise Exception(f"Parsing error: {llm_response}")
-        # Extract operator name.
-        match = re.search("\(\:action\s\w+", operator_str)
-        op_name = operator_str[match.start() + len("(:action "):match.end()]
-
-        # Extract parameters.
-            # NOTE: Assume parameters are written on one line.
-        match = re.search("\:parameters[^\)]*\)", operator_str)
-        param_str = operator_str[match.start() + len(":parameters ("): match.end()].rstrip(')')
-        param_names:list[str] = []
-        param_types:list[str] = []
-        for s in param_str.split('?'):
-            if s == "": continue
-            name, var_type = s.split(' - ')
-            name = name.strip()
-            var_type = var_type.strip()
-            param_names.append(name)
-            param_types.append(var_type)
-
-        # Extract preconditions.
-        match = re.search(":precondition([\s\S]*?):effect", operator_str)
-        precond_str = operator_str[match.start() + len(":precondition (") : match.end() - len(":effect")]
-        literals = self._get_literals(precond_str, param_names, param_types)
-
-        # NOTE: Prompting the action multiple times will result in different operators.
-        action_pred = self._action_predicates[op_name]
-        args = []
-        for v_type in action_pred.var_types:
-            v_name = param_names[param_types.index(str(v_type))]
-            args.append(Type(v_name))
-        action = action_pred(*args)
-        preconds = LiteralConjunction(literals + [action])
-
-        # Extract effects.
-        effect_str_match = re.search(":effect([\s\S]*?)\s\)", operator_str)
-        effect_str = operator_str[effect_str_match.start():effect_str_match.end()]
-        eliterals = self._get_literals(effect_str, param_names, param_types)
-        if len(eliterals) == 0: return None
-        effects = LiteralConjunction(eliterals)
-
-        # Rename the variables
-        var_name_gen = iter_variable_names()
-        variables = {}
-        for l in effects.literals + preconds.literals:
-            for v in l.variables:
-                if v not in variables:
-                    v_name = next(var_name_gen)
-                    variables[v] = Type(v_name)
-
-        literals = []
-        for l in preconds.literals:
-            args = []
-            for v in l.variables:
-                args.append(variables[v])
-            literals.append(Literal(l.predicate, args))
-        preconds = LiteralConjunction(literals)
-
-        literals = []
-        for l in effects.literals:
-            args = []
-            for v in l.variables:
-                args.append(variables[v])
-            literals.append(Literal(l.predicate, args))
-        effects = LiteralConjunction(literals)       
-
-        params = set()
-        for l in effects.literals + preconds.literals:
-            for v in l.variables:
-                params.add(v)
-                
-        return Operator(op_name, params, preconds, effects)
-
 
     def _score_and_filter(self, ops:list[Operator], iter) -> list[Operator]:
 
@@ -491,49 +439,6 @@ class BaseLLMIterativeOperatorLearningModule:
             op.name = f"{op.name}{i}"
         return ops
     
-    def _get_literals(self, precond_or_eff_str:str, param_names:list[str], param_types:list[str]) -> list[Literal]:
-        """Helper for _parse_operator. Returns Literals in the precondition or effect string.
-
-        A parsed predicate is dropped if:
-            - If the parsed predicate argument doesn't appear in the parsed parameters
-            - If parsed argument types don't match the predicate argument types
-
-        Returns:
-            list[Literal]
-        """
-        literals = []
-        for predicate_str_match in re.finditer("\([\w]+[\s\?\w-]*\)", precond_or_eff_str):
-            predicate_str = predicate_str_match.group(0)
-            if "and" in predicate_str or "not" in predicate_str: 
-                continue
-            pred_name = re.search("[\w]+", predicate_str).group(0)
-
-            if pred_name not in self._observation_predicates:
-                continue
-
-            args = []
-            arg_types = []
-            drop_pred = False
-            for arg_name in re.findall("\?[\w\d]+", predicate_str):
-                arg_name = arg_name[1:] # remove the "?" in front
-                if arg_name not in param_names:
-                    drop_pred = True
-                    break
-                arg_type = param_types[param_names.index(arg_name)]
-                arg_types.append(arg_type)
-                args.append(Type(f"{arg_name}"))
-
-            if drop_pred:
-                continue
-            predicate = self._observation_predicates[pred_name]
-            if predicate.var_types != arg_types:
-                continue
-
-            literals.append(Literal(predicate, args))
-
-        return literals
-
-
     @abstractmethod
     def _update_operator_rep(self, itr):
         raise NotImplementedError("Override me!")
@@ -595,7 +500,10 @@ class LLMZPKIterativeOperatorLearningModule(BaseLLMIterativeOperatorLearningModu
         self._ndrs = ndr_sets
         self.learner._ndrs = ndr_sets
 
-        print("\nupdated", self._learned_operators)
+        print("\n\nUPDATED\n")
+        for o in self._learned_operators:
+            print(o)
+
         return True
     def _resume(self, itr):
 

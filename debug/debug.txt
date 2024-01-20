@@ -10,41 +10,13 @@ Bugs log:
 #TODO: investigate the uncovered transitions: several with "mix", "cleanpan": shouldn't LNDR pick them up?
  # Large amount of no-op data is causing the NDRs to be learned badly (learn NDRs with no effects). Checked LNDR code, ran debug at the bottom of ZPK file.
 
-Iteration 900 of 1801
-from llm [bakesouffle(v2:pan,v1:oven,v0:ingredient): inpan(v0:ingredient,v2:pan) & ovenisfull(v1:oven) & bakesouffle(v0:ingredient,v1:oven) => ovenisfull(v1:oven) & issouffle(v0:ingredient) & inpan(v0:ingredient,v2:pan) & inoven(v2:pan,v1:oven), putpaninoven(v0:pan,v1:oven): putpaninoven(v0:pan,v1:oven) => , putegginpan(v0:ingredient,v1:pan): isegg(v0:ingredient) & panisclean(v1:pan) & putegginpan(v0:ingredient,v1:pan) => inpan(v0:ingredient,v1:pan) & panhasegg(v1:pan)]
-from learner
- {removepanfromoven0(?x0:pan,?x1:oven): inoven(?x0:pan,?x1:oven) & removepanfromoven(?x0:pan) => Antiinoven(?x0:pan,?x1:oven) & Antiovenisfull(?x1:oven) & Antipaninoven(?x0:pan), bakesouffle0(?x0:ingredient,?x1:oven,?x2:ingredient,?x3:pan): hypothetical(?x0:ingredient) & inoven(?x3:pan,?x1:oven) & inpan(?x2:ingredient,?x3:pan) & bakesouffle(?x0:ingredient,?x1:oven) => Antihypothetical(?x0:ingredient) & Antiinpan(?x2:ingredient,?x3:pan) & Antiisegg(?x2:ingredient) & Antipanhasegg(?x3:pan) & Antipanisclean(?x3:pan) & issouffle(?x0:ingredient), putpaninoven0(?x0:pan,?x1:oven): Notovenisfull(?x1:oven) & Notpaninoven(?x0:pan) & putpaninoven(?x0:pan,?x1:oven) => inoven(?x0:pan,?x1:oven) & ovenisfull(?x1:oven) & paninoven(?x0:pan), putegginpan0(?x0:ingredient,?x1:pan): Notpanhasegg(?x1:pan) & Notpaninoven(?x1:pan) & isegg(?x0:ingredient) & panisclean(?x1:pan) & putegginpan(?x0:ingredient,?x1:pan) => inpan(?x0:ingredient,?x1:pan) & panhasegg(?x1:pan)}
+1/20/23
 
-Starting search
+Implemented final touches on trajectory sampling.
 
-Got uncovered transition for action: putflourinpan(flour-0:ingredient,pan-0:pan)
-Got uncovered transition for action: putflourinpan(flour-0:ingredient,pan-0:pan)
-Got uncovered transition for action: putflourinpan(flour-0:ingredient,pan-0:pan)
-Got uncovered transition for action: putflourinpan(flour-0:ingredient,pan-0:pan)
-Got uncovered transition for action: putflourinpan(flour-0:ingredient,pan-0:pan)
+Caught and fixed at least one bug, in parsing.
 
-updated {bakesouffle1(?x0:ingredient,?x1:oven,?x2:ingredient,?x3:pan): hypothetical(?x0:ingredient) & inoven(?x3:pan,?x1:oven) & inpan(?x2:ingredient,?x3:pan) & bakesouffle(?x0:ingredient,?x1:oven) => Antihypothetical(?x0:ingredient) & Antiinpan(?x2:ingredient,?x3:pan) & Antiisegg(?x2:ingredient) & Antipanhasegg(?x3:pan) & Antipanisclean(?x3:pan) & issouffle(?x0:ingredient), putpaninoven1(?x0:pan,?x1:oven): Notovenisfull(?x1:oven) & Notpaninoven(?x0:pan) & putpaninoven(?x0:pan,?x1:oven) => inoven(?x0:pan,?x1:oven) & ovenisfull(?x1:oven) & paninoven(?x0:pan), removepanfromoven0(?x0:pan,?x1:oven): inoven(?x0:pan,?x1:oven) & removepanfromoven(?x0:pan) => Antiinoven(?x0:pan,?x1:oven) & Antiovenisfull(?x1:oven) & Antipaninoven(?x0:pan), putegginpan0(v0:ingredient,v1:pan): isegg(v0:ingredient) & panisclean(v1:pan) & putegginpan(v0:ingredient,v1:pan) => inpan(v0:ingredient,v1:pan) & panhasegg(v1:pan)}
+Ran LNDR through once. Discovered parsing bugs:
+  Discovered bug from not parsing negative preconditions and effects.
+  Scoped fix to implement: rewrite the parsing + syntax correction.
 
- Traceback (most recent call last):ses so far
-  File "/home/catalan/GLIB-Baking-Fails-and-LLMs/main.py", line 285, in <module>
-    _main()
-  File "/home/catalan/GLIB-Baking-Fails-and-LLMs/main.py", line 271, in _main
-    single_seed_results = _run_single_seed(
-  File "/home/catalan/GLIB-Baking-Fails-and-LLMs/main.py", line 225, in _run_single_seed
-    results, curiosity_avg_time = Runner(agent, train_env, test_env, domain_name, curiosity_name).run()
-  File "/home/catalan/GLIB-Baking-Fails-and-LLMs/main.py", line 128, in run
-    test_solve_rate, variational_dist = self._evaluate_operators()
-  File "/home/catalan/GLIB-Baking-Fails-and-LLMs/main.py", line 177, in _evaluate_operators
-    policy = self.agent.get_policy(debug_info["problem_file"])
-  File "/home/catalan/GLIB-Baking-Fails-and-LLMs/agent.py", line 108, in get_policy
-    return self._planning_module.get_policy(problem_fname)
-  File "/home/catalan/GLIB-Baking-Fails-and-LLMs/planning_modules/ff.py", line 19, in get_policy
-    actions = self.get_plan(raw_problem_fname)
-  File "/home/catalan/GLIB-Baking-Fails-and-LLMs/planning_modules/ff.py", line 39, in get_plan
-    plan = self._output_to_plan(output)
-  File "/home/catalan/GLIB-Baking-Fails-and-LLMs/planning_modules/ff.py", line 62, in _output_to_plan
-    raise Exception("Plan not found with FF! Error: {}".format(output))
-Exception: Plan not found with FF! Error: 
-ff: parsing domain file
-/tmp/learned_dom_Baking_5842711.pddl: syntax error in line 52, 'V0':
-domain definition expected
