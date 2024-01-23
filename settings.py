@@ -41,7 +41,8 @@ class AgentConfig:
     curiosity_methods_to_run = [
         # "LLM+GLIB_L2"
         # "GLIB_L2",
-        "GLIB_G1",
+        "LLM+GLIB_G1"
+        # "GLIB_G1",
         # "oracle",
         # "random",
         # "GLIB_Seq"
@@ -55,9 +56,9 @@ class AgentConfig:
         # "random",
     ]
     # learning_name = "TILDE"
-    learning_name = "LNDR"
+    # learning_name = "LNDR"
     # learning_name = "LLM+LNDR"
-    # learning_name = "LLMIterative+ZPK"
+    learning_name = "LLMIterative+ZPK"
     # learning_name = "groundtruth-PDDLEnv"+EnvConfig.domain_name+"-v0"
 
     planner_name = {
@@ -104,7 +105,7 @@ class AgentConfig:
         "Travel": 1
     }
 
-    # How often to use the LLM to learn operators. Interval units are learning intervals, not iterations.
+    # How often to use the LLM to learn operators. Interval units are iterations.
     LLM_learn_interval = {
         "Baking": 300
     }

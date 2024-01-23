@@ -36,6 +36,7 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
         """Execute plans open loop until stuck, then replan"""
         action = self._get_action(state)
         self._num_steps += 1
+        print("ACTION:", action)
         return action
 
     def _get_action(self, state):
@@ -45,7 +46,8 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
         # Continue executing plan?
         if self._plan and (last_state != state):
             self.line_stats.append(1)
-            # print("CONTINUING PLAN")
+            print("CONTINUING PLAN")
+            print("PLAN:", self._plan)
             return self._plan.pop(0)
 
         # Try to sample a goal for which we can find a plan
@@ -81,8 +83,8 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
 
             if self._plan_is_good():
                 self._plan = self._finish_plan(self._plan)
-                # print("\tGOAL:", goal)
-                # print("\tPLAN:", self._plan)
+                print("\tGOAL:", goal)
+                print("\tPLAN:", self._plan)
                 # import ipdb; ipdb.set_trace()
                 # Take the first step in the plan
                 self.line_stats.append(1)
@@ -99,3 +101,6 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
 
     def _plan_is_good(self):
         return bool(self._plan)
+
+    def learn(self, itr):
+        pass

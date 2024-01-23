@@ -33,11 +33,12 @@ class Agent:
         self.learned_operators = set()
 
         self.llm = OpenAI_Model()
+        self.llm_learned_ops = set()
 
         # The operator learning module learns operators. It should update the
         # agent's learned operators set
         self._operator_learning_module = create_operator_learning_module(
-            operator_learning_name, self.learned_operators, self.domain_name, self.llm)
+            operator_learning_name, self.learned_operators, self.domain_name, self.llm, self.llm_learned_ops)
         # The planning module uses the learned operators to plan at test time.
         self._planning_module = create_planning_module(
             planning_module_name, self.learned_operators, domain_name,
@@ -47,7 +48,7 @@ class Agent:
         self._curiosity_module = create_curiosity_module(
             curiosity_module_name, action_space, observation_space,
             self._planning_module, self.learned_operators,
-            self._operator_learning_module, domain_name)
+            self._operator_learning_module, domain_name, self.llm_learned_ops)
         
         # Flag to tell if at the episode start. Unset after observing the first effect.
         self.episode_start = False
@@ -77,6 +78,8 @@ class Agent:
     def learn(self, itr):
         # Learn (probably less frequently than observing)
         some_operator_changed = self._operator_learning_module.learn(itr)
+        self._curiosity_module.learn(itr)
+
         if some_operator_changed:
             start_time = time.time()
             self._curiosity_module.learning_callback()

@@ -29,21 +29,21 @@ import os
 from typing import Iterable
 
 ### Debugging params
-LOGGING = False
-READING_DATASET = True
-READING_LLM_RESPONSES = True
-READING_LEARNING_MOD_OPS = True
+LOGGING = True
+READING_DATASET = False
+READING_LLM_RESPONSES = False
+READING_LEARNING_MOD_OPS = False
 LOG_PATH_READ = f'/home/catalan/temp/experiment1/iter_1200'
-LOG_PATH_WRITE = f'/home/catalan/temp/experiment1'
+LOG_PATH_WRITE = f'/home/catalan/temp/experiment2'
 
 class BaseLLMIterativeOperatorLearningModule:
     """LLM + learning algorithm combination method. Subclass this with the specific learning algorithm.
     """
-    def __init__(self, learned_operators, domain_name, llm):
+    def __init__(self, learned_operators, domain_name, llm, llm_learned_ops):
         self._llm:OpenAI_Model = llm
         self._llm_learn_interval = ac.LLM_learn_interval[domain_name]
-        self._learn_iter = 0
         self._learned_operators = learned_operators
+        self._llm_learned_ops = llm_learned_ops
 
         observation_predicates = {p.name: p for p in ac.train_env.observation_space.predicates}
         action_predicates = {p.name: p for p in ac.train_env.action_space.predicates}
@@ -91,7 +91,7 @@ class BaseLLMIterativeOperatorLearningModule:
         is_updated = self.learner.learn()
         self._learned_operators = self.learner._learned_operators
 
-        # if self._learn_iter % self._llm_learn_interval != 0:
+        # if itr % self._llm_learn_interval != 0:
             # Debugging. Check that the learner operators are updated correctly.
             # print("\n\nLEARNER NDRS, AFTER UPDATING\n")
             # print_rule_set(self.learner._ndrs)
@@ -99,8 +99,7 @@ class BaseLLMIterativeOperatorLearningModule:
             #     if "cleanpan" in  action_pred.name:
             #         print("Dataset", self.learner._transitions[action_pred])
 
-        if self._learn_iter % self._llm_learn_interval != 0:
-            self._learn_iter += 1
+        if itr % self._llm_learn_interval != 0:
             return is_updated
 
         if READING_DATASET:
@@ -138,11 +137,11 @@ class BaseLLMIterativeOperatorLearningModule:
 
         # LLM proposes new operator for each of the actions in the trajectory.
 
-        ops = self._propose_operators(traj, itr)
+        llm_ops = self._propose_operators(traj, itr)
 
 
         print('\n\nFROM LLM\n')
-        for o in ops:
+        for o in llm_ops:
             print(o)
         print('\n\nFROM LEARNER\n')
         for o in self.learner._learned_operators:
@@ -150,12 +149,12 @@ class BaseLLMIterativeOperatorLearningModule:
 
         if LOGGING:
             with open(f'{LOG_PATH_WRITE}/iter_{itr}/llm_proposed_ops.pkl', 'wb') as f:
-                pickle.dump(ops, f)
+                pickle.dump(llm_ops, f)
         # score and filter the PDDL operators
-        ops.extend(self.learner._learned_operators)
-        ops = self._score_and_filter(ops, itr)
+        ops = self._score_and_filter(llm_ops, itr)
 
         # update learner operators
+        #TODO: remove?
         is_updated =  self._update_operator_rep(ops, itr)
 
         if LOGGING:
@@ -164,7 +163,6 @@ class BaseLLMIterativeOperatorLearningModule:
             with open(f'/home/catalan/temp/iter_{itr}/updated_learned_ops.pkl', 'wb') as f:
                 pickle.dump(self._learned_operators, f)
 
-        self._learn_iter += 1
         return is_updated
         
             
@@ -422,27 +420,59 @@ class BaseLLMIterativeOperatorLearningModule:
                 pickle.dump(response_paths, f)
         return operators
 
-    def _score_and_filter(self, ops:list[Operator], iter) -> list[Operator]:
+    def _score_and_filter(self, llm_ops:list[Operator], iter) -> list[Operator]:
+        """Score all the operators (from LLM and learner) and return the best operator set.
 
-        ops = self._renumber_operators(ops)
-        ops = LEAP_operator_search(ops, self._trajectories, iter)
-        return ops
-    
-    def _renumber_operators(self, ops:list[Operator]) -> list[Operator]:
-        """Rename the operators so names are all different.
+        Keeps track of which LLM proposed operators were newly added.
+
+        Args:
+            llm_ops (list[Operator]): operators proposed by LLM
+            iter (int): iteration number.
+
+        Returns:
+            list[Operator]: _description_
         """
+        llm_end_index = len(llm_ops)
+        all_ops = llm_ops + list(self.learner._learned_operators)
+
+        # Renumber the operators so names don't clash.
         # NOTE: Assume initially, operator names are action names or have digits at the end of them.
         # Strip the trailing digits.
-        for op in ops:
+        for op in all_ops:
             op.name = op.name.rstrip('0123456789')
-        # Renumber them.
         unique_names = defaultdict(lambda: 0)
-        for op in ops:
+        for op in all_ops:
             i = unique_names[op.name]
             unique_names[op.name] += 1
             op.name = f"{op.name}{i}"
+
+        op_idxes = LEAP_operator_search(all_ops, self._trajectories, iter)
+        llm_accepted_ops = []
+        for op_i in op_idxes:
+            if op_i < llm_end_index:
+                llm_accepted_ops.append(all_ops[op_i])
+        self._update_llm_learned_ops(llm_accepted_ops)
+        ops = [all_ops[i] for i in op_idxes]
         return ops
-    
+   
+    def _update_llm_learned_ops(self, llm_accepted_ops):
+        """Update the set of operators proposed by LLM that are good.
+
+        Don't just add to the previous set because the learner may have a better operator
+        by now: clear the previous set.
+        
+        The LLM proposes operators at intervals large enough for several episodes to happen and
+        give the exploration a chance to actually collect the needed data.
+        
+        Args:
+            llm_accepted_ops (_type_): _description_
+        """
+        self._llm_learned_ops.clear()
+        for o in llm_accepted_ops:
+            self._llm_learned_ops.add(o)
+        print("UPDATED from LLM ITERATIVE")
+        print(self._llm_learned_ops)
+
     @abstractmethod
     def _update_operator_rep(self, itr):
         raise NotImplementedError("Override me!")
@@ -457,11 +487,11 @@ from ndr.learn import iter_variable_names
 from pddlgym.structs import TypedEntity, ground_literal
 
 class LLMZPKIterativeOperatorLearningModule(BaseLLMIterativeOperatorLearningModule):
-    def __init__(self, learned_operators, domain_name, llm):
+    def __init__(self, learned_operators, domain_name, llm, llm_learned_operators):
         self.learner = ZPKOperatorLearningModule(learned_operators, domain_name)
         self._ndrs = self.learner._ndrs
 
-        super().__init__(learned_operators, domain_name, llm)
+        super().__init__(learned_operators, domain_name, llm, llm_learned_operators)
 
     def _update_operator_rep(self, ops:list[Operator], itr=-1) -> bool:
         """Update the NDRs.
@@ -521,7 +551,6 @@ class LLMZPKIterativeOperatorLearningModule(BaseLLMIterativeOperatorLearningModu
             for o in pickle.load(f):
                 self._learned_operators.add(o)
                 self.learner._learned_operators.add(o)
-        self._learn_iter = itr
 
 def get_next_state(goal_state, effects):
     goal_lits = set()

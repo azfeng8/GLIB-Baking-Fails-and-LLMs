@@ -18,7 +18,7 @@ class BaseCuriosityModule:
     """Base class for a curiosity module.
     """
     def __init__(self, action_space, observation_space, planning_module,
-                 learned_operators, operator_learning_module, domain_name):
+                 learned_operators, operator_learning_module, domain_name, llm_learned_operators):
         self._action_space = action_space
         self._observation_space = observation_space
         self._planning_module = planning_module
@@ -30,6 +30,8 @@ class BaseCuriosityModule:
         self._observation_space.seed(ac.seed)
 
         self._mutex_cache = {}
+
+        self._llm_learned_ops = llm_learned_operators
         self._initialize()
 
     @abc.abstractmethod

@@ -16,7 +16,7 @@ import os
 
 OPERATOR_SEARCH_LOGGER = logging.getLogger("OPERATOR_SEARCH")
 
-def LEAP_operator_search(operators:list[Operator], dataset:list[list[tuple]], iter) -> list[Operator]:
+def LEAP_operator_search(operators:list[Operator], dataset:list[list[tuple]], iter) -> list[int]:
     #TODO: [performance] the heavy computation in improve_coverage only needs to be done once.
     #TODO: [performance] cache the dataset partitions and best score / thing that earned the best score. For actions with only 1 operator, automatically take it.
     """Hill-climbing search over operator sets for best score.
@@ -26,6 +26,9 @@ def LEAP_operator_search(operators:list[Operator], dataset:list[list[tuple]], it
         ReduceComplexity search operator
     
     Inspired by: https://openreview.net/pdf?id=_gZLyRGGuo
+
+    Returns:
+        indices into the operators list.
     """
     with open(f'/home/catalan/temp/iter_{iter}/all_operators.pkl', 'wb') as f:
         pickle.dump(operators, f)
@@ -54,8 +57,7 @@ def LEAP_operator_search(operators:list[Operator], dataset:list[list[tuple]], it
                 op_idxes = op_set_prime
                 j_curr = j
         OPERATOR_SEARCH_LOGGER.debug(f"Iterating. operator set: {op_idxes} score: {j_curr}")
-    res =  [operators[i] for i in op_idxes]
-    return res
+    return op_idxes
 
 def improve_coverage(op_idxes, dataset, operators) -> list[Operator]:
     """Finds a transition not covered yet in the dataset and adds an operator to better cover it.
@@ -181,7 +183,7 @@ def transition_score(op:Operator, transition:tuple, coverage=False, debug=False)
     else:
         score = np.inf
 
-    for precond, assignment in _ground_literals(lifted_precond, state.objects):
+    for precond, assignment in ground_literals(lifted_precond, state.objects):
 
         # Handle negative preconditions
         consistency_precond_score = 0
@@ -202,7 +204,7 @@ def transition_score(op:Operator, transition:tuple, coverage=False, debug=False)
         consistency_precond_score = max(0, consistency_precond_score)
         coverage_precond_score += len(positive_preconds - state.literals)
 
-        ground_effects_assign = _ground_literals(op.effects.literals, state.objects, assignment)
+        ground_effects_assign = ground_literals(op.effects.literals, state.objects, assignment)
         # if len(ground_effects_assign) > 1: print("Warning: computed multiple effects possible")
 
         for ground_effects, _ in ground_effects_assign:
@@ -353,7 +355,7 @@ def LEAP_score(operators:list[Operator], dataset:list[list[tuple]], lambda_val):
     return J
 
 
-def _ground_literals(lifted_literals:Iterable[Literal], objects:frozenset[TypedEntity], partial_assignment={}) -> list[tuple[set[Literal], dict]]:
+def ground_literals(lifted_literals:Iterable[Literal], objects:frozenset[TypedEntity], partial_assignment={}) -> list[tuple[set[Literal], dict]]:
     """Get all possible groundings of lifted literals with the variable-to-object assignments.
 
     Args:
@@ -361,7 +363,7 @@ def _ground_literals(lifted_literals:Iterable[Literal], objects:frozenset[TypedE
         objects (frozenset[TypedEntity]): _description_
 
     Returns:
-        list[set[Literal]]: list of grounded preconditions
+        [ (set[Literal], dict) ]: list of (sets of grounded literals, assignment)
     """
     # create a map from var name to type
     var_to_type = {}

@@ -170,7 +170,7 @@ class Runner:
             num_problems = len(self.test_env.problems)
         for problem_idx in range(num_problems):
             print("\tTest case {} of {}, {} successes so far".format(
-                problem_idx+1, num_problems, num_successes), end="\r")
+                problem_idx+1, num_problems, num_successes))#, end="\r")
             self.test_env.fix_problem_index(problem_idx)
             obs, debug_info = self.test_env.reset()
             try:
