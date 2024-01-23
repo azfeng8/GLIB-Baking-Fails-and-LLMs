@@ -296,7 +296,7 @@ class GeneralConfig:
     """General configuration constants.
     """
     verbosity = 1
-    start_seed = 20
+    start_seed = 24
     num_seeds = 1   
 
 class LLMConfig:
@@ -308,5 +308,5 @@ class LLMConfig:
 class PlottingConfig:
     """Plotting from cached results.
     """
-    domains = ["Glibdoors"]#,"Baking", "Glibblocks", ]
-    learner_explorer = [("LLM+LNDR", "GLIB_L2"), ("LLM+LNDR", "GLIB_G1"), ("LNDR", "GLIB_L2"), ("LNDR", "oracle"), ("LNDR", "random") ]
+    domains = ["Baking"]#,"Baking", "Glibblocks", ]
+    learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_G1"), ("LNDR", "LLM+GLIB_G1")]

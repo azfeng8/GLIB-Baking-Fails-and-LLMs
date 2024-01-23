@@ -33,7 +33,7 @@ class Agent:
         self.learned_operators = set()
 
         self.llm = OpenAI_Model()
-        self.llm_learned_ops = set()
+        self.llm_learned_ops = dict() # Op from LLM: Op from Learner with the same action predicate (random)
 
         # The operator learning module learns operators. It should update the
         # agent's learned operators set

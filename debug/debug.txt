@@ -31,3 +31,14 @@ Ran LNDR through once. Discovered parsing bugs:
 The next extension: to direct exploration to the precondtions of newly accepted operators to collect less no-op data to convince the learner.
 - Randomly sample the conjunction of preconditions as a goal and the action as the (goal, action) tuple. Once this is achieved, the novelty measure should take care of sampling other goals instead.
 - Have a shared set between curiosity and learning to add the newly updated operators from learning.
+
+1/23/23
+
+- Implemented two versions of the precondition targeting from GLIB-G1 (commit 87e597c3073dfbfcd374cbcc718cfbba3db6e82a and the commit after it).
+  - Just aim for the LLM preconditions as they are.
+  - Combine the LLM preconditions with the learner's preconditions of a similar operator (randomly selected among the operators with same action predicate).
+- Ran several experiments on Baking domain: strategy is to:
+  - target the preconditions of good LLM proposed operators combined with currently learned preconditions.
+  - use the good LLM proposed operators for planning until the learner gets more data about the action.
+- Caught and resolved 3 bugs.
+- Next: Try strategy to target the (preconditions, action) of several learned operators, prioritizing operators with actions that have a lot of no-ops (LLM+GLIB_G1 and LNDR).

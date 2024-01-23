@@ -1,3 +1,10 @@
+# TODO: experiment 6, see why success rate is so low.
+#TODO: experiment 6, iteration 300: shouldn't the next goal (combined with learner's preconditions) also be sampled?
+#TODO: Since target preconditions, should the score be revised to value preconditions more?
+
+#TODO: if LLM has no learned operators, then pick some operator preconditions to try first (operators with action that has most no-ops should be prioritized).
+#TODO: implement LLM precondition targets for GLIB-L2
+#TODO: run experiment
 """Goal-literal babbling with grounded novelty. Outputs single-literal goals and
 also actions.
 """
@@ -7,6 +14,7 @@ from settings import AgentConfig as ac
 from curiosity_modules.goal_babbling import GoalBabblingCuriosityModule
 from pddlgym import structs
 from operator_learning_modules.llm_plus.operator_search import ground_literals
+from itertools import combinations
 
 class GLIBG1CuriosityModule(GoalBabblingCuriosityModule):
     _ignore_statics = True
@@ -116,8 +124,9 @@ class GLIBG1LLMCuriosityModule(GoalBabblingCuriosityModule):
         for lit in state:
             if ((lit,), action) in self._unseen_lits_acts:
                 self._unseen_lits_acts.remove((lit, action))
+
         removes = set()
-        for goal,action in self._unseen_lits_acts:
+        for goal,act in self._unseen_lits_acts:
             all_in_state = True
             for g in goal:
                 if g.predicate.is_negative:
@@ -126,7 +135,7 @@ class GLIBG1LLMCuriosityModule(GoalBabblingCuriosityModule):
                 elif g not in state:
                     all_in_state = False
             if all_in_state:
-                removes.add((goal,action))
+                removes.add((goal,act))
         for r in removes:
             self._unseen_lits_acts.remove(r)
                     
@@ -166,13 +175,33 @@ class GLIBG1LLMCuriosityModule(GoalBabblingCuriosityModule):
             self._unseen_lits_acts = sorted(self._unseen_lits_acts, key=self.priority_goal_action)
 
     def _recompute_llm_goal_actions(self):
+        """Add the learner's operators preconditions to the LLM proposed preconditions with all combinations.
+        """
         self._llm_goal_actions = []
         for op in self._llm_learned_ops:
-            for preconds,_ in ground_literals(op.preconds.literals, self._objects):
-                action = [p for p in preconds
-                    if p.predicate in self._action_space.predicates][0]
-                goal = tuple(sorted(set(preconds) - {action}))
-                self._llm_goal_actions.append((goal, action))
+            learner_op = self._llm_learned_ops[op]
+            learned_lits_combinations = []
+            if learner_op is not None:
+                op_lits = [l.predicate for l in op.preconds.literals]
+                learned_lits = []
+                for lit in learner_op.preconds.literals:
+                    if lit.predicate not in op_lits:
+                        learned_lits.append(lit)
+                for i in range(1, len(learned_lits)+1):
+                    for lits in combinations(learned_lits, i):
+                        learned_lits_combinations.append(lits)
+
+            learned_lits_combinations.append(tuple())
+            for addition in learned_lits_combinations:
+                literals = [l for l in addition] + op.preconds.literals
+                for preconds,_ in ground_literals(literals, self._objects):
+                    action = [p for p in preconds
+                        if p.predicate in self._action_space.predicates][0]
+                    goal = tuple(sorted(set(preconds) - {action}))
+                    self._llm_goal_actions.append((goal, action))
+
+        # print("\n\nUpdated LLM Goal/Actions\n")
+        # print(self._llm_goal_actions)
 
     def _structify_goal(self, goal):
         """Create Exists struct for a goal."""

@@ -451,7 +451,7 @@ if __name__ == "__main__":
     #     uncovered_transition = pickle.load(f)
 
     # print(consistency_score(o, uncovered_transition))
-    LOG_PATH_READ = f'/home/catalan/temp/experiment0/iter_600'
+    LOG_PATH_READ = f'/home/catalan/temp/experiment3/iter_300'
 
     with open(os.path.join(LOG_PATH_READ, "learner_ops.pkl"), 'rb') as f:
         lops = pickle.load(f)

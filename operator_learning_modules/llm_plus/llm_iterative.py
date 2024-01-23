@@ -1,4 +1,3 @@
-#TODO:Get the exploration to focus on the newly updated operators to get more good data
 """
 Strategy: LLM proposes operators based on training data, and score all the learned operators + LLM's operators every once in a while.
 
@@ -33,8 +32,8 @@ LOGGING = True
 READING_DATASET = False
 READING_LLM_RESPONSES = False
 READING_LEARNING_MOD_OPS = False
-LOG_PATH_READ = f'/home/catalan/temp/experiment1/iter_1200'
-LOG_PATH_WRITE = f'/home/catalan/temp/experiment2'
+LOG_PATH_READ = f'/home/catalan/temp/experiment3/iter_600'
+LOG_PATH_WRITE = f'/home/catalan/temp/experiment7'
 
 class BaseLLMIterativeOperatorLearningModule:
     """LLM + learning algorithm combination method. Subclass this with the specific learning algorithm.
@@ -227,7 +226,7 @@ class BaseLLMIterativeOperatorLearningModule:
                     if frozenset(init_state.literals) != goal_lits:
                         yield (i, start_index, end_index)
 
-                if (sum(len(l) for l in self._trajectories) == 0): return None
+        if (sum(len(l) for l in self._trajectories) == 0): return None
         ### 1. 
         # Get uncovered_transitions, the episode index, index within episode
         *_, uncovered_transition_indices = LEAP_coverage(self._trajectories, self.learner._learned_operators)
@@ -447,15 +446,34 @@ class BaseLLMIterativeOperatorLearningModule:
             op.name = f"{op.name}{i}"
 
         op_idxes = LEAP_operator_search(all_ops, self._trajectories, iter)
-        llm_accepted_ops = []
+        llm_accepted_op_i = []
         for op_i in op_idxes:
             if op_i < llm_end_index:
-                llm_accepted_ops.append(all_ops[op_i])
-        self._update_llm_learned_ops(llm_accepted_ops)
+                llm_accepted_op_i.append(op_i)
+        learner_ops_same_action = []
+        for op_i in llm_accepted_op_i:
+            action_name = all_ops[op_i].name.rstrip('0123456789')
+            candidates = []
+            for learner_op_i in range(llm_end_index, len(all_ops)):
+                if action_name == all_ops[learner_op_i].name.rstrip('012345689'):
+                    candidates.append(learner_op_i)
+            if len(candidates) == 0:
+                learner_ops_same_action.append(None)
+            else:
+                learner_ops_same_action.append(np.random.choice(candidates))
+
+        arg = []
+        for  j in learner_ops_same_action:
+            if j is None:
+                arg.append(None)
+            else:
+                arg.append(all_ops[j])
+        self._update_llm_learned_ops([all_ops[i] for i in llm_accepted_op_i], arg)
+
         ops = [all_ops[i] for i in op_idxes]
         return ops
    
-    def _update_llm_learned_ops(self, llm_accepted_ops):
+    def _update_llm_learned_ops(self, llm_accepted_ops, learner_ops_same_action):
         """Update the set of operators proposed by LLM that are good.
 
         Don't just add to the previous set because the learner may have a better operator
@@ -465,12 +483,13 @@ class BaseLLMIterativeOperatorLearningModule:
         give the exploration a chance to actually collect the needed data.
         
         Args:
-            llm_accepted_ops (_type_): _description_
+            llm_accepted_ops: operators from LLM after scoring/filtering.
+            learner_ops_same_action: operators from the learner before scoring/filtering with same action predicate as the corresponding one in the `llm_accepted_ops` list.
         """
         self._llm_learned_ops.clear()
-        for o in llm_accepted_ops:
-            self._llm_learned_ops.add(o)
-        print("UPDATED from LLM ITERATIVE")
+        for o,lo in zip(llm_accepted_ops, learner_ops_same_action):
+            self._llm_learned_ops[o] = lo
+        print("\n\nUPDATED from LLM ITERATIVE\n")
         print(self._llm_learned_ops)
 
     @abstractmethod
