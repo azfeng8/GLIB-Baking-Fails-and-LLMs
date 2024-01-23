@@ -20,3 +20,14 @@ Ran LNDR through once. Discovered parsing bugs:
   Discovered bug from not parsing negative preconditions and effects.
   Scoped fix to implement: rewrite the parsing + syntax correction.
 
+1/22/23
+
+- Debugged the LLM parsing. Tested on the cached LLM responses for Baking domain. Will leave "OR" and "FORALL" parsing for later (need to check operator search and LNDR handle it, or if need to translate them)
+- Debugged the operator search score function. Cleanpan is picked up correctly.
+- Current method good for situations where there is not enough no-op data for the learner to predict the operators well, so LLM can extrapolate from the data.
+- Investigated LNDR's behavior between recorded iterations 1200 and 1500 (experiment1). Within 20 iterations, cleanpan is overwritten.
+- Tried LNDR where if transition is no-op, don't give LNDR the data: 0 success rate, so no-ops are important data.
+
+The next extension: to direct exploration to the precondtions of newly accepted operators to collect less no-op data to convince the learner.
+- Randomly sample the conjunction of preconditions as a goal and the action as the (goal, action) tuple. Once this is achieved, the novelty measure should take care of sampling other goals instead.
+- Have a shared set between curiosity and learning to add the newly updated operators from learning.

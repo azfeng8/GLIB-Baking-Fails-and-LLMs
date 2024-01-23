@@ -1,7 +1,13 @@
+#TODO: support "or" and "forall"
+import sys
+sys.path.append('/home/catalan/GLIB-Baking-Fails-and-LLMs')
+import logging
 from pddlgym.structs import Anti, Type, LiteralConjunction, Literal,TypedEntity, Not
 from pddlgym.parser import Operator
 from ndr.learn import iter_variable_names
 import re
+
+PARSING_LOGGER = logging.getLogger('PARSER')
 
 class LLM_PDDL_Parser:
     def __init__(self, action_preds:dict, observation_preds:dict, object_types:set):
@@ -17,7 +23,6 @@ class LLM_PDDL_Parser:
         self._types = object_types
 
     def parse_operator(self, llm_response:str) -> Operator or None:
-
         """Parse an Operator from the LLM response.
 
         Args:
@@ -32,19 +37,20 @@ class LLM_PDDL_Parser:
         # Find the PDDL operator in the response.
         match = re.search("\(\:action", llm_response)
         # Count parantheses: look for the closing to "(:action" to get the operator string.
+        operator_str = find_closing_paran(llm_response[match.start():])
+        # i = match.end()
         open_parans = 0
         close = 0
-        i = match.end()
-        operator_str = None
-        for c in llm_response[match.end():]:
-            if c == "(":
-                open_parans += 1
-            elif c == ")":
-                close += 1
-            if close > open_parans:
-                operator_str = llm_response[match.start():i+1]
-                break
-            i+=1
+        # operator_str = None
+        # for c in llm_response[match.end():]:
+        #     if c == "(":
+        #         open_parans += 1
+        #     elif c == ")":
+        #         close += 1
+        #     if close > open_parans:
+        #         operator_str = llm_response[match.start():i+1]
+        #         break
+        #     i+=1
 
         if operator_str is None: raise Exception(f"Parsing error: {llm_response}")
         # Extract operator name.
@@ -65,7 +71,9 @@ class LLM_PDDL_Parser:
                 param_names.append(name)
                 param_types.append(var_type)
 
-        # NOTE: Prompting the action multiple times will result in different operators.
+        # NOTE: Propose a single operator for an action. Prompting the action multiple times will result in different operators.
+        if op_name not in self._action_predicates:
+            return None
         action_pred = self._action_predicates[op_name]
         args = []
         for v_type in action_pred.var_types:
@@ -77,12 +85,19 @@ class LLM_PDDL_Parser:
         action = action_pred(*args)
 
         # Extract preconditions.
-        match = re.search(":precondition([\s\S]*?):effect", operator_str)
-        if match is None:
+        precond_match = re.search(":precondition[\(\s]*\w", operator_str)
+        if precond_match is None:
+            # No preconditions found.
             return None
-        precond_str = operator_str[match.start() + len(":precondition") : match.end() - len(":effect")].strip()
+        # Get rid of space between ":effect (" and the first word such as "and" or a predicate name
+        operator_str = operator_str[:precond_match.end() - 1].strip() + operator_str[precond_match.end() - 1:]
+
+        precond_match = re.search(":precondition[\(\s]*\w", operator_str)
+        precond_str = find_closing_paran(operator_str[precond_match.end() - 2:])
+        # print(precond_str)
         #NOTE: Supports only LiteralConjunction and Literal for now.
         lc = self._parse_into_literal(precond_str, param_names, param_types, False)
+        # print(lc)
 
         if lc is None:
             return None
@@ -95,19 +110,12 @@ class LLM_PDDL_Parser:
             raise Exception(f"Unsupported type: {type(lc)}")    
 
         # Extract effects.
-        effect_str_match = re.search(":effect", operator_str)
-        effect_str = (operator_str[effect_str_match.start() + len(":effect"):].strip())
-        assert effect_str[0] == '('
-        balance = 0
-        for i,c in enumerate(effect_str):
-            if c == ")":
-                balance -= 1
-            elif c == '(':
-                balance += 1
-            if balance == 0:
-                effect_str = effect_str[:i+1]
-                break
-        assert balance == 0, "Parsing error"
+        effect_str_match = re.search(":effect[\(\s]*\w", operator_str)
+        # Get rid of space between ":effect (" and the first word such as "and" or a predicate name
+        operator_str = operator_str[:effect_str_match.end() - 1].strip() + operator_str[effect_str_match.end() - 1:]
+        effect_str_match = re.search(":effect[\(\s]*\w", operator_str)
+        effect_str = (operator_str[effect_str_match.end() - 2:].strip())
+        effect_str = find_closing_paran(effect_str)
 
         effects = self._parse_into_literal(effect_str, param_names, param_types, is_effect=True)
 
@@ -193,7 +201,7 @@ class LLM_PDDL_Parser:
         """Parses the string into a literal or None if predicate name or argument types are invalid.
 
         Args:
-            string: Effect or Precondition string. Starts with '(' and ends with ')'
+            string: Effect or Precondition string. Starts with '(' and ends with its closing mirror ')'
             is_effect (bool): if the string is effect.
             param_names (list): variable names (such as '?x0') 
             param_types (list): types (such as 'ingredient')
@@ -222,14 +230,16 @@ class LLM_PDDL_Parser:
 
         # Validate types against the given param names.
         if pred not in self._observation_predicates:
+            PARSING_LOGGER.debug(f"Parsed unknown predicate {pred}")
             return None
         if len(args) != self._observation_predicates[pred].arity:
+            PARSING_LOGGER.debug(f"Parsed incongruent number of argument types for predicate {pred}")
             return None
 
         arg_types = []
         for i, arg in enumerate(args):
             if arg not in param_names:
-                print("Argument {} not in params {}".format(arg, param_names))
+                PARSING_LOGGER.debug("Argument {} not in params {}".format(arg, param_names))
                 return None
             t = param_types[param_names.index(arg)]
             typed_arg = TypedEntity(arg, Type(t))
@@ -237,7 +247,95 @@ class LLM_PDDL_Parser:
             typed_args.append(typed_arg)
 
         if self._observation_predicates[pred].var_types != arg_types:
+            PARSING_LOGGER.debug(f"Parsed incongruent argument types for predicate {pred}")
             return None
 
         return self._observation_predicates[pred](*typed_args)
 
+def find_closing_paran(string:str) -> str:
+    """_summary_
+
+    Args:
+        string: starts with "(" open paran.
+    Returns:
+        string: string truncated right after the mirrored closing paran
+    """
+    assert string[0] == "("
+    balance = 0
+    for i,c in enumerate(string):
+        if c == ")":
+            balance -= 1
+        elif c == '(':
+            balance += 1
+        if balance == 0:
+            return string[:i+1]
+    raise Exception("Closing parantheses not found")
+
+
+if __name__ == "__main__":
+    import pddlgym
+    import pickle
+    import os
+
+    PARSING_LOGGER.setLevel(logging.DEBUG)
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+
+    # create formatter
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+    # add formatter to ch
+    ch.setFormatter(formatter)
+
+    # add ch to logger
+    PARSING_LOGGER.addHandler(ch)
+
+
+    env = pddlgym.make("PDDLEnvBaking-v0")
+    observation_predicates = {p.name: p for p in env.observation_space.predicates}
+    action_predicates = {p.name: p for p in env.action_space.predicates}
+    types = set()
+    for pred in ([p for p in env.observation_space.predicates] + [p for p in env.action_space.predicates]):
+        for v_type in pred.var_types:
+            types.add(v_type)
+
+    parser = LLM_PDDL_Parser(action_predicates, observation_predicates, types)
+
+    # PARSING_LOGGER.debug("TEST")
+    problem = """(:action putpaninoven
+    :parameters (?p - pan ?o - oven)
+    :precondition (and 
+        (not (ovenisfull ?o))
+        (or (panhasegg ?p) (panhasflour ?p))
+    )
+    :effect (and 
+        (inoven ?p ?o)
+        (not (panisclean ?p))
+        (ovenisfull ?o)
+    )
+)"""
+    # print(parser.parse_operator(problem))
+    # raise Exception
+    with open('/home/catalan/temp/later.pkl', 'rb') as f:
+        later = pickle.load(f)
+    with open('/home/catalan/temp/done.pkl', 'rb') as f:
+        done = pickle.load(f)
+    for file in os.listdir('/home/catalan/llm_cache'):
+        if file == 'p.py': continue
+        with open(os.path.join('/home/catalan/llm_cache', file), 'rb') as f:
+            if file in done: continue
+            # if file in later: continue
+            s = pickle.load(f)[0]
+            if ":action" in s:
+                print(s)
+                parsed =(parser.parse_operator(s))
+                print(parsed)
+                i = input()
+                if i == 'y':
+                    done.append(file)
+                elif i == 'l':
+                    later.append(file)
+        with open('/home/catalan/temp/done.pkl', 'wb') as f:
+            pickle.dump(done, f)
+        with open('/home/catalan/temp/later.pkl', 'wb') as f:
+            pickle.dump(later, f)

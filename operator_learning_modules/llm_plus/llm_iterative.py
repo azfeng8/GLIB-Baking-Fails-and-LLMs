@@ -1,39 +1,40 @@
-#TODO: Run with iter 600, cleanpan should be picked up correctly.
-#TODO: Try the operator parsing on all cached LLM PDDL responses.
+#TODO:Get the exploration to focus on the newly updated operators to get more good data
 """
 Strategy: LLM proposes operators based on training data, and score all the learned operators + LLM's operators every once in a while.
 
-Problem: data consists only of successfully executed actions, and LLM only sees this data to improve on the seen operators, not helping explore.
+This mainly helps when there is some non-no-op data, but not enough for the learner to make a meaningful operator.
+
+Problem: the LLM is not helping when there is no no-op data. Perhaps iteratively do the warm-starting + score preconditions, especially of actions without learned operators.
 
 #GOAL: without hardcode LLM outputs, run for a few hundred iterations, logging the LLM outputs, to get better perf than LNDR. Then hardcode the collected LLM outputs, and reproduce results
 #GOAL: try on more domains other than Baking: Rearrangement, Minecraft, Travel, and get better results than LNDR.
 #GOAL: try combining with the warm-starting operators.
 """
 
+from ndr.learn import print_rule_set
 from operator_learning_modules.llm_plus.prompts import STATE_TRANSLATION_PROMPT
 from operator_learning_modules.llm_plus.operator_search import LEAP_operator_search, LEAP_coverage
 from operator_learning_modules.llm_plus.llm_parsing import LLM_PDDL_Parser
-from typing import Iterable
-import pickle
-import re
-from collections import defaultdict
 from operator_learning_modules import ZPKOperatorLearningModule
-from settings import AgentConfig as ac
 from openai_interface import OpenAI_Model
 from pddlgym.parser import Operator
-from pddlgym.structs import Anti, Type, LiteralConjunction, Literal,TypedEntity
+from pddlgym.structs import Anti, TypedEntity
+from settings import AgentConfig as ac
+
 from abc import abstractmethod
-from ndr.learn import print_rule_set
+from collections import defaultdict
+import pickle
 import pdb
 import os
+from typing import Iterable
 
 ### Debugging params
 LOGGING = False
 READING_DATASET = True
 READING_LLM_RESPONSES = True
 READING_LEARNING_MOD_OPS = True
-LOG_PATH_READ = f'/home/catalan/temp/experiment0/iter_600'
-LOG_PATH_WRITE = f'/home/catalan/temp/experiment0'
+LOG_PATH_READ = f'/home/catalan/temp/experiment1/iter_1200'
+LOG_PATH_WRITE = f'/home/catalan/temp/experiment1'
 
 class BaseLLMIterativeOperatorLearningModule:
     """LLM + learning algorithm combination method. Subclass this with the specific learning algorithm.
@@ -89,14 +90,14 @@ class BaseLLMIterativeOperatorLearningModule:
         """
         is_updated = self.learner.learn()
         self._learned_operators = self.learner._learned_operators
-        # if self._learn_iter % self._llm_learn_interval == 1:
-        #     # Debugging. Check that the learner operators are updated correctly.
-        #     print("\n\nLEARNER OPS, AFTER UPDATING\n")
-        #     for o in self.learner._learned_operators:
-        #         print(o)
 
-        #     print("\n\nLEARNER NDRS, AFTER UPDATING\n")
-        #     print_rule_set(self.learner._ndrs)
+        # if self._learn_iter % self._llm_learn_interval != 0:
+            # Debugging. Check that the learner operators are updated correctly.
+            # print("\n\nLEARNER NDRS, AFTER UPDATING\n")
+            # print_rule_set(self.learner._ndrs)
+            # for action_pred in self.learner._transitions:
+            #     if "cleanpan" in  action_pred.name:
+            #         print("Dataset", self.learner._transitions[action_pred])
 
         if self._learn_iter % self._llm_learn_interval != 0:
             self._learn_iter += 1
@@ -105,6 +106,9 @@ class BaseLLMIterativeOperatorLearningModule:
         if READING_DATASET:
             with open(f'{LOG_PATH_READ}/trajectories.pkl', 'rb') as f:
                 self._trajectories = pickle.load(f)
+                for e in self._trajectories:
+                    for t in e:
+                        self.learner._transitions[t[1].predicate].append((t[0].literals, t[1], t[2]))
 
         if READING_LEARNING_MOD_OPS:
             with open(f'{LOG_PATH_READ}/learner_ops.pkl', 'rb') as f:
@@ -505,6 +509,7 @@ class LLMZPKIterativeOperatorLearningModule(BaseLLMIterativeOperatorLearningModu
             print(o)
 
         return True
+
     def _resume(self, itr):
 
         with open(f'/home/catalan/temp/iter_{itr}/ndrs.pkl', 'rb') as f:

@@ -11,7 +11,10 @@ from typing import Iterable
 from collections import defaultdict
 from pddlgym.parser import Operator
 from pddlgym.structs import Anti, Type, LiteralConjunction, Literal,TypedEntity
+import logging
 import os
+
+OPERATOR_SEARCH_LOGGER = logging.getLogger("OPERATOR_SEARCH")
 
 def LEAP_operator_search(operators:list[Operator], dataset:list[list[tuple]], iter) -> list[Operator]:
     #TODO: [performance] the heavy computation in improve_coverage only needs to be done once.
@@ -29,14 +32,18 @@ def LEAP_operator_search(operators:list[Operator], dataset:list[list[tuple]], it
 
     op_idxes = set()
     j_last = np.inf
+    # TODO: As data grows, lambda_val needs to get smaller.
     lambda_val = 0.0001
     j_curr = LEAP_score([operators[i] for i in op_idxes], dataset, lambda_val)
-    print("\nStarting search\n")
+    OPERATOR_SEARCH_LOGGER.info(f"\nStarting search with operators:\n")
+    # for o in operators:
+    #     OPERATOR_SEARCH_LOGGER.info(o)
 
     while j_curr < j_last:
         j_last = j_curr
         op_set_prime = improve_coverage(op_idxes, dataset, operators)
         j = LEAP_score([operators[i] for i in op_set_prime], dataset, lambda_val)
+        OPERATOR_SEARCH_LOGGER.debug(f"Improve coverage: suggested {op_set_prime} with score {j}")
         if j < j_curr:
             op_idxes = op_set_prime
             j_curr = j
@@ -46,8 +53,8 @@ def LEAP_operator_search(operators:list[Operator], dataset:list[list[tuple]], it
             if j < j_curr:
                 op_idxes = op_set_prime
                 j_curr = j
+        OPERATOR_SEARCH_LOGGER.debug(f"Iterating. operator set: {op_idxes} score: {j_curr}")
     res =  [operators[i] for i in op_idxes]
-
     return res
 
 def improve_coverage(op_idxes, dataset, operators) -> list[Operator]:
@@ -102,6 +109,7 @@ def improve_coverage(op_idxes, dataset, operators) -> list[Operator]:
         return op_idxes
     
     op_i = max(op_i_to_transitions, key=lambda x: len(op_i_to_transitions[x]))
+
     ops = op_idxes | set([op_i])
 
     covered_transitions.extend(op_i_to_transitions[op_i])
@@ -109,7 +117,7 @@ def improve_coverage(op_idxes, dataset, operators) -> list[Operator]:
 
     return ops
 
-def transition_score(op:Operator, transition:tuple, coverage=False) -> float:
+def transition_score(op:Operator, transition:tuple, coverage=False, debug=False) -> float:
     """Score how much the operator covers the transition.
 
     Score has same meaning on two different scales for the operator search algorithm.
@@ -126,12 +134,26 @@ def transition_score(op:Operator, transition:tuple, coverage=False) -> float:
             score = 0
 
         otherwise, maximize over all possible groundings of the preconditions and effects:
-            score = max[0,  (|E & e| - |E - (E & e)| ) / |e| - ( |P+ \ S+| + |P- \ S-| ) / |S| )]
+            score = max[0,
+              
+                        (|E+ & e+| + 
+                         |E- & e-| - 
+                         |(E+ \ S+) \ e+| - 
+                         |(E- \ S-) \ e-|
+                        ) / |e|  
+                        -  
+                        (|P+ \ S+| + 
+                         |P- \ S-|
+                        ) / |S| 
+           
+                    ]
 
+        NOTE: this score enforces that effects need to be good enough to compensate for bad preconditions.
+        
     2. Consistency score: Integer measure, bounds [0, inf], 0 is perfectly cover, inf is operator is not applicable to the transition.
 
             Minimize over all groundings of the precondition and groundings of the effects,
-                score =  |E \ e| + |e \ E| + max(0, |P+ \ S+| + |P- \ S-| - |P- & S-| - |P+ & S+|)
+                score =  |(E+ \ S+) \ e+| + |(E- \ S-) \ e-| + |e- \ (E- \ S-)| + |e+ \ (E+ \ S+)| + max(0, |P+ \ S+| + |P- \ S-| - |P- & S-| - |P+ & S+|)
     
     Args:
         coverage (bool): If true, return 1. Coverage score. Else, return 2. Consistency score.
@@ -184,17 +206,29 @@ def transition_score(op:Operator, transition:tuple, coverage=False) -> float:
         # if len(ground_effects_assign) > 1: print("Warning: computed multiple effects possible")
 
         for ground_effects, _ in ground_effects_assign:
+
+            pred_add_eff, pred_delete_eff= get_add_delete_eff(ground_effects)
+            pred_add_eff_no_preconds = pred_add_eff - (state.literals & pred_add_eff)
+            # Predicted delete eff = e- - (e- & S-)
+            pred_delete_eff_no_preconds = set()
+            for d_eff in pred_delete_eff:
+                if d_eff.predicate.inverted_anti(*d_eff.variables) in state.literals:
+                    pred_delete_eff_no_preconds.add(d_eff)
+                    
             # calculate score
             if coverage:
                 correct = len(ground_effects & eff) 
-                hallucinated = len(ground_effects) - len(ground_effects & eff)
+                hallucinated = len(pred_delete_eff_no_preconds - delete_eff) + len(pred_add_eff_no_preconds - add_eff)
                 s =  max(0, (correct - hallucinated) / len(eff)) - coverage_precond_score / len(state.literals)
                 if s > score:
                     score = s
             else:
-                pred_add_eff, pred_delete_eff= get_add_delete_eff(ground_effects)
 
-                s = len(add_eff - pred_add_eff) + len(pred_add_eff - add_eff)  + len(pred_delete_eff - delete_eff) + len(delete_eff - pred_delete_eff) + consistency_precond_score
+                s = len(add_eff - pred_add_eff_no_preconds) + \
+                    len(pred_add_eff_no_preconds - add_eff)  + \
+                    len(pred_delete_eff_no_preconds - delete_eff) + \
+                    len(delete_eff - pred_delete_eff_no_preconds) + \
+                    consistency_precond_score
                 if s < score:
                     score = s
     return score
@@ -391,6 +425,20 @@ def _ground_literals(lifted_literals:Iterable[Literal], objects:frozenset[TypedE
         
 ### Debugging
 if __name__ == "__main__":
+    OPERATOR_SEARCH_LOGGER.setLevel(logging.DEBUG)
+    ch = logging.StreamHandler()
+    ch.setLevel(logging.DEBUG)
+
+    # # create formatter
+    # formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+    # # add formatter to ch
+    # ch.setFormatter(formatter)
+
+    # add ch to logger
+    OPERATOR_SEARCH_LOGGER.addHandler(ch)
+
+
     # with open('/home/catalan/temp/dataset.pkl', 'rb')  as f:
     #     stuff = pickle.load(f)
     # with open('/home/catalan/temp/ops.pkl', 'rb') as f:
@@ -401,13 +449,32 @@ if __name__ == "__main__":
     #     uncovered_transition = pickle.load(f)
 
     # print(consistency_score(o, uncovered_transition))
+    LOG_PATH_READ = f'/home/catalan/temp/experiment0/iter_600'
 
-    iter = 800
-    with open(f'/home/catalan/temp/iter_{iter}/dataset.pkl', 'rb') as f:
+    with open(os.path.join(LOG_PATH_READ, "learner_ops.pkl"), 'rb') as f:
+        lops = pickle.load(f)
+
+    with open(os.path.join(LOG_PATH_READ, "llm_proposed_ops.pkl"), 'rb') as f:
+        llmops = pickle.load(f)
+    with open(os.path.join(LOG_PATH_READ, "trajectories.pkl"), 'rb') as f:
         dataset = pickle.load(f)
-    with open(f'/home/catalan/temp/iter_{iter}/all_operators.pkl', 'rb') as f:
-        ops = pickle.load(f)
+    
+    with open(os.path.join(LOG_PATH_READ, "traj.pkl"), 'rb') as f:
+        traj = pickle.load(f)
 
+    # for i,episode in enumerate(dataset):
+    #     print("NEW EPISODE", i)
+    #     for t in episode:
+    #         print(t[1])
+    #         if 'cleanpan' in t[1].predicate.name:
+    #             print(t[0])
+    #             print(t[2])
+    #             raise Exception
+    # for t in traj:
+    #     print(t[1])
+    ops = list(lops) + llmops
     for op in ops:
         print('\n',op)
-    print(len(LEAP_operator_search(ops, dataset, -1)))
+
+    for o in (LEAP_operator_search(ops, dataset, -1)):
+        print(o)
