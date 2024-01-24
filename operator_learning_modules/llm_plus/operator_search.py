@@ -1,3 +1,4 @@
+#TODO: experiment 7, iteration 1500: cleanpan0 and cleanpan1 should be accepted by operator search.
 """Operator search for LLM iterative method.
 
 Debugging notes:

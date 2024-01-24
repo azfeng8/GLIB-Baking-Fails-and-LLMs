@@ -172,7 +172,7 @@ class AgentConfig:
         "River": 1001,
         "PybulletBlocks" : 501,
         "NDRBlocks" : 1501,
-        "Baking": 1801,
+        "Baking": 1799,
         "Travel": 1501,
         "Minecraft": 2501
     }
@@ -309,4 +309,4 @@ class PlottingConfig:
     """Plotting from cached results.
     """
     domains = ["Baking"]#,"Baking", "Glibblocks", ]
-    learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_G1"), ("LNDR", "LLM+GLIB_G1")]
+    learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_G1"), ("LNDR", "LLM+GLIB_G1"), ("LNDR", "GLIB_G1")]

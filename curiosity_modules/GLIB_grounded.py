@@ -1,10 +1,5 @@
-# TODO: experiment 6, see why success rate is so low.
-#TODO: experiment 6, iteration 300: shouldn't the next goal (combined with learner's preconditions) also be sampled?
-#TODO: Since target preconditions, should the score be revised to value preconditions more?
-
 #TODO: if LLM has no learned operators, then pick some operator preconditions to try first (operators with action that has most no-ops should be prioritized).
-#TODO: implement LLM precondition targets for GLIB-L2
-#TODO: run experiment
+
 """Goal-literal babbling with grounded novelty. Outputs single-literal goals and
 also actions.
 """
@@ -94,18 +89,17 @@ class GLIBG1LLMCuriosityModule(GoalBabblingCuriosityModule):
         goal, act = self._unseen_lits_acts.pop(0)
         self._last_sampled_action = act
         return self._structify_goal(goal)
-        
+
+    def learning_callback(self):
+        super().learning_callback()
+        self._static_preds = self._compute_static_preds()
+        self._unseen_lits_acts = None
+
     def reset_episode(self, state):
         self._recompute_unseen_lits_acts(state)
         self._objects = state.objects
         self._last_state = set()
         self._plan = []
-
-    def priority_goal_action(self, goal_action):
-        tiebreak = self._rand_state.uniform()
-        if goal_action in self._llm_goal_actions:
-            return (-1, tiebreak)
-        return (len(goal_action[0]), tiebreak)
 
     def _goal_is_valid(self, goal):
         return not (goal is None)
@@ -116,6 +110,14 @@ class GLIBG1LLMCuriosityModule(GoalBabblingCuriosityModule):
 
 
     def _get_action(self, state):
+        """Goal-babble and attempt to sample a goal to get an action, or fallback to random. Update the novelty measure.
+
+        Args:
+            state (_type_): _description_
+
+        Returns:
+            Literal: grounded action
+        """
         if self._unseen_lits_acts is None:
             self._recompute_unseen_lits_acts(state)
         action = super()._get_action(state)
@@ -123,7 +125,7 @@ class GLIBG1LLMCuriosityModule(GoalBabblingCuriosityModule):
         # update novelty
         for lit in state:
             if ((lit,), action) in self._unseen_lits_acts:
-                self._unseen_lits_acts.remove((lit, action))
+                self._unseen_lits_acts.remove(((lit,), action))
 
         removes = set()
         for goal,act in self._unseen_lits_acts:
@@ -167,7 +169,6 @@ class GLIBG1LLMCuriosityModule(GoalBabblingCuriosityModule):
             itr (int): iteration #
         """
         if itr % ac.LLM_learn_interval[self._domain_name] == 0:
-            self._llm_goal_actions = []
             self._recompute_llm_goal_actions()
             for goal_action in self._llm_goal_actions:
                 self._unseen_lits_acts.append(goal_action)
@@ -204,6 +205,16 @@ class GLIBG1LLMCuriosityModule(GoalBabblingCuriosityModule):
         # print(self._llm_goal_actions)
 
     def _structify_goal(self, goal):
-        """Create Exists struct for a goal."""
-        body = structs.LiteralConjunction(goal)
-        return body
+        """Create LiteralConjunction struct for a goal."""
+        if len(goal) == 1:
+            return goal[0]
+        else:
+            return structs.LiteralConjunction(goal)
+
+    def priority_goal_action(self, goal_action):
+        tiebreak = self._rand_state.uniform()
+        if goal_action in self._llm_goal_actions:
+            #TODO: consider return (-1, len(goal_action[0]), tiebreak)
+            return (-1, tiebreak)
+        return (len(goal_action[0]), tiebreak)
+

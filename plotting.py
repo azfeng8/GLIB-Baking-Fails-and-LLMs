@@ -87,7 +87,7 @@ def main():
                 for pkl_fname in glob.glob(os.path.join(seeds_path, "*.pkl")):
                     with open(pkl_fname, "rb") as f:
                         saved_results = pickle.load(f)
-                    results.append(saved_results)
+                    results.append(saved_results[:1799])
                 min_seeds = min(min_seeds, len(results))
                 max_seeds = max(max_seeds, len(results))
                 if len(results) == 0:
@@ -117,3 +117,15 @@ def main():
     
 if __name__ == "__main__":
     main()
+    # for i,f in enumerate(os.listdir(f"results/Baking/LNDR/LLM+GLIB_G1")):
+    #     all_results = defaultdict(list)
+    #     with open(os.path.join(f"results/Baking/LNDR/LLM+GLIB_G1",f), 'rb') as fh:
+    #         all_results["LLM+GLIB_G1"].append(pickle.load(fh))
+    #     plot_results(f"Baking{i}", "LNDR", all_results, outdir="test_succ", dist=False)
+    #     plot_results(f"Baking{i}", "LNDR", all_results, outdir="test_dist", dist=True)
+    # for i,f in enumerate(os.listdir(f"results/Baking/LLMIterative+ZPK/LLM+GLIB_G1")):
+    #     all_results = defaultdict(list)
+    #     with open(os.path.join(f"results/Baking/LLMIterative+ZPK/LLM+GLIB_G1",f), 'rb') as fh:
+    #         all_results["LLM+GLIB_G1"].append(pickle.load(fh))
+    #     plot_results(f"Baking{i}", "LLMIterative+ZPK", all_results, outdir="test_succ", dist=False)
+    #     plot_results(f"Baking{i}", "LLMIterative+ZPK", all_results, outdir="test_dist", dist=True)

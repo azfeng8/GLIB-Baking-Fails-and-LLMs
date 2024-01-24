@@ -1,3 +1,16 @@
+#TODO: debug operator search TODO.
+#TODO: write-up algorithm so far.
+#TODO: try iterative LLM on other domains.
+
+
+#TODO: design alg for precondition and effect mixing
+    # need to benchmark the operator search implementation, and understand runtime scaling factors.
+#TODO: design alg for explorer precondition goal setting.
+    # target preconditions of currently learned operators with lots of no-ops.
+    # consider negating one of the lits of the best operator set: putegginpan rarely happens when the pan is dirty and the pan is not in the oven (experiment 6, iteration 1200).
+
+#TODO: implement algs
+#TODO: run tests in tests.py
 """
 Strategy: LLM proposes operators based on training data, and score all the learned operators + LLM's operators every once in a while.
 
@@ -5,7 +18,6 @@ This mainly helps when there is some non-no-op data, but not enough for the lear
 
 Problem: the LLM is not helping when there is no no-op data. Perhaps iteratively do the warm-starting + score preconditions, especially of actions without learned operators.
 
-#GOAL: without hardcode LLM outputs, run for a few hundred iterations, logging the LLM outputs, to get better perf than LNDR. Then hardcode the collected LLM outputs, and reproduce results
 #GOAL: try on more domains other than Baking: Rearrangement, Minecraft, Travel, and get better results than LNDR.
 #GOAL: try combining with the warm-starting operators.
 """
@@ -33,7 +45,7 @@ READING_DATASET = False
 READING_LLM_RESPONSES = False
 READING_LEARNING_MOD_OPS = False
 LOG_PATH_READ = f'/home/catalan/temp/experiment3/iter_600'
-LOG_PATH_WRITE = f'/home/catalan/temp/experiment7'
+LOG_PATH_WRITE = f'/home/catalan/temp/experiment13'
 
 class BaseLLMIterativeOperatorLearningModule:
     """LLM + learning algorithm combination method. Subclass this with the specific learning algorithm.

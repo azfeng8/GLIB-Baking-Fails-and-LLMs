@@ -42,3 +42,8 @@ The next extension: to direct exploration to the precondtions of newly accepted 
   - use the good LLM proposed operators for planning until the learner gets more data about the action.
 - Caught and resolved 3 bugs.
 - Next: Try strategy to target the (preconditions, action) of several learned operators, prioritizing operators with actions that have a lot of no-ops (LLM+GLIB_G1 and LNDR).
+
+1/24/24
+- Caught bug: wasn't doing learning_callback() in LLM+GLIB_G1.
+- Got results better than LNDR after fixing bugs.
+- Next: Write-up algorithm and try on other domains.
