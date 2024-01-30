@@ -79,6 +79,7 @@ class Runner:
         """Run primitive operator learning loop.
         """
         results = []
+        planning_results = []
         episode_done = True
         episode_time_step = 0
         itrs_on = None
@@ -95,7 +96,9 @@ class Runner:
                 self.agent.reset_episode(obs)
                 episode_time_step = 0
 
+            # start = time.time()
             action = self.agent.get_action(obs)
+            # print(f"GET ACTION TIME: {time.time() - start}")
 
             next_obs, _, episode_done, _ = self.train_env.step(action)
 
@@ -116,7 +119,9 @@ class Runner:
                 if self.domain_name == "PybulletBlocks" and self.curiosity_name == "oracle":
                     operators_changed = True
                 else:
+                    # s = time.time()
                     operators_changed = self.agent.learn(itr)
+                    # print(f"LEARNING TIME: {time.time() - s}")
 
                 # Only rerun tests if operators have changed, or stochastic env
                 if operators_changed or ac.planner_name[self.domain_name] == "ffreplan" or \
@@ -125,7 +130,8 @@ class Runner:
                     if gc.verbosity > 1:
                         print("Testing...")
 
-                    test_solve_rate, variational_dist = self._evaluate_operators()
+                    test_solve_rate, variational_dist = self._evaluate_operators(use_planning_ops=False)
+                    p_test_solve_rate, p_variational_dist = self._evaluate_operators(use_planning_ops=True)
 
                     if gc.verbosity > 1:
                         print("Result:", test_solve_rate, variational_dist)
@@ -149,14 +155,15 @@ class Runner:
                     if gc.verbosity > 1:
                         print("Result:", test_solve_rate, variational_dist)
                 results.append((itr, test_solve_rate, variational_dist))
+                planning_results.append((itr, p_test_solve_rate, p_variational_dist))
 
         if itrs_on is None:
             itrs_on = self.num_train_iters
         curiosity_avg_time = self.agent.curiosity_time/itrs_on
 
-        return results, curiosity_avg_time
+        return results, curiosity_avg_time, planning_results
 
-    def _evaluate_operators(self):
+    def _evaluate_operators(self,use_planning_ops:bool):
         """Test current operators. Return (solve rate on test suite,
         average variational distance).
         """
@@ -174,7 +181,7 @@ class Runner:
             self.test_env.fix_problem_index(problem_idx)
             obs, debug_info = self.test_env.reset()
             try:
-                policy = self.agent.get_policy(debug_info["problem_file"])
+                policy = self.agent.get_policy(debug_info["problem_file"], curiosity=use_planning_ops)
             except (NoPlanFoundException, PlannerTimeoutException):
                 # Automatic failure
                 continue
@@ -222,12 +229,15 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name):
                   train_env.observation_space, curiosity_name, learning_name,
                   planning_module_name=ac.planner_name[domain_name])
     test_env = gym.make("PDDLEnv{}Test-v0".format(domain_name))
-    results, curiosity_avg_time = Runner(agent, train_env, test_env, domain_name, curiosity_name).run()
+    results, curiosity_avg_time, planning_results = Runner(agent, train_env, test_env, domain_name, curiosity_name).run()
     with open("results/timings/{}_{}_{}_{}.txt".format(domain_name, curiosity_name, learning_name, seed), "w") as f:
         f.write("{} {} {} {} {}\n".format(domain_name, curiosity_name, learning_name, seed, curiosity_avg_time))
 
     outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                           "results", domain_name, learning_name, curiosity_name)
+    planning_outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                          "planning_results", domain_name, learning_name, curiosity_name)
+    os.makedirs(planning_outdir, exist_ok=True)
     if not os.path.exists(outdir):
         os.makedirs(outdir, exist_ok=True)
     cache_file = os.path.join(outdir, "{}_{}_{}_{}.pkl".format(
@@ -235,6 +245,11 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name):
     with open(cache_file, 'wb') as f:
         pickle.dump(results, f)
         print("Dumped results to {}".format(cache_file))
+    planning_cache_file = os.path.join(planning_outdir, "{}_{}_{}_{}.pkl".format(
+        domain_name, learning_name, curiosity_name, seed))
+    with open(planning_cache_file, 'wb') as f:
+        pickle.dump(planning_results, f)
+        print("Dumped results to {}".format(planning_cache_file))
     print("\n\n\nFinished single seed in {} seconds".format(time.time()-start))
     return {curiosity_name: results}
 

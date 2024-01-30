@@ -15,19 +15,23 @@ import time
 class FastForwardPlanner(Planner):
     FF_PATH = os.environ['FF_PATH']
 
-    def get_policy(self, raw_problem_fname):
-        actions = self.get_plan(raw_problem_fname)
+    def get_policy(self, raw_problem_fname, curiosity):
+        actions = self.get_plan(raw_problem_fname, curiosity=curiosity)
         def policy(_):
             if len(actions) == 0:
                 raise NoPlanFoundException() 
             return actions.pop(0)
         return policy
 
-    def get_plan(self, raw_problem_fname, use_cache=True):
+    def get_plan(self, raw_problem_fname, use_cache=True, curiosity=False):
+        if curiosity:
+            ops = self._exploration_operators
+        else:
+            ops = self._learned_operators
         # If there are no operators yet, we're not going to be able to find a plan
-        if not self._learned_operators:
+        if not ops:
             raise NoPlanFoundException()
-        domain_fname = self._create_domain_file()
+        domain_fname = self._create_domain_file(curiosity)
         problem_fname, objects = self._create_problem_file(raw_problem_fname, use_cache=use_cache)
         cmd_str = self._get_cmd_str(domain_fname, problem_fname)
         start_time = time.time()
@@ -41,7 +45,7 @@ class FastForwardPlanner(Planner):
         if not use_cache:
             os.remove(problem_fname)
  
-        actions = self._plan_to_actions(plan, objects)
+        actions = self._plan_to_actions(plan, objects, curiosity)
         return actions
 
     def _get_cmd_str(self, domain_fname, problem_fname):
@@ -62,8 +66,11 @@ class FastForwardPlanner(Planner):
             raise Exception("Plan not found with FF! Error: {}".format(output))
         return plan
 
-    def _plan_to_actions(self, plan, objects):
-        operators = self._learned_operators
+    def _plan_to_actions(self, plan, objects, curiosity=False):
+        if curiosity:
+            operators = self._exploration_operators
+        else:
+            operators = self._learned_operators
         action_predicates = self._action_space.predicates
 
         actions = []

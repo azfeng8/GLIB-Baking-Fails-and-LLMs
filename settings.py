@@ -6,7 +6,9 @@ class EnvConfig:
     """Environment-specific constants.
     """
     domain_name = ["Baking"]#["Minecraft", "Rearrangement", "Travel", "Baking"]
-    # domain_name = ['Tireworld']
+    # domain_name = ["Minecraft"]
+    # domain_name = ["Rearrangement"]
+    # domain_name = ['Minecraft']
     # domain_name = ["Glibdoors", "Tireworld", "Glibblocks", "Explodingblocks"]
     # domain_name = ["Gripper", "Travel"]
     
@@ -19,7 +21,7 @@ class EnvConfig:
         "Blocks": 1000,
         "Glibblocks": 1000,
         "Tsp": 1000,
-        "Rearrangement": 1000,
+        "Rearrangement": 4000,
         "Glibrearrangement": 1000,
         "Easygripper": 1000,
         "Gripper": 1000,
@@ -29,24 +31,22 @@ class EnvConfig:
         "Explodingblocks": 1000,
         "River": 1000,
         "NDRBlocks": 100,
-        "Minecraft": 1000,
+        "Minecraft": 80000,
         "Travel": 1000
     }
-    logging = True
 
 
 class AgentConfig:
     """Agent-specific constants.
     """
     curiosity_methods_to_run = [
-        # "LLM+GLIB_L2"
+        "LLM+GLIB_L2",
+        "LLM+GLIB_G1",
         # "GLIB_L2",
-        "LLM+GLIB_G1"
         # "GLIB_G1",
         # "oracle",
         # "random",
         # "GLIB_Seq"
-        # "LLMOracle"
     ]
 
     cached_results_to_load = [
@@ -107,10 +107,25 @@ class AgentConfig:
 
     # How often to use the LLM to learn operators. Interval units are iterations.
     LLM_learn_interval = {
-        "Baking": 300
+        "Baking": 300,
+        "Minecraft": 300,
+        "Travel": 300,
+        "Rearrangement": 300,
+        "Glibdoors": 300,
     }
     LLM_trajectory_length = {
-        "Baking": 10
+        "Baking": 10,
+        "Minecraft": 10,
+        "Travel": 10,
+        "Rearrangement": 15,
+        "Glibdoors": 10
+    }
+    LLM_start_interval = {
+        "Baking": 30,
+        "Minecraft": 35,
+        "Travel": 50,
+        "Rearrangement": 15,
+        "Glibdoors": 30
     }
 
     # Max training episode length.
@@ -131,7 +146,7 @@ class AgentConfig:
         "NDRBlocks" : 25,
         "Baking": 25,
         "Minecraft": 30,
-        "Travel": 25
+        "Travel": 35
     }
     # Max test episode length.
     max_test_episode_length = {
@@ -151,7 +166,7 @@ class AgentConfig:
         "NDRBlocks" : 25,
         "Baking": 25,
         "Travel": 25,
-        "Minecraft": 100
+        "Minecraft": 25
     }
     # Timeout for planner.
     planner_timeout = None  # set in main.py
@@ -173,8 +188,8 @@ class AgentConfig:
         "PybulletBlocks" : 501,
         "NDRBlocks" : 1501,
         "Baking": 1799,
-        "Travel": 1501,
-        "Minecraft": 2501
+        "Travel": 2501,
+        "Minecraft": 1801
     }
 
     ## Constants for curiosity modules. ##
@@ -296,8 +311,8 @@ class GeneralConfig:
     """General configuration constants.
     """
     verbosity = 1
-    start_seed = 24
-    num_seeds = 1   
+    start_seed = 30
+    num_seeds = 1
 
 class LLMConfig:
     """LLM Configuration."""
@@ -308,5 +323,10 @@ class LLMConfig:
 class PlottingConfig:
     """Plotting from cached results.
     """
-    domains = ["Baking"]#,"Baking", "Glibblocks", ]
-    learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_G1"), ("LNDR", "LLM+GLIB_G1"), ("LNDR", "GLIB_G1")]
+    # domains = ["Baking",  "Minecraft", "Rearrangement"]#,"Baking", "Glibblocks", ]
+    # learner_explorer = [ ("LNDR", "GLIB_G1"),  ("LNDR", "GLIB_L2")]#, ("LNDR", "GLIB_G1")]
+    learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_G1"), ("LNDR", "GLIB_G1")]
+    # learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2")]#, ("LNDR", "GLIB_G1")]
+    # learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_G1"), ("LNDR", "GLIB_G1"), ("LLMIterative+ZPK", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2")]#, ("LNDR", "GLIB_G1")]
+
+    domains = ["Baking"]

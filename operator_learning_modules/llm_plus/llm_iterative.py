@@ -1,16 +1,4 @@
-#TODO: debug operator search TODO.
-#TODO: write-up algorithm so far.
-#TODO: try iterative LLM on other domains.
-
-
-#TODO: design alg for precondition and effect mixing
-    # need to benchmark the operator search implementation, and understand runtime scaling factors.
-#TODO: design alg for explorer precondition goal setting.
-    # target preconditions of currently learned operators with lots of no-ops.
-    # consider negating one of the lits of the best operator set: putegginpan rarely happens when the pan is dirty and the pan is not in the oven (experiment 6, iteration 1200).
-
-#TODO: implement algs
-#TODO: run tests in tests.py
+#TODO: Experiment 25, iter 1900. Why does success decrease.
 """
 Strategy: LLM proposes operators based on training data, and score all the learned operators + LLM's operators every once in a while.
 
@@ -40,21 +28,24 @@ import os
 from typing import Iterable
 
 ### Debugging params
-LOGGING = True
+LOGGING = False
 READING_DATASET = False
 READING_LLM_RESPONSES = False
 READING_LEARNING_MOD_OPS = False
-LOG_PATH_READ = f'/home/catalan/temp/experiment3/iter_600'
-LOG_PATH_WRITE = f'/home/catalan/temp/experiment13'
+LOG_PATH_READ = f'/home/catalan/temp/experiment26/iter_1300'
+LOG_PATH_WRITE = f'/home/catalan/temp/experiment28'
 
 class BaseLLMIterativeOperatorLearningModule:
     """LLM + learning algorithm combination method. Subclass this with the specific learning algorithm.
     """
-    def __init__(self, learned_operators, domain_name, llm, llm_learned_ops):
+    def __init__(self, learned_operators, domain_name, llm, llm_precondition_goal_ops, planning_ops):
         self._llm:OpenAI_Model = llm
         self._llm_learn_interval = ac.LLM_learn_interval[domain_name]
+        self._llm_start_interval = ac.LLM_start_interval[domain_name]
+        self._domain_name = domain_name
         self._learned_operators = learned_operators
-        self._llm_learned_ops = llm_learned_ops
+        self._llm_precondition_goal_ops = llm_precondition_goal_ops
+        self._planning_ops = planning_ops
 
         observation_predicates = {p.name: p for p in ac.train_env.observation_space.predicates}
         action_predicates = {p.name: p for p in ac.train_env.action_space.predicates}
@@ -102,6 +93,10 @@ class BaseLLMIterativeOperatorLearningModule:
         is_updated = self.learner.learn()
         self._learned_operators = self.learner._learned_operators
 
+        self._planning_ops.clear()
+        for o in self._learned_operators:
+            self._planning_ops.add(o)
+
         # if itr % self._llm_learn_interval != 0:
             # Debugging. Check that the learner operators are updated correctly.
             # print("\n\nLEARNER NDRS, AFTER UPDATING\n")
@@ -110,7 +105,8 @@ class BaseLLMIterativeOperatorLearningModule:
             #     if "cleanpan" in  action_pred.name:
             #         print("Dataset", self.learner._transitions[action_pred])
 
-        if itr % self._llm_learn_interval != 0:
+        j = (itr - self._llm_start_interval)
+        if (j < 0) or (j % self._llm_learn_interval != 0):
             return is_updated
 
         if READING_DATASET:
@@ -164,14 +160,15 @@ class BaseLLMIterativeOperatorLearningModule:
         # score and filter the PDDL operators
         ops = self._score_and_filter(llm_ops, itr)
 
-        # update learner operators
-        #TODO: remove?
-        is_updated =  self._update_operator_rep(ops, itr)
+        # update planning operators
+        self._planning_ops.clear()
+        for o in ops:
+            self._planning_ops.add(o)
 
         if LOGGING:
             with open(f'{LOG_PATH_WRITE}/iter_{itr}/ndrs.pkl', 'wb') as f:
                 pickle.dump(self._ndrs, f)
-            with open(f'/home/catalan/temp/iter_{itr}/updated_learned_ops.pkl', 'wb') as f:
+            with open(f'{LOG_PATH_WRITE}/iter_{itr}/updated_learned_ops.pkl', 'wb') as f:
                 pickle.dump(self._learned_operators, f)
 
         return is_updated
@@ -225,7 +222,7 @@ class BaseLLMIterativeOperatorLearningModule:
             """
             episode, idx = trim_episode(self._trajectories[i], j)
             #TODO [performance] update self._trajectories with the trimmed episode, and only trim each episode one time.
-            max_interval_length = ac.max_traj_len
+            max_interval_length = ac.LLM_trajectory_length[self._domain_name]
             episode_len = len(episode)
 
             # Generate the tuples (start, end) that < ac.max_traj_len and include idx. Note end is the index that is included
@@ -498,11 +495,11 @@ class BaseLLMIterativeOperatorLearningModule:
             llm_accepted_ops: operators from LLM after scoring/filtering.
             learner_ops_same_action: operators from the learner before scoring/filtering with same action predicate as the corresponding one in the `llm_accepted_ops` list.
         """
-        self._llm_learned_ops.clear()
+        self._llm_precondition_goal_ops.clear()
         for o,lo in zip(llm_accepted_ops, learner_ops_same_action):
-            self._llm_learned_ops[o] = lo
+            self._llm_precondition_goal_ops[o] = lo
         print("\n\nUPDATED from LLM ITERATIVE\n")
-        print(self._llm_learned_ops)
+        print(self._llm_precondition_goal_ops)
 
     @abstractmethod
     def _update_operator_rep(self, itr):
@@ -518,11 +515,11 @@ from ndr.learn import iter_variable_names
 from pddlgym.structs import TypedEntity, ground_literal
 
 class LLMZPKIterativeOperatorLearningModule(BaseLLMIterativeOperatorLearningModule):
-    def __init__(self, learned_operators, domain_name, llm, llm_learned_operators):
-        self.learner = ZPKOperatorLearningModule(learned_operators, domain_name)
+    def __init__(self, learned_operators, domain_name, llm, llm_precondition_goal_ops, planning_ops):
+        self.learner = ZPKOperatorLearningModule(learned_operators, domain_name, planning_ops)
         self._ndrs = self.learner._ndrs
 
-        super().__init__(learned_operators, domain_name, llm, llm_learned_operators)
+        super().__init__(learned_operators, domain_name, llm, llm_precondition_goal_ops, planning_ops)
 
     def _update_operator_rep(self, ops:list[Operator], itr=-1) -> bool:
         """Update the NDRs.

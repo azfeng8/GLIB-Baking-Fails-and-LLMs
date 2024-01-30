@@ -15,8 +15,9 @@ class NoPlanFoundException(Exception):
 
 
 class Planner:
-    def __init__(self, learned_operators, domain_name, action_space, observation_space):
+    def __init__(self, learned_operators, domain_name, action_space, observation_space, exploration_operators):
         self._learned_operators = learned_operators
+        self._exploration_operators = exploration_operators
         self.domain_name = domain_name
         self._action_space = action_space
         self._observation_space = observation_space
@@ -26,15 +27,19 @@ class Planner:
         self._problem_files = {}
 
     @abc.abstractmethod
-    def get_policy(self, raw_problem_fname):
+    def get_policy(self, raw_problem_fname, curiosity):
         pass
 
-    def _create_domain_file(self):
+    def _create_domain_file(self, curiosity:bool):
         dom_str = self._create_domain_file_header()
         dom_str += self._create_domain_file_types()
         dom_str += self._create_domain_file_predicates()
 
-        for operator in sorted(self._learned_operators, key=lambda o:o.name):
+        if curiosity:
+            ops = self._exploration_operators
+        else:
+            ops = self._learned_operators
+        for operator in sorted(ops, key=lambda o:o.name):
             dom_str += self._create_domain_file_operator(operator)
         dom_str += '\n)'
 

@@ -1,14 +1,14 @@
-Bugs log:
+Development log:
 
 1/16/23
 
-#TODO: removepanfromoven is not getting picked up. Saw bakesouffle get picked up, then dropeed. In general, if LNDR has an op that the LLM doesn't have, it should be returned from the operator search.
-    # Problem how computing LEAP_score: lambda was too small
+# removepanfromoven is not getting picked up. Saw bakesouffle get picked up, then dropeed. In general, if LNDR has an op that the LLM doesn't have, it should be returned from the operator search.
+Explanation:  Problem how computing LEAP_score: lambda was too small
 
 1/17/23
 
-#TODO: investigate the uncovered transitions: several with "mix", "cleanpan": shouldn't LNDR pick them up?
- # Large amount of no-op data is causing the NDRs to be learned badly (learn NDRs with no effects). Checked LNDR code, ran debug at the bottom of ZPK file.
+Investigated the uncovered transitions: several with "mix", "cleanpan": shouldn't LNDR pick them up?
+Explanation:  Large amount of no-op data is causing the NDRs to be learned badly (learn NDRs with no effects). Checked LNDR code, ran debug at the bottom of ZPK file.
 
 1/20/23
 

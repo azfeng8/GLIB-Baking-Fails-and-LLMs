@@ -19,14 +19,14 @@ import pddlgym
 
 class ZPKOperatorLearningModule:
 
-    def __init__(self, learned_operators, domain_name):
+    def __init__(self, learned_operators, domain_name, planning_ops):
         self._domain_name = domain_name
         self._learned_operators = learned_operators
+        self._planning_operators = planning_ops
         self._transitions = defaultdict(list)
         self._seed = ac.seed
         self._rand_state = np.random.RandomState(seed=ac.seed)
         self._learning_on = True
-        #TODO: make sure that each action predicate can have more than one operator associated with it.
         self._ndrs:Dict[pddlgym.structs.Predicate,NDRSet] = {}
         self._fits_all_data = defaultdict(bool)
 
@@ -97,6 +97,7 @@ class ZPKOperatorLearningModule:
         # Update all learned_operators
         if is_updated:
             self._learned_operators.clear()
+            self._planning_operators.clear()
             for ndr_set in self._ndrs.values():
                 for i, ndr in enumerate(ndr_set):
                     operator = ndr.determinize(name_suffix=i)
@@ -104,6 +105,7 @@ class ZPKOperatorLearningModule:
                     if len(operator.effects.literals) == 0 or NOISE_OUTCOME in operator.effects.literals:
                         continue
                     self._learned_operators.add(operator)
+                    self._planning_operators.add(operator)
 
             # print_rule_set(self._ndrs)
 

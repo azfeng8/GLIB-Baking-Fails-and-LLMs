@@ -32,23 +32,26 @@ class Agent:
         # The main objective of the agent is to learn good operators
         self.learned_operators = set()
 
+        # The set of operators for planning for exploration.
+        self.planning_operators = set()
+
         self.llm = OpenAI_Model()
-        self.llm_learned_ops = dict() # Op from LLM: Op from Learner with the same action predicate (random)
+        self.llm_precondition_goals = dict() # Op from LLM: Op from Learner with the same action predicate (random)
 
         # The operator learning module learns operators. It should update the
         # agent's learned operators set
         self._operator_learning_module = create_operator_learning_module(
-            operator_learning_name, self.learned_operators, self.domain_name, self.llm, self.llm_learned_ops)
+            operator_learning_name, self.learned_operators, self.domain_name, self.llm, self.llm_precondition_goals, self.planning_operators)
         # The planning module uses the learned operators to plan at test time.
         self._planning_module = create_planning_module(
             planning_module_name, self.learned_operators, domain_name,
-            action_space, observation_space)
+            action_space, observation_space, self.planning_operators)
         # The curiosity module dictates how actions are selected during training
         # It may use the learned operators to select actions
         self._curiosity_module = create_curiosity_module(
             curiosity_module_name, action_space, observation_space,
-            self._planning_module, self.learned_operators,
-            self._operator_learning_module, domain_name, self.llm_learned_ops)
+            self._planning_module, self.planning_operators,
+            self._operator_learning_module, domain_name, self.llm_precondition_goals)
         
         # Flag to tell if at the episode start. Unset after observing the first effect.
         self.episode_start = False
@@ -106,6 +109,6 @@ class Agent:
         return positive_effects | negative_effects
 
     ## Test time methods
-    def get_policy(self, problem_fname):
+    def get_policy(self, problem_fname, curiosity:bool):
         """Get a plan given the learned operators and a PDDL problem file."""
-        return self._planning_module.get_policy(problem_fname)
+        return self._planning_module.get_policy(problem_fname, curiosity=curiosity)

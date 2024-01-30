@@ -168,7 +168,8 @@ class GLIBG1LLMCuriosityModule(GoalBabblingCuriosityModule):
         Args:
             itr (int): iteration #
         """
-        if itr % ac.LLM_learn_interval[self._domain_name] == 0:
+        j = (itr - ac.LLM_start_interval[self._domain_name])
+        if (j>=0) and (j % ac.LLM_learn_interval[self._domain_name] == 0):
             self._recompute_llm_goal_actions()
             for goal_action in self._llm_goal_actions:
                 self._unseen_lits_acts.append(goal_action)
@@ -179,22 +180,13 @@ class GLIBG1LLMCuriosityModule(GoalBabblingCuriosityModule):
         """Add the learner's operators preconditions to the LLM proposed preconditions with all combinations.
         """
         self._llm_goal_actions = []
-        for op in self._llm_learned_ops:
-            learner_op = self._llm_learned_ops[op]
-            learned_lits_combinations = []
+        for op in self._llm_precondition_goal_ops:
+            learner_op = self._llm_precondition_goal_ops[op]
             if learner_op is not None:
-                op_lits = [l.predicate for l in op.preconds.literals]
-                learned_lits = []
-                for lit in learner_op.preconds.literals:
-                    if lit.predicate not in op_lits:
-                        learned_lits.append(lit)
-                for i in range(1, len(learned_lits)+1):
-                    for lits in combinations(learned_lits, i):
-                        learned_lits_combinations.append(lits)
-
-            learned_lits_combinations.append(tuple())
-            for addition in learned_lits_combinations:
-                literals = [l for l in addition] + op.preconds.literals
+                learned_lits_combinations = self.mix_lifted_preconditions(op, learner_op)
+            else:
+                learned_lits_combinations = [op.preconds.literals]
+            for literals in learned_lits_combinations:
                 for preconds,_ in ground_literals(literals, self._objects):
                     action = [p for p in preconds
                         if p.predicate in self._action_space.predicates][0]
