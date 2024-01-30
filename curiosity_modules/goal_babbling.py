@@ -7,7 +7,10 @@ from planning_modules.base_planner import PlannerTimeoutException, \
     NoPlanFoundException
 from settings import AgentConfig as ac
 from curiosity_modules import BaseCuriosityModule
-
+from pddlgym.parser import Operator
+from pddlgym.structs import Type, TypedEntity, Literal, LiteralConjunction
+from itertools import combinations
+from pddlgym.parser import PDDLDomainParser
 
 class GoalBabblingCuriosityModule(BaseCuriosityModule):
     """Curiosity module that samples a completely random literal and plans to
@@ -16,6 +19,7 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
     def _initialize(self):
         self._num_steps = 0
         self._name = "goalbabbling"
+        self._llm_goal_actions = []
         # Keep track of the number of times that we follow a plan
         self.line_stats = []
 
@@ -104,3 +108,122 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
 
     def learn(self, itr):
         pass
+
+    def rename_lits_in_operator(self, operator_llm:Operator, operator_learner:Operator) -> Operator:
+        """Rename the lits in the learner's operator to match the `operator_llm`. Helper for mix_lifted_operators.
+
+        Args:
+            operator_llm : Operator
+            operator_learner : Operator
+
+        Returns:
+            Operator: the revised `operator_learner`
+        """
+        # Map variable names by type from LLM to Learner
+        llm_arg_names:list[str] = []
+        llm_var_types:list[str] = []
+        for param in operator_llm.params:
+            var_name, v_type = param._str.split(':')
+            llm_arg_names.append(var_name)
+            llm_var_types.append(v_type)
+
+        next_var_name = f"?x{len(operator_llm.params)}"
+        # Rename the learner's operators. Map from old variable name to new.
+        names_mapping = {}
+        for param in operator_learner.params:
+            var_name, v_type = param._str.split(':')
+            if v_type in llm_var_types:
+                i = llm_var_types.index(v_type)
+                # Mark the variable as taken
+                llm_var_types[i] = None
+                names_mapping[var_name] = llm_arg_names[i]
+            else:
+                names_mapping[var_name] = next_var_name
+                next_var_name = "?x" + str(int(next_var_name.lstrip('?x')) + 1)
+        
+        ## Rename the Learner's variables
+        # Rename the precondition
+        precond_lits = []
+        for lit in operator_learner.preconds.literals:
+            args = []
+            for v in lit.variables:
+                v_name, v_type = v._str.split(':')
+                args.append(TypedEntity(names_mapping[v_name], Type(v_type)))
+            precond_lits.append(lit.predicate(*args))
+        precond = LiteralConjunction(precond_lits)
+                
+        # Rename the effects
+        effect_lits = []
+        for lit in operator_learner.preconds.literals:
+            args = []
+            for v in lit.variables:
+                v_name, v_type = v._str.split(':')
+                args.append(TypedEntity(names_mapping[v_name], Type(v_type)))
+            effect_lits.append(lit.predicate(*args))
+        effect = LiteralConjunction(effect_lits)
+                
+        # Recreate the params
+        params = set()
+        for l in precond.literals + effect.literals:
+            for v in l.variables:
+                params.add(v)
+        return Operator(operator_learner.name, params, precond, effect)
+
+
+    def mix_lifted_preconditions(self, llm_operator, operator_learner) -> list[set[Literal]]:
+        """Get a list of preconditions that have a mix of the LLM operator preconditions with the learner preconditions.
+
+        The suggested operator from the LLM, and uses the preconditions P as goals. 
+        In addition, take a random operator with the same action, and get its preconditions p. Get all combinations of (p \ P), including [].
+        For each c in those combinations, consider P + c equally when sampling a goal. Consider all P + c first before the other grounded goals.
+
+        Args:
+            llm_operator (_type_): operator from the LLM
+            learner_operator (_type_): operator from the learner with the same action as `llm_operator`
+
+        Returns:
+            list[set[Literal]]: lists of precondition sets
+        """
+
+
+        learned_lits_combinations = []
+        learner_operator = self.rename_lits_in_operator(llm_operator, operator_learner)
+        learned_lits = []
+        for lit in learner_operator.preconds.literals:
+            if (lit.positive not in llm_operator.preconds.literals) and (lit.negative not in llm_operator.preconds.literals):
+                learned_lits.append(lit)
+        for i in range(0, len(learned_lits)+1):
+            for lits in combinations(learned_lits, i):
+                learned_lits_combinations.append(lits)
+
+        combined_preconditions = []
+        for lits_to_add in learned_lits_combinations:
+
+            ### Rename the additional lits, assigning variable names by type according to the LLM's operator naming scheme.
+            llm_arg_types:list[str] = []
+            llm_arg_names:list[str] = []
+            for t in llm_operator.params:
+                var_name, v_type = t._str.split(':')
+                llm_arg_types.append(v_type)   
+                llm_arg_names.append(var_name)
+            next_var_name = f"?x{len(llm_operator.params)}"
+
+
+            renamed_additional_lits = []
+            for lit in lits_to_add:
+                args = []
+                for t in lit.predicate.var_types:
+                    if t in llm_arg_types:
+                        i = llm_arg_types.index(t)
+                        llm_arg_types[i] = None
+                        args.append(TypedEntity(llm_arg_names[i], Type(t)))
+                    else:
+                        args.append(TypedEntity(next_var_name, Type(t)))
+                        next_var_name = f"?x" + str(int(next_var_name.lstrip("?x")) + 1)
+                renamed_additional_lits.append(lit.predicate(*args))
+
+            precond = llm_operator.preconds.literals + renamed_additional_lits
+            combined_preconditions.append(precond)
+        return combined_preconditions
+        
+     

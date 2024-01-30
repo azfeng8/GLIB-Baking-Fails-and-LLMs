@@ -95,7 +95,9 @@ class Runner:
                 self.agent.reset_episode(obs)
                 episode_time_step = 0
 
+            # start = time.time()
             action = self.agent.get_action(obs)
+            # print(f"GET ACTION TIME: {time.time() - start}")
 
             next_obs, _, episode_done, _ = self.train_env.step(action)
 
@@ -116,7 +118,9 @@ class Runner:
                 if self.domain_name == "PybulletBlocks" and self.curiosity_name == "oracle":
                     operators_changed = True
                 else:
+                    # s = time.time()
                     operators_changed = self.agent.learn(itr)
+                    # print(f"LEARNING TIME: {time.time() - s}")
 
                 # Only rerun tests if operators have changed, or stochastic env
                 if operators_changed or ac.planner_name[self.domain_name] == "ffreplan" or \
@@ -222,7 +226,7 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name):
                   train_env.observation_space, curiosity_name, learning_name,
                   planning_module_name=ac.planner_name[domain_name])
     test_env = gym.make("PDDLEnv{}Test-v0".format(domain_name))
-    results, curiosity_avg_time = Runner(agent, train_env, test_env, domain_name, curiosity_name).run()
+    results, curiosity_avg_time  = Runner(agent, train_env, test_env, domain_name, curiosity_name).run()
     with open("results/timings/{}_{}_{}_{}.txt".format(domain_name, curiosity_name, learning_name, seed), "w") as f:
         f.write("{} {} {} {} {}\n".format(domain_name, curiosity_name, learning_name, seed, curiosity_avg_time))
 

@@ -7,7 +7,7 @@ from .GLIB_lifted import *
 
 def create_curiosity_module(curiosity_module_name, action_space,
                             observation_space, planning_module,
-                            learned_operators, operator_learning_module, domain_name, llm_learned_operators):
+                            planning_operators, operator_learning_module, domain_name, llm_precondition_goal_operators):
     module = None
     if curiosity_module_name == "oracle":
         module = OracleCuriosityModule
@@ -25,4 +25,4 @@ def create_curiosity_module(curiosity_module_name, action_space,
         raise Exception("Unrecognized curiosity module '{}'".format(
             curiosity_module_name))
     return module(action_space, observation_space, planning_module,
-                  learned_operators, operator_learning_module, domain_name, llm_learned_operators)
+                  planning_operators, operator_learning_module, domain_name, llm_precondition_goal_operators)

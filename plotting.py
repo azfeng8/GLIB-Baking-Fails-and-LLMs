@@ -84,14 +84,19 @@ def main():
             for learner, explorer in pc.learner_explorer:
                 seeds_path = os.path.join(domain_path, learner, explorer)
                 results = []
+                min_length = np.inf
                 for pkl_fname in glob.glob(os.path.join(seeds_path, "*.pkl")):
                     with open(pkl_fname, "rb") as f:
                         saved_results = pickle.load(f)
-                    results.append(saved_results[:1799])
+                        if len(saved_results) < min_length:
+                            min_length = len(saved_results)
+                    results.append(saved_results)
                 min_seeds = min(min_seeds, len(results))
                 max_seeds = max(max_seeds, len(results))
                 if len(results) == 0:
                     raise Exception(f"Data not found: {seeds_path}")
+                for i,r in enumerate(results):
+                    results[i] = r[:min_length]
                 results = np.array(results)
                 label = f"{learner}, {explorer}"
                 xs = results[0,:,0]
@@ -109,6 +114,11 @@ def main():
                 plt.ylim((-0.1, 1.1))
                 plt.legend(loc="lower right")
                 plt.tight_layout()
+                plt.xlabel("Iterations")
+                if dist_succ == 'dist':
+                    plt.ylabel("Variational distance to 'true' transition model") 
+                if dist_succ == 'succ':
+                    plt.ylabel("Success rate on test problems")
             outfile = os.path.join(outdir, "{}_{}.png".format(
                 domain, dist_succ))
             plt.savefig(outfile, dpi=300)
@@ -116,13 +126,13 @@ def main():
 
     
 if __name__ == "__main__":
-    main()
-    # for i,f in enumerate(os.listdir(f"results/Baking/LNDR/LLM+GLIB_G1")):
-    #     all_results = defaultdict(list)
-    #     with open(os.path.join(f"results/Baking/LNDR/LLM+GLIB_G1",f), 'rb') as fh:
-    #         all_results["LLM+GLIB_G1"].append(pickle.load(fh))
-    #     plot_results(f"Baking{i}", "LNDR", all_results, outdir="test_succ", dist=False)
-    #     plot_results(f"Baking{i}", "LNDR", all_results, outdir="test_dist", dist=True)
+    # main()
+    for i,f in enumerate(os.listdir(f"results/Travel/LNDR/GLIB_L2")):
+        all_results = defaultdict(list)
+        with open(os.path.join(f"results/Travel/LNDR/GLIB_L2",f), 'rb') as fh:
+            all_results["GLIB_L2"].append(pickle.load(fh))
+        plot_results(f"Travel{i}", "LNDR", all_results, outdir="individual_plots/succ", dist=False)
+        plot_results(f"Travel{i}", "LNDR", all_results, outdir="individual_plots/dist", dist=True)
     # for i,f in enumerate(os.listdir(f"results/Baking/LLMIterative+ZPK/LLM+GLIB_G1")):
     #     all_results = defaultdict(list)
     #     with open(os.path.join(f"results/Baking/LLMIterative+ZPK/LLM+GLIB_G1",f), 'rb') as fh:

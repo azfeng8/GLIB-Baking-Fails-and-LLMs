@@ -1,6 +1,4 @@
 #TODO: support "or" and "forall"
-import sys
-sys.path.append('/home/catalan/GLIB-Baking-Fails-and-LLMs')
 import logging
 from pddlgym.structs import Anti, Type, LiteralConjunction, Literal,TypedEntity, Not
 from pddlgym.parser import Operator
@@ -38,19 +36,6 @@ class LLM_PDDL_Parser:
         match = re.search("\(\:action", llm_response)
         # Count parantheses: look for the closing to "(:action" to get the operator string.
         operator_str = find_closing_paran(llm_response[match.start():])
-        # i = match.end()
-        open_parans = 0
-        close = 0
-        # operator_str = None
-        # for c in llm_response[match.end():]:
-        #     if c == "(":
-        #         open_parans += 1
-        #     elif c == ")":
-        #         close += 1
-        #     if close > open_parans:
-        #         operator_str = llm_response[match.start():i+1]
-        #         break
-        #     i+=1
 
         if operator_str is None: raise Exception(f"Parsing error: {llm_response}")
         # Extract operator name.
@@ -76,11 +61,14 @@ class LLM_PDDL_Parser:
             return None
         action_pred = self._action_predicates[op_name]
         args = []
+        param_types_temp = param_types[:]
         for v_type in action_pred.var_types:
-            if v_type not in param_types:
+            if v_type not in param_types_temp:
                     # Can't form the action from the operator arguments
                     return None 
-            v_name = param_names[param_types.index(str(v_type))]
+            i = param_types_temp.index(str(v_type))
+            param_types_temp[i] = None
+            v_name = param_names[i]
             args.append(Type(v_name))
         action = action_pred(*args)
 
@@ -291,7 +279,7 @@ if __name__ == "__main__":
     PARSING_LOGGER.addHandler(ch)
 
 
-    env = pddlgym.make("PDDLEnvBaking-v0")
+    env = pddlgym.make("PDDLEnvMinecraft-v0")
     observation_predicates = {p.name: p for p in env.observation_space.predicates}
     action_predicates = {p.name: p for p in env.action_space.predicates}
     types = set()
@@ -314,28 +302,50 @@ if __name__ == "__main__":
         (ovenisfull ?o)
     )
 )"""
-    # print(parser.parse_operator(problem))
+    problem = """Based on the given predicates and object types, the PDDL operator for the "craftplank" action can be defined as follows:
+
+```pddl
+(:action craftplank
+    :parameters (?agent - agent ?log - moveable ?planks - moveable)
+    :precondition (and 
+        (equipped ?log ?agent)
+        (islog ?log)
+        (hypothetical ?planks)
+    )
+    :effect (and
+        (not (equipped ?log ?agent))
+        (not (islog ?log))
+        (not (hypothetical ?planks))
+        (inventory ?planks)
+        (isplanks ?planks)
+        (handsfree ?agent)
+    )
+)
+```
+
+In this operator, the parameters are the agent, the log, and the hypothetical planks. The precondition for the action to take place is that the agent must be equipped with the log, the log must be identified as a log, and the planks must be hypothetical. The effect of the action is that the agent is no longer equipped with the log, the log is no longer identified as a log, the planks are no longer hypothetical but are now in the inventory and identified as planks, and the agent's hands are free."""
+    print(parser.parse_operator(problem))
     # raise Exception
-    with open('/home/catalan/temp/later.pkl', 'rb') as f:
-        later = pickle.load(f)
-    with open('/home/catalan/temp/done.pkl', 'rb') as f:
-        done = pickle.load(f)
-    for file in os.listdir('/home/catalan/llm_cache'):
-        if file == 'p.py': continue
-        with open(os.path.join('/home/catalan/llm_cache', file), 'rb') as f:
-            if file in done: continue
-            # if file in later: continue
-            s = pickle.load(f)[0]
-            if ":action" in s:
-                print(s)
-                parsed =(parser.parse_operator(s))
-                print(parsed)
-                i = input()
-                if i == 'y':
-                    done.append(file)
-                elif i == 'l':
-                    later.append(file)
-        with open('/home/catalan/temp/done.pkl', 'wb') as f:
-            pickle.dump(done, f)
-        with open('/home/catalan/temp/later.pkl', 'wb') as f:
-            pickle.dump(later, f)
+    # with open('/home/catalan/temp/later.pkl', 'rb') as f:
+    #     later = pickle.load(f)
+    # with open('/home/catalan/temp/done.pkl', 'rb') as f:
+    #     done = pickle.load(f)
+    # for file in os.listdir('/home/catalan/llm_cache'):
+    #     if file == 'p.py': continue
+    #     with open(os.path.join('/home/catalan/llm_cache', file), 'rb') as f:
+    #         if file in done: continue
+    #         # if file in later: continue
+    #         s = pickle.load(f)[0]
+    #         if ":action" in s:
+    #             print(s)
+    #             parsed =(parser.parse_operator(s))
+    #             print(parsed)
+    #             i = input()
+    #             if i == 'y':
+    #                 done.append(file)
+    #             elif i == 'l':
+    #                 later.append(file)
+    #     with open('/home/catalan/temp/done.pkl', 'wb') as f:
+    #         pickle.dump(done, f)
+    #     with open('/home/catalan/temp/later.pkl', 'wb') as f:
+    #         pickle.dump(later, f)
