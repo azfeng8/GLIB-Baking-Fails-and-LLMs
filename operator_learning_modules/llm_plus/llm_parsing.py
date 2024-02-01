@@ -1,8 +1,8 @@
-#TODO: support "or" and "forall"
 import logging
-from pddlgym.structs import Anti, Type, LiteralConjunction, Literal,TypedEntity, Not
+from pddlgym.structs import Anti, Type, LiteralConjunction, Literal,TypedEntity, Not, LiteralDisjunction
 from pddlgym.parser import Operator
 from ndr.learn import iter_variable_names
+from itertools import product
 import re
 
 PARSING_LOGGER = logging.getLogger('PARSER')
@@ -20,7 +20,7 @@ class LLM_PDDL_Parser:
         self._action_predicates = action_preds
         self._types = object_types
 
-    def parse_operator(self, llm_response:str) -> Operator or None:
+    def parse_operators(self, llm_response:str) -> list[Operator] or None:
         """Parse an Operator from the LLM response.
 
         Args:
@@ -30,7 +30,7 @@ class LLM_PDDL_Parser:
             Exception: Used in debugging only, will remove #TODO.
 
         Returns:
-            Operator or None: operator that was parsed, or None if not able to parse a non-null-effect operator.
+            list[Operator] or None: operators that were parsed, or None if not able to parse a non-null-effect operator.
         """
         # Find the PDDL operator in the response.
         match = re.search("\(\:action", llm_response)
@@ -82,20 +82,21 @@ class LLM_PDDL_Parser:
 
         precond_match = re.search(":precondition[\(\s]*\w", operator_str)
         precond_str = find_closing_paran(operator_str[precond_match.end() - 2:])
-        # print(precond_str)
         #NOTE: Supports only LiteralConjunction and Literal for now.
-        lc = self._parse_into_literal(precond_str, param_names, param_types, False)
-        # print(lc)
+        precond_list = self._parse_into_cnf(precond_str, param_names, param_types, False)
+        PARSING_LOGGER.debug(f"PRECONDS: {precond_list}")
 
-        if lc is None:
+        if not all(precond_list):
             return None
 
-        if isinstance(lc, Literal):
-            preconds = LiteralConjunction([lc, action])
-        elif isinstance(lc, LiteralConjunction):
-            preconds = LiteralConjunction(lc.literals + [action])
-        else:
-            raise Exception(f"Unsupported type: {type(lc)}")    
+        for i in range(len(precond_list)):
+            lc = precond_list[i]
+            if isinstance(lc, Literal):
+                precond_list[i] = LiteralConjunction([lc, action])
+            elif isinstance(lc, LiteralConjunction):
+                precond_list[i] = LiteralConjunction(lc.literals + [action])
+            else:
+                raise Exception(f"Unsupported type: {type(lc)}")    
 
         # Extract effects.
         effect_str_match = re.search(":effect[\(\s]*\w", operator_str)
@@ -105,50 +106,60 @@ class LLM_PDDL_Parser:
         effect_str = (operator_str[effect_str_match.end() - 2:].strip())
         effect_str = find_closing_paran(effect_str)
 
-        effects = self._parse_into_literal(effect_str, param_names, param_types, is_effect=True)
+        effects_list = self._parse_into_cnf(effect_str, param_names, param_types, is_effect=True)
+        PARSING_LOGGER.debug(f"EFFECTS:\n{effects_list}")
 
-        if effects is None:
+        if not all(effects_list):
             return None
 
-        if isinstance(effects, Literal):
-            effects  = LiteralConjunction([effects])
-        elif isinstance(effects, LiteralConjunction):
-            pass
-        else:
-            raise Exception(f"Unsupported type: {type(effects)}")    
+        for j in range(len(effects_list)):
+            effects = effects_list[j]
+            if isinstance(effects, Literal):
+                effects_list[j]  = LiteralConjunction([effects])
+            elif isinstance(effects, LiteralConjunction):
+                pass
+            else:
+                raise Exception(f"Unsupported type: {type(effects)}")    
 
 
-        # Rename the variables
-        var_name_gen = iter_variable_names()
-        variables = {}
-        for l in effects.literals + preconds.literals:
-            for v in l.variables:
-                if v not in variables:
-                    v_name = next(var_name_gen)
-                    variables[v] = Type(v_name)
+        operators = []
+        for effects in effects_list:
+            for preconds in precond_list:
+                # Rename the variables
+                var_name_gen = iter_variable_names()
+                variables = {}
+                # PARSING_LOGGER.debug(f"effects: {effects}")
+                # PARSING_LOGGER.debug(f"preconds: {preconds}")
+                for l in effects.literals + preconds.literals:
+                    for v in l.variables:
+                        if v not in variables:
+                            v_name = next(var_name_gen)
+                            variables[v] = Type(v_name)
 
-        literals = []
-        for l in preconds.literals:
-            args = []
-            for v in l.variables:
-                args.append(variables[v])
-            literals.append(Literal(l.predicate, args))
-        preconds = LiteralConjunction(literals)
+                literals = []
+                for l in preconds.literals:
+                    args = []
+                    for v in l.variables:
+                        args.append(variables[v])
+                    literals.append(Literal(l.predicate, args))
+                preconds_renamed = LiteralConjunction(literals)
 
-        literals = []
-        for l in effects.literals:
-            args = []
-            for v in l.variables:
-                args.append(variables[v])
-            literals.append(Literal(l.predicate, args))
-        effects = LiteralConjunction(literals)       
+                literals = []
+                for l in effects.literals:
+                    args = []
+                    for v in l.variables:
+                        args.append(variables[v])
+                    literals.append(Literal(l.predicate, args))
+                effects_renamed = LiteralConjunction(literals)       
 
-        params = set()
-        for l in effects.literals + preconds.literals:
-            for v in l.variables:
-                params.add(v)
-                
-        return Operator(op_name, params, preconds, effects)
+                params = set()
+                for l in effects_renamed.literals + preconds_renamed.literals:
+                    for v in l.variables:
+                        params.add(v)
+                        
+                operators.append(Operator(op_name, params, preconds_renamed, effects_renamed))
+
+        return operators
 
     def _find_all_balanced_expressions(self, string):
         """Return a list of all balanced expressions in a string,
@@ -185,33 +196,118 @@ class LLM_PDDL_Parser:
         exprs.append(string[start_index:index+1])
         return exprs
 
-    def _parse_into_literal(self, string:str, param_names:list, param_types:list, is_effect:bool) -> Literal or None:
-        """Parses the string into a literal or None if predicate name or argument types are invalid.
+    def _parse_into_cnf(self, string:str, param_names:list, param_types:list, is_effect:bool) -> list[Literal or None]:
+        """Parses the string into a CNF or None if predicate name or argument types are invalid.
 
         Args:
             string: Effect or Precondition string. Starts with '(' and ends with its closing mirror ')'
             is_effect (bool): if the string is effect.
             param_names (list): variable names (such as '?x0') 
             param_types (list): types (such as 'ingredient')
+        Returns:
+            [ Literal or None ]: lists of the literals. Each literal in the list is an item in the Disjunction, like a CNF: [ [AND] OR [AND] ].
         """
         if string.startswith("(and") and string[4] in (" ", "\n", "(", ")"):
             clauses = self._find_all_balanced_expressions(string[4:-1].strip())
-            lits = [self._parse_into_literal(clause, param_names, param_types, 
+            lits_list = [self._parse_into_cnf(clause, param_names, param_types, 
                                         is_effect=is_effect) for clause in clauses]
-            lits = [l for l in lits if l is not None]
-            if len(lits) == 0:
-                return None
-            return LiteralConjunction(lits)
+            # [ [OR] AND [OR] ]
+            cnf = []
+            # Clear out empty clauses
+            for lits in lits_list:
+                lits = [l for l in lits if l is not None]
+                if len(lits) != 0:
+                    cnf.append(lits)
+            
+            if len(cnf) == 0:
+                return [None]
+
+            if len(cnf) == 1:
+                # [ [expression] ]
+                if isinstance(cnf[0], list):
+                    return cnf[0]
+                else: 
+                    raise Exception(f"Got type unexpected: {cnf}")
+                    
+            lcs = []
+            for lits in product(*cnf):
+                conj = []
+                for l in lits:
+                    if isinstance(l, LiteralConjunction):
+                        conj.extend(l.literals)
+                    elif isinstance(l, Literal):
+                        conj.append(l)
+                    else:
+                        raise Exception(f"Got unexpected type: {l} in {lits}")
+                lcs.append(LiteralConjunction(list(conj)))
+            return lcs
 
         if string.startswith("(not") and string[4] in (" ", "\n", "("):
             clause = string[4:-1].strip()
-            lit = self._parse_into_literal(clause, param_names, param_types, is_effect=is_effect)
-            if lit is None:
-                return None
+            # the list contains a LiteralConjunction or literals (Disjunction)
+            lits = self._parse_into_cnf(clause, param_names, param_types, is_effect=is_effect)
+
+            lits = [l for l in lits if l is not None]
+            if len(lits) == 0:
+                return [None]
+            
+            # DeMorgan's: Push in the negation
             if is_effect:
-                    return Anti(lit)
+                negated_lits = [rAnti(l) for l in lits]
             else:
-                    return Not(lit)
+                negated_lits = [Not(l) for l in lits]
+
+            if len(lits) == 1:
+                if isinstance(lits[0], LiteralConjunction):
+                # Conjunction at the top turns into a Disjunction
+                    return negated_lits[0].literals
+                elif isinstance(lits[0], Literal):
+                    return negated_lits
+                else:
+                    raise Exception(f"Got unexpected type {lits[0]}")
+            else:
+                # Disjunction at the top turns into a Conjunction
+                # [ [OR] AND [OR] AND [OR] ]
+                conjunction = []
+                for nl in negated_lits:
+                    if isinstance(nl, LiteralDisjunction):
+                        conjunction.append(nl.literals)
+                    elif isinstance(nl, LiteralConjunction):
+                        for l in nl.literals:
+                            conjunction.append([l])
+                    elif isinstance(nl, Literal): # Literal
+                        conjunction.append([nl])
+                    else:
+                        raise Exception(f"Got unexpected type {lits[0]}")
+                if len(conjunction) == 1:
+                    # A Conjunction of 1 literal
+                    return conjunction[0]
+
+                # Turn [ [OR] AND [OR] AND [OR] ] into CNF: [ [AND] OR [AND] ]
+                cnf = []
+                for lits in product(*conjunction):
+                    cnf.append(list(lits))
+                return [LiteralConjunction(clause) for clause in cnf]
+
+            # if len(negated_lits) == 1:
+            #     return negated_lits
+            # else:
+            #     return [LiteralConjunction(negated_lits)]
+
+        if string.startswith("(or") and string[3] in (" ", "\n", "(", ")"):
+            clauses = self._find_all_balanced_expressions(string[3:-1].strip())
+            lits_list = [self._parse_into_cnf(clause, param_names, param_types, is_effect=is_effect) for clause in clauses]
+            disjunctions = []
+            for lits in lits_list:
+                lits = [l for l in lits if l is not None]
+                if len(lits) == 1:
+                    disjunctions.append(lits[0])
+                elif len(lits) != 0:
+                    disjunctions.append(lits)
+            if len(disjunctions) == 0:
+                return [None]
+            return disjunctions
+ 
         string = string[1:-1].split()
         pred, args = string[0], string[1:]
         typed_args = []
@@ -219,16 +315,16 @@ class LLM_PDDL_Parser:
         # Validate types against the given param names.
         if pred not in self._observation_predicates:
             PARSING_LOGGER.debug(f"Parsed unknown predicate {pred}")
-            return None
+            return [None]
         if len(args) != self._observation_predicates[pred].arity:
             PARSING_LOGGER.debug(f"Parsed incongruent number of argument types for predicate {pred}")
-            return None
+            return [None]
 
         arg_types = []
         for i, arg in enumerate(args):
             if arg not in param_names:
                 PARSING_LOGGER.debug("Argument {} not in params {}".format(arg, param_names))
-                return None
+                return [None]
             t = param_types[param_names.index(arg)]
             typed_arg = TypedEntity(arg, Type(t))
             arg_types.append(t)
@@ -236,12 +332,12 @@ class LLM_PDDL_Parser:
 
         if self._observation_predicates[pred].var_types != arg_types:
             PARSING_LOGGER.debug(f"Parsed incongruent argument types for predicate {pred}")
-            return None
+            return [None]
 
-        return self._observation_predicates[pred](*typed_args)
+        return [self._observation_predicates[pred](*typed_args)]
 
 def find_closing_paran(string:str) -> str:
-    """_summary_
+    """Finds the substring that up to and including the enclosed parantheses.
 
     Args:
         string: starts with "(" open paran.
@@ -258,6 +354,13 @@ def find_closing_paran(string:str) -> str:
         if balance == 0:
             return string[:i+1]
     raise Exception("Closing parantheses not found")
+
+def rAnti(x):
+    if isinstance(x, LiteralConjunction):
+        return LiteralDisjunction([rAnti(lit) for lit in x.literals])
+    if isinstance(x, list):
+        return LiteralConjunction([rAnti(lit) for lit in x])
+    return Anti(x)
 
 
 if __name__ == "__main__":
@@ -279,7 +382,7 @@ if __name__ == "__main__":
     PARSING_LOGGER.addHandler(ch)
 
 
-    env = pddlgym.make("PDDLEnvMinecraft-v0")
+    env = pddlgym.make("PDDLEnvTravel-v0")
     observation_predicates = {p.name: p for p in env.observation_space.predicates}
     action_predicates = {p.name: p for p in env.action_space.predicates}
     types = set()
@@ -288,64 +391,16 @@ if __name__ == "__main__":
             types.add(v_type)
 
     parser = LLM_PDDL_Parser(action_predicates, observation_predicates, types)
+    def get_creation_time(item):
+        item_path = os.path.join('/home/catalan/llm_cache', item)
+        return os.path.getctime(item_path)
 
-    # PARSING_LOGGER.debug("TEST")
-    problem = """(:action putpaninoven
-    :parameters (?p - pan ?o - oven)
-    :precondition (and 
-        (not (ovenisfull ?o))
-        (or (panhasegg ?p) (panhasflour ?p))
-    )
-    :effect (and 
-        (inoven ?p ?o)
-        (not (panisclean ?p))
-        (ovenisfull ?o)
-    )
-)"""
-    problem = """Based on the given predicates and object types, the PDDL operator for the "craftplank" action can be defined as follows:
 
-```pddl
-(:action craftplank
-    :parameters (?agent - agent ?log - moveable ?planks - moveable)
-    :precondition (and 
-        (equipped ?log ?agent)
-        (islog ?log)
-        (hypothetical ?planks)
-    )
-    :effect (and
-        (not (equipped ?log ?agent))
-        (not (islog ?log))
-        (not (hypothetical ?planks))
-        (inventory ?planks)
-        (isplanks ?planks)
-        (handsfree ?agent)
-    )
-)
-```
-
-In this operator, the parameters are the agent, the log, and the hypothetical planks. The precondition for the action to take place is that the agent must be equipped with the log, the log must be identified as a log, and the planks must be hypothetical. The effect of the action is that the agent is no longer equipped with the log, the log is no longer identified as a log, the planks are no longer hypothetical but are now in the inventory and identified as planks, and the agent's hands are free."""
-    print(parser.parse_operator(problem))
-    # raise Exception
-    # with open('/home/catalan/temp/later.pkl', 'rb') as f:
-    #     later = pickle.load(f)
-    # with open('/home/catalan/temp/done.pkl', 'rb') as f:
-    #     done = pickle.load(f)
-    # for file in os.listdir('/home/catalan/llm_cache'):
-    #     if file == 'p.py': continue
-    #     with open(os.path.join('/home/catalan/llm_cache', file), 'rb') as f:
-    #         if file in done: continue
-    #         # if file in later: continue
-    #         s = pickle.load(f)[0]
-    #         if ":action" in s:
-    #             print(s)
-    #             parsed =(parser.parse_operator(s))
-    #             print(parsed)
-    #             i = input()
-    #             if i == 'y':
-    #                 done.append(file)
-    #             elif i == 'l':
-    #                 later.append(file)
-    #     with open('/home/catalan/temp/done.pkl', 'wb') as f:
-    #         pickle.dump(done, f)
-    #     with open('/home/catalan/temp/later.pkl', 'wb') as f:
-    #         pickle.dump(later, f)
+    for f in sorted(os.listdir('/home/catalan/llm_cache'), key=get_creation_time):
+        if f == 'p.py': continue
+        with open(os.path.join('/home/catalan/llm_cache', f), 'rb') as fh:
+            contents = pickle.load(fh)[0]
+        # if "forall" in contents:
+        if '(or ' in contents and "(:action" in contents and "fly" in contents: 
+            print(contents)
+            (parser.parse_operators(contents))

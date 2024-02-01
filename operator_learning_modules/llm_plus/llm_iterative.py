@@ -25,15 +25,15 @@ from collections import defaultdict
 import pickle
 import pdb
 import os
-from typing import Iterable
+from typing import Iterable, Optional
 
 ### Debugging params
 LOGGING = False
-READING_DATASET = False
-READING_LLM_RESPONSES = False
+READING_DATASET = True
+READING_LLM_RESPONSES = True
 READING_LEARNING_MOD_OPS = False
 LOG_PATH_READ = f'/home/catalan/temp/experiment26/iter_1300'
-LOG_PATH_WRITE = f'/home/catalan/temp/experiment28'
+LOG_PATH_WRITE = f'/home/catalan/temp/experiment31/'
 
 class BaseLLMIterativeOperatorLearningModule:
     """LLM + learning algorithm combination method. Subclass this with the specific learning algorithm.
@@ -158,8 +158,8 @@ class BaseLLMIterativeOperatorLearningModule:
         if LOGGING:
             with open(f'{LOG_PATH_WRITE}/iter_{itr}/ndrs.pkl', 'wb') as f:
                 pickle.dump(self._ndrs, f)
-            with open(f'{LOG_PATH_WRITE}/iter_{itr}/updated_learned_ops.pkl', 'wb') as f:
-                pickle.dump(self._learned_operators, f)
+            with open(f'{LOG_PATH_WRITE}/iter_{itr}/updated_planning_ops.pkl', 'wb') as f:
+                pickle.dump(self._planning_ops, f)
 
         return is_updated
         
@@ -180,7 +180,7 @@ class BaseLLMIterativeOperatorLearningModule:
             self._llm_proposed_actions.add(t[1].predicate)
         return traj
 
-    def _sample_trajectory(self) -> list[tuple] or None:
+    def _sample_trajectory(self) -> Optional[list[tuple]]:
         """Returns the current trajectory for the episode.
 
         Prioritize in order:
@@ -409,9 +409,10 @@ class BaseLLMIterativeOperatorLearningModule:
                     with open(f'{LOG_PATH_WRITE}/iter_{itr}/response_files.pkl', 'wb') as f:
                         pickle.dump(response_paths, f)
 
-            op = self._llm_pddl_parser.parse_operator(response)
-            if op is not None:
-                operators.append(op)
+            ops = self._llm_pddl_parser.parse_operators(response)
+            for op in ops:
+                if op is not None:
+                    operators.append(op)
 
         if LOGGING:
             with open(f'{LOG_PATH_WRITE}/iter_{itr}/response_files.pkl', 'wb') as f:
@@ -493,10 +494,29 @@ class BaseLLMIterativeOperatorLearningModule:
 
     @abstractmethod
     def _update_operator_rep(self, itr):
+        """To edit the learning algorithm's representation. Not currently used."""
         raise NotImplementedError("Override me!")
     
+    def debug_parsing(self):
+        problem = """(:action putpaninoven
+        :parameters (?p - pan ?o - oven)
+        :precondition (and 
+            (not (ovenisfull ?o))
+            (or (panhasegg ?p) (panhasflour ?p))
+        )
+        :effect (and 
+            (inoven ?p ?o)
+            (not (panisclean ?p))
+            (ovenisfull ?o)
+        )
+    )"""
+        ops =  self._llm_pddl_parser.parse_operators(problem)
+        print(ops)
+        return ops
+ 
     @abstractmethod
     def _resume(self):
+        """For debugging."""
         raise NotImplementedError("Override me!")
         
 import numpy as np
@@ -551,11 +571,6 @@ class LLMZPKIterativeOperatorLearningModule(BaseLLMIterativeOperatorLearningModu
             self._learned_operators.add(o)
         self._ndrs = ndr_sets
         self.learner._ndrs = ndr_sets
-
-        print("\n\nUPDATED\n")
-        for o in self._learned_operators:
-            print(o)
-
         return True
 
     def _resume(self, itr):
@@ -649,3 +664,4 @@ def trim_episode(episode:list[tuple], idx:int) -> tuple[list[tuple], int]:
             state_occurence_indices[get_next_state(s,e)].append(len(episode))
             to_trim = any(len(state_occurence_indices[state]) > 2 for state in state_occurence_indices)
     return episode, idx
+

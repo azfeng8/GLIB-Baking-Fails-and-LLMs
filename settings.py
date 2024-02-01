@@ -40,7 +40,7 @@ class AgentConfig:
     """Agent-specific constants.
     """
     curiosity_methods_to_run = [
-        "LLM+GLIB_L2",
+        # "LLM+GLIB_L2",
         "LLM+GLIB_G1",
         # "GLIB_L2",
         # "GLIB_G1",
@@ -325,8 +325,9 @@ class PlottingConfig:
     """
     # domains = ["Baking",  "Minecraft", "Rearrangement"]#,"Baking", "Glibblocks", ]
     # learner_explorer = [ ("LNDR", "GLIB_G1"),  ("LNDR", "GLIB_L2")]#, ("LNDR", "GLIB_G1")]
-    learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_G1"), ("LNDR", "GLIB_G1")]
+    # learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_G1"), ("LNDR", "GLIB_G1")]
     # learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2")]#, ("LNDR", "GLIB_G1")]
+    learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_G1"), ("LLMIterative+ZPK", "LLM+GLIB_L2")]
     # learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_G1"), ("LNDR", "GLIB_G1"), ("LLMIterative+ZPK", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2")]#, ("LNDR", "GLIB_G1")]
 
     domains = ["Baking"]

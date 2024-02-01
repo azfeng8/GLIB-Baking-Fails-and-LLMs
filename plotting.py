@@ -71,9 +71,8 @@ def plot_results(domain_name, learning_name, all_results, outdir="results",
     plt.savefig(outfile, dpi=300)
     print("Wrote out to {}".format(outfile))
 
-def main():
+def main(results_path):
     """Plot the results in results/, specified by settings."""
-    results_path = "results"
     min_seeds = np.inf
     max_seeds = 0
     for domain in pc.domains:
@@ -126,16 +125,18 @@ def main():
 
     
 if __name__ == "__main__":
-    # main()
-    for i,f in enumerate(os.listdir(f"results/Travel/LNDR/GLIB_L2")):
-        all_results = defaultdict(list)
-        with open(os.path.join(f"results/Travel/LNDR/GLIB_L2",f), 'rb') as fh:
-            all_results["GLIB_L2"].append(pickle.load(fh))
-        plot_results(f"Travel{i}", "LNDR", all_results, outdir="individual_plots/succ", dist=False)
-        plot_results(f"Travel{i}", "LNDR", all_results, outdir="individual_plots/dist", dist=True)
+    # main('results')
+    main('planning_results')
+    # for i,f in enumerate(os.listdir(f"results/Travel/LNDR/GLIB_L2")):
+    #     all_results = defaultdict(list)
+    #     with open(os.path.join(f"results/Travel/LNDR/GLIB_L2",f), 'rb') as fh:
+    #         all_results["GLIB_L2"].append(pickle.load(fh))
+    #     plot_results(f"Travel{i}", "LNDR", all_results, outdir="individual_plots/succ", dist=False)
+    #     plot_results(f"Travel{i}", "LNDR", all_results, outdir="individual_plots/dist", dist=True)
     # for i,f in enumerate(os.listdir(f"results/Baking/LLMIterative+ZPK/LLM+GLIB_G1")):
     #     all_results = defaultdict(list)
+    #     num = f.rstrip(".pkl").split("_")[-1]
     #     with open(os.path.join(f"results/Baking/LLMIterative+ZPK/LLM+GLIB_G1",f), 'rb') as fh:
     #         all_results["LLM+GLIB_G1"].append(pickle.load(fh))
-    #     plot_results(f"Baking{i}", "LLMIterative+ZPK", all_results, outdir="test_succ", dist=False)
-    #     plot_results(f"Baking{i}", "LLMIterative+ZPK", all_results, outdir="test_dist", dist=True)
+    #     plot_results(f"Baking{num}", "LLMIterative+ZPK", all_results, outdir="individual_plots/succ", dist=False)
+    #     plot_results(f"Baking{num}", "LLMIterative+ZPK", all_results, outdir="individual_plots/dist", dist=True)
