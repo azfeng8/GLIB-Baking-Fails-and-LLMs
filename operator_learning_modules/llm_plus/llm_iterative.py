@@ -1,4 +1,3 @@
-#TODO: Experiment 25, iter 1900. Why does success decrease.
 """
 Strategy: LLM proposes operators based on training data, and score all the learned operators + LLM's operators every once in a while.
 
@@ -6,14 +5,13 @@ This mainly helps when there is some non-no-op data, but not enough for the lear
 
 Problem: the LLM is not helping when there is no no-op data. Perhaps iteratively do the warm-starting + score preconditions, especially of actions without learned operators.
 
-#GOAL: try on more domains other than Baking: Rearrangement, Minecraft, Travel, and get better results than LNDR.
 #GOAL: try combining with the warm-starting operators.
 """
 
 from ndr.learn import print_rule_set
 from operator_learning_modules.llm_plus.prompts import STATE_TRANSLATION_PROMPT
 from operator_learning_modules.llm_plus.operator_search import LEAP_operator_search, LEAP_coverage
-from operator_learning_modules.llm_plus.llm_parsing import LLM_PDDL_Parser
+from llm_parsing import LLM_PDDL_Parser
 from operator_learning_modules import ZPKOperatorLearningModule
 from openai_interface import OpenAI_Model
 from pddlgym.parser import Operator
@@ -25,7 +23,7 @@ from collections import defaultdict
 import pickle
 import pdb
 import os
-from typing import Iterable
+from typing import Iterable, Optional
 
 ### Debugging params
 READING_DATASET = False
@@ -66,7 +64,7 @@ class BaseLLMIterativeOperatorLearningModule:
             for dir in os.listdir(base_dir):
                 if os.path.isdir(os.path.join(base_dir, dir)) and dir.startswith('experiment'):
                     n = int(dir.lstrip("experiment"))
-                    if n > next_num:
+                    if n >= next_num:
                         next_num = n + 1
             self.log_path_write = base_dir + f"/experiment{next_num}"
             self.logging = True
@@ -158,7 +156,6 @@ class BaseLLMIterativeOperatorLearningModule:
 
         llm_ops = self._propose_operators(traj, itr)
 
-
         print('\n\nFROM LLM\n')
         for o in llm_ops:
             print(o)
@@ -169,6 +166,7 @@ class BaseLLMIterativeOperatorLearningModule:
         if self.logging:
             with open(f'{self.log_path_write}/iter_{itr}/llm_proposed_ops.pkl', 'wb') as f:
                 pickle.dump(llm_ops, f)
+
         # score and filter the PDDL operators
         ops = self._score_and_filter(llm_ops, itr)
 
@@ -207,7 +205,7 @@ class BaseLLMIterativeOperatorLearningModule:
             self._llm_proposed_actions.add(t[1].predicate)
         return traj
 
-    def _sample_trajectory(self) -> list[tuple] or None:
+    def _sample_trajectory(self) -> Optional[list[tuple]]:
         """Returns the current trajectory for the episode.
 
         Prioritize in order:

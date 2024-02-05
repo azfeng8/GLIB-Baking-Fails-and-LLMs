@@ -1,4 +1,3 @@
-#TODO: why doesn't the planning results show the spikes
 """Top-level script for learning operators.
 """
 import argparse
