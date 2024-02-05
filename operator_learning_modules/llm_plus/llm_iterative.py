@@ -28,17 +28,15 @@ import os
 from typing import Iterable, Optional
 
 ### Debugging params
-LOGGING = False
-READING_DATASET = True
-READING_LLM_RESPONSES = True
+READING_DATASET = False
+READING_LLM_RESPONSES = False
 READING_LEARNING_MOD_OPS = False
 LOG_PATH_READ = f'/home/catalan/temp/experiment26/iter_1300'
-LOG_PATH_WRITE = f'/home/catalan/temp/experiment31/'
 
 class BaseLLMIterativeOperatorLearningModule:
     """LLM + learning algorithm combination method. Subclass this with the specific learning algorithm.
     """
-    def __init__(self, learned_operators, domain_name, llm, llm_precondition_goal_ops):
+    def __init__(self, learned_operators, domain_name, llm, llm_precondition_goal_ops, log_llm:bool):
         self._llm:OpenAI_Model = llm
         self._llm_learn_interval = ac.LLM_learn_interval[domain_name]
         self._llm_start_interval = ac.LLM_start_interval[domain_name]
@@ -60,6 +58,20 @@ class BaseLLMIterativeOperatorLearningModule:
         self._llm_proposed_traj = set()
         # Keep track of actions that the LLM has seen, to prioritize unseen actions for the LLM to propose operators for
         self._llm_proposed_actions = set()
+
+        if log_llm:
+            base_dir = f'/home/catalan/temp' 
+            next_num = 0
+            for dir in os.listdir(base_dir):
+                if os.path.isdir(os.path.join(base_dir, dir)) and dir.startswith('experiment'):
+                    n = int(dir.lstrip("experiment"))
+                    if n > next_num:
+                        next_num = n + 1
+            self.log_path_write = base_dir + f"/experiment{next_num}"
+            self.logging = True
+            os.makedirs(self.log_path_write, exist_ok=True)
+        else:
+            self.logging = False
         
     def observe(self, state, action, effects, start_episode=False, **kwargs):
         """Observe a transition.
@@ -128,13 +140,13 @@ class BaseLLMIterativeOperatorLearningModule:
         if READING_LLM_RESPONSES:
             with open(os.path.join(LOG_PATH_READ, "traj.pkl"), 'rb') as f:
                 traj = pickle.load(f)
-        if LOGGING:
-            os.makedirs(f'{LOG_PATH_WRITE}/iter_{itr}', exist_ok=True)
-            with open(f"{LOG_PATH_WRITE}/iter_{itr}/traj.pkl", 'wb') as f:
+        if self.logging:
+            os.makedirs(f'{self.log_path_write}/iter_{itr}', exist_ok=True)
+            with open(f"{self.log_path_write}/iter_{itr}/traj.pkl", 'wb') as f:
                 pickle.dump(traj, f)
-            with open(f'{LOG_PATH_WRITE}/iter_{itr}/learner_ops.pkl', 'wb') as f:
+            with open(f'{self.log_path_write}/iter_{itr}/learner_ops.pkl', 'wb') as f:
                 pickle.dump(self.learner._learned_operators, f)
-            with open(f'{LOG_PATH_WRITE}/iter_{itr}/trajectories.pkl', 'wb') as f:
+            with open(f'{self.log_path_write}/iter_{itr}/trajectories.pkl', 'wb') as f:
                 pickle.dump(self._trajectories, f)
 
         # LLM proposes new operator for each of the actions in the trajectory.
@@ -149,16 +161,20 @@ class BaseLLMIterativeOperatorLearningModule:
         for o in self.learner._learned_operators:
             print(o)
 
-        if LOGGING:
-            with open(f'{LOG_PATH_WRITE}/iter_{itr}/llm_proposed_ops.pkl', 'wb') as f:
+        if self.logging:
+            with open(f'{self.log_path_write}/iter_{itr}/llm_proposed_ops.pkl', 'wb') as f:
                 pickle.dump(llm_ops, f)
         # score and filter the PDDL operators
         ops = self._score_and_filter(llm_ops, itr)
 
-        if LOGGING:
-            with open(f'{LOG_PATH_WRITE}/iter_{itr}/ndrs.pkl', 'wb') as f:
+        print("\n\nUPDATED\n")
+        is_updated = self._update_operator_rep(ops, itr)
+
+
+        if self.logging:
+            with open(f'{self.log_path_write}/iter_{itr}/ndrs.pkl', 'wb') as f:
                 pickle.dump(self._ndrs, f)
-            with open(f'{LOG_PATH_WRITE}/iter_{itr}/updated_planning_ops.pkl', 'wb') as f:
+            with open(f'{self.log_path_write}/iter_{itr}/updated_planning_ops.pkl', 'wb') as f:
                 pickle.dump(self._planning_ops, f)
 
         return is_updated
@@ -291,7 +307,7 @@ class BaseLLMIterativeOperatorLearningModule:
             #TODO [algorithm] May vary the temperature on the 3 natural language translation prompts
         """
         read_index = 0
-        if LOGGING:
+        if self.logging:
             response_paths = []
         if READING_LLM_RESPONSES:
             with open(f'{LOG_PATH_READ}/response_files.pkl', 'rb') as f:
@@ -310,7 +326,7 @@ class BaseLLMIterativeOperatorLearningModule:
         else:
             responses, f = self._llm.sample_completions([{"role": "user", "content": prompt_start}], 0, ac.seed, 1)
             init_state_description = responses[0]
-            if LOGGING:
+            if self.logging:
                 response_paths.append(f)
 
         # translate the end state into natural language.
@@ -325,7 +341,7 @@ class BaseLLMIterativeOperatorLearningModule:
         else:
             responses,f = self._llm.sample_completions([{"role": "user", "content": prompt_goal}], 0, ac.seed, 1)
             goal_state_desription = responses[0]
-            if LOGGING:
+            if self.logging:
                 response_paths.append(f)
 
         # create the task decomposition 
@@ -356,9 +372,9 @@ class BaseLLMIterativeOperatorLearningModule:
             else:
                 responses,f = self._llm.sample_completions([{"role": "user", "content": prompt_operator}], 0, ac.seed, 1)
                 response = responses[0]
-                if LOGGING:
+                if self.logging:
                     response_paths.append(f)
-                    with open(f'{LOG_PATH_WRITE}/iter_{itr}/response_files.pkl', 'wb') as f:
+                    with open(f'{self.log_path_write}/iter_{itr}/response_files.pkl', 'wb') as f:
                         pickle.dump(response_paths, f)
 
             op_convos.append([{"role": "user", "content": prompt_operator}, {"role": "assistant", "content": response}])
@@ -404,18 +420,20 @@ class BaseLLMIterativeOperatorLearningModule:
  
                 responses,f = self._llm.sample_completions(conversation, 0, ac.seed, 1)
                 response = responses[0]
-                if LOGGING:
+                if self.logging:
                     response_paths.append(f)
-                    with open(f'{LOG_PATH_WRITE}/iter_{itr}/response_files.pkl', 'wb') as f:
+                    with open(f'{self.log_path_write}/iter_{itr}/response_files.pkl', 'wb') as f:
                         pickle.dump(response_paths, f)
 
+            print("GOT LLM RESPONSE", response)
             ops = self._llm_pddl_parser.parse_operators(response)
-            for op in ops:
-                if op is not None:
-                    operators.append(op)
+            if ops is not None:
+                for op in ops:
+                    if op is not None:
+                        operators.append(op)
 
-        if LOGGING:
-            with open(f'{LOG_PATH_WRITE}/iter_{itr}/response_files.pkl', 'wb') as f:
+        if self.logging:
+            with open(f'{self.log_path_write}/iter_{itr}/response_files.pkl', 'wb') as f:
                 pickle.dump(response_paths, f)
         return operators
 
@@ -493,7 +511,7 @@ class BaseLLMIterativeOperatorLearningModule:
         print(self._llm_precondition_goal_ops)
 
     @abstractmethod
-    def _update_operator_rep(self, itr):
+    def _update_operator_rep(self, ops, itr):
         """To edit the learning algorithm's representation. Not currently used."""
         raise NotImplementedError("Override me!")
     
@@ -525,11 +543,11 @@ from ndr.learn import iter_variable_names
 from pddlgym.structs import TypedEntity, ground_literal
 
 class LLMZPKIterativeOperatorLearningModule(BaseLLMIterativeOperatorLearningModule):
-    def __init__(self, learned_operators, domain_name, llm, llm_precondition_goal_ops):
-        self.learner = ZPKOperatorLearningModule(learned_operators, domain_name, )
+    def __init__(self, learned_operators, domain_name, llm, llm_precondition_goal_ops, log_llm):
+        self.learner = ZPKOperatorLearningModule(learned_operators, domain_name)
         self._ndrs = self.learner._ndrs
 
-        super().__init__(learned_operators, domain_name, llm, llm_precondition_goal_ops, )
+        super().__init__(learned_operators, domain_name, llm, llm_precondition_goal_ops, log_llm)
 
     def _update_operator_rep(self, ops:list[Operator], itr=-1) -> bool:
         """Update the NDRs.

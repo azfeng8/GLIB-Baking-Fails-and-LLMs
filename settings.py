@@ -5,10 +5,10 @@
 class EnvConfig:
     """Environment-specific constants.
     """
-    domain_name = ["Baking"]#["Minecraft", "Rearrangement", "Travel", "Baking"]
+    # domain_name = ["Rearrangement"]#["Minecraft", "Rearrangement", "Travel", "Baking"]
     # domain_name = ["Minecraft"]
-    # domain_name = ["Rearrangement"]
-    # domain_name = ['Minecraft']
+    # domain_name = ["Baking"]
+    domain_name = ['Travel']
     # domain_name = ["Glibdoors", "Tireworld", "Glibblocks", "Explodingblocks"]
     # domain_name = ["Gripper", "Travel"]
     
@@ -40,8 +40,8 @@ class AgentConfig:
     """Agent-specific constants.
     """
     curiosity_methods_to_run = [
-        # "LLM+GLIB_L2",
-        "LLM+GLIB_G1",
+        "LLM+GLIB_L2",
+        # "LLM+GLIB_G1",
         # "GLIB_L2",
         # "GLIB_G1",
         # "oracle",
@@ -49,18 +49,15 @@ class AgentConfig:
         # "GLIB_Seq"
     ]
 
+    # learning_name = "LNDR"
+    learning_name = "LLMIterative+ZPK"
+
     cached_results_to_load = [
         # "GLIB_L2",
         # "GLIB_G1",
         # "oracle",
         # "random",
     ]
-    # learning_name = "TILDE"
-    # learning_name = "LNDR"
-    # learning_name = "LLM+LNDR"
-    learning_name = "LLMIterative+ZPK"
-    # learning_name = "groundtruth-PDDLEnv"+EnvConfig.domain_name+"-v0"
-
     planner_name = {
         "Blocks": "ff",
         "Glibblocks": "ff",
@@ -176,7 +173,7 @@ class AgentConfig:
         "Blocks": 501,
         "Glibblocks": 501,
         "Tsp": 501,
-        "Rearrangement": 1501,
+        "Rearrangement": 1001,
         "Glibrearrangement": 1501,
         "Easygripper": 3001,
         "Gripper": 3001,
@@ -188,8 +185,8 @@ class AgentConfig:
         "PybulletBlocks" : 501,
         "NDRBlocks" : 1501,
         "Baking": 1799,
-        "Travel": 2501,
-        "Minecraft": 1801
+        "Travel": 1501,
+        "Minecraft": 1799
     }
 
     ## Constants for curiosity modules. ##
@@ -311,8 +308,8 @@ class GeneralConfig:
     """General configuration constants.
     """
     verbosity = 1
-    start_seed = 30
-    num_seeds = 1
+    start_seed = 24
+    num_seeds = 6
 
 class LLMConfig:
     """LLM Configuration."""
@@ -324,10 +321,13 @@ class PlottingConfig:
     """Plotting from cached results.
     """
     # domains = ["Baking",  "Minecraft", "Rearrangement"]#,"Baking", "Glibblocks", ]
-    # learner_explorer = [ ("LNDR", "GLIB_G1"),  ("LNDR", "GLIB_L2")]#, ("LNDR", "GLIB_G1")]
+    # learner_explorer = [ ("LNDR", "GLIB_G1"),  ("LNDR", "GLIB_L2")]
     # learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_G1"), ("LNDR", "GLIB_G1")]
-    # learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2")]#, ("LNDR", "GLIB_G1")]
-    learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_G1"), ("LLMIterative+ZPK", "LLM+GLIB_L2")]
+    learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2")]
+    # learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_G1"), ("LLMIterative+ZPK", "LLM+GLIB_L2")]
     # learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_G1"), ("LNDR", "GLIB_G1"), ("LLMIterative+ZPK", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2")]#, ("LNDR", "GLIB_G1")]
 
-    domains = ["Baking"]
+    # learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_G1")]
+    # domains = ["Baking"]
+    domains = ["Travel"]
+    # domains = ["Travel"]

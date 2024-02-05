@@ -22,7 +22,18 @@ class Agent:
     """
     def __init__(self, domain_name, action_space, observation_space,
                  curiosity_module_name, operator_learning_name,
-                 planning_module_name):
+                 planning_module_name, log_llm):
+        """
+
+        Args:
+            domain_name (str): from PDDLGym environment
+            action_space : from PDDLGym environment
+            observation_space : from PDDLGym environment
+            curiosity_module_name (str): 
+            operator_learning_name (str): 
+            planning_module_name (str): 
+            log_llm (bool): Whether to log the LLM output.
+        """
         self.curiosity_time = 0.0
         self.domain_name = domain_name
         self.curiosity_module_name = curiosity_module_name
@@ -41,7 +52,7 @@ class Agent:
         # The operator learning module learns operators. It should update the
         # agent's learned operators set
         self._operator_learning_module = create_operator_learning_module(
-            operator_learning_name, self.learned_operators, self.domain_name, self.llm, self.llm_precondition_goals)
+            operator_learning_name, self.learned_operators, self.domain_name, self.llm, self.llm_precondition_goals, log_llm)
         # The planning module uses the learned operators to plan at test time.
         self._planning_module = create_planning_module(
             planning_module_name, self.learned_operators, domain_name,

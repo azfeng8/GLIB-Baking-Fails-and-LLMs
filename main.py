@@ -1,6 +1,7 @@
+#TODO: why doesn't the planning results show the spikes
 """Top-level script for learning operators.
 """
-import logging
+import argparse
 
 import matplotlib
 matplotlib.use("Agg")
@@ -210,7 +211,7 @@ class Runner:
         variational_dist /= len(self._variational_dist_transitions)
         return float(num_successes)/num_problems, variational_dist
 
-def _run_single_seed(seed, domain_name, curiosity_name, learning_name):
+def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llm:bool):
     start = time.time()
 
     ac.seed = seed
@@ -223,7 +224,7 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name):
     # action names.
     ac.train_env = train_env
     agent = Agent(domain_name, train_env.action_space,
-                  train_env.observation_space, curiosity_name, learning_name,
+                  train_env.observation_space, curiosity_name, learning_name, log_llm=log_llm,
                   planning_module_name=ac.planner_name[domain_name])
     test_env = gym.make("PDDLEnv{}Test-v0".format(domain_name))
     results, curiosity_avg_time  = Runner(agent, train_env, test_env, domain_name, curiosity_name).run()
@@ -243,7 +244,14 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name):
     return {curiosity_name: results}
 
 
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-l", '--llm-log', action='store_true')
+    args = parser.parse_args()
+    return args
+
 def _main():
+    args = parse_args()
     start = time.time()
     if not os.path.exists("results/"):
         os.mkdir("results/")
@@ -273,7 +281,7 @@ def _main():
                     print("\nRunning curiosity method: {}, with seed: {}\n".format(
                         curiosity_name, seed))
                     single_seed_results = _run_single_seed(
-                        seed, domain_name, curiosity_name, ac.learning_name)
+                        seed, domain_name, curiosity_name, ac.learning_name, args.llm_log)
                     for cur_name, results in single_seed_results.items():
                         all_results[cur_name].append(results)
                     plot_results(domain_name, ac.learning_name, all_results)
