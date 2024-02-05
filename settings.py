@@ -7,8 +7,8 @@ class EnvConfig:
     """
     # domain_name = ["Rearrangement"]#["Minecraft", "Rearrangement", "Travel", "Baking"]
     # domain_name = ["Minecraft"]
-    # domain_name = ["Baking"]
-    domain_name = ['Travel']
+    domain_name = ["Doors"]
+    # domain_name = ['Travel']
     # domain_name = ["Glibdoors", "Tireworld", "Glibblocks", "Explodingblocks"]
     # domain_name = ["Gripper", "Travel"]
     
@@ -40,17 +40,18 @@ class AgentConfig:
     """Agent-specific constants.
     """
     curiosity_methods_to_run = [
-        "LLM+GLIB_L2",
+        # "LLM+GLIB_L2",
         # "LLM+GLIB_G1",
-        # "GLIB_L2",
-        # "GLIB_G1",
+        "GLIB_L2",
+        "GLIB_G1",
         # "oracle",
         # "random",
         # "GLIB_Seq"
     ]
 
-    # learning_name = "LNDR"
-    learning_name = "LLMIterative+ZPK"
+    learning_name = "LNDR"
+    # learning_name = "LLMIterative+ZPK"
+    # learning_name = "LLM+LNDR"
 
     cached_results_to_load = [
         # "GLIB_L2",
@@ -308,8 +309,8 @@ class GeneralConfig:
     """General configuration constants.
     """
     verbosity = 1
-    start_seed = 24
-    num_seeds = 6
+    start_seed = 40
+    num_seeds = 5
 
 class LLMConfig:
     """LLM Configuration."""
@@ -322,12 +323,15 @@ class PlottingConfig:
     """
     # domains = ["Baking",  "Minecraft", "Rearrangement"]#,"Baking", "Glibblocks", ]
     # learner_explorer = [ ("LNDR", "GLIB_G1"),  ("LNDR", "GLIB_L2")]
-    # learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_G1"), ("LNDR", "GLIB_G1")]
-    learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2")]
+    # learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_G1"), ("LNDR", "GLIB_G1"), ("LLM+LNDR", "GLIB_G1")]
+    # learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2")]
     # learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_G1"), ("LLMIterative+ZPK", "LLM+GLIB_L2")]
     # learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_G1"), ("LNDR", "GLIB_G1"), ("LLMIterative+ZPK", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2")]#, ("LNDR", "GLIB_G1")]
 
     # learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_G1")]
+
+    learner_explorer = [("LLM+LNDR", "GLIB_G1"), ("LNDR", "GLIB_G1"), ("LLM+LNDR", "GLIB_L2"), ("LNDR", "GLIB_L2"),]
+    # learner_explorer = [("LLM+LNDR", "GLIB_L2"), ("LNDR", "GLIB_L2")]
+    domains = ["Glibblocks"]
     # domains = ["Baking"]
-    domains = ["Travel"]
     # domains = ["Travel"]

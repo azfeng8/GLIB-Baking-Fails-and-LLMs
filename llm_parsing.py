@@ -19,6 +19,15 @@ class LLM_PDDL_Parser:
         self._observation_predicates = observation_preds
         self._action_predicates = action_preds
         self._types = object_types
+    
+    def _purge_comments(self, pddl_str):
+        # Purge comments from the given string.
+        while True:
+            match = re.search(r";(.*)\n", pddl_str)
+            if match is None:
+                return pddl_str
+            start, end = match.start(), match.end()
+            pddl_str = pddl_str[:start]+pddl_str[end-1:]
 
     def parse_operators(self, llm_response:str) -> list[Operator] or None:
         """Parse an Operator from the LLM response.
@@ -36,6 +45,7 @@ class LLM_PDDL_Parser:
         match = re.search("\(\:action", llm_response)
         # Count parantheses: look for the closing to "(:action" to get the operator string.
         operator_str = find_closing_paran(llm_response[match.start():])
+        operator_str = self._purge_comments(operator_str)
 
         if operator_str is None: raise Exception(f"Parsing error: {llm_response}")
         # Extract operator name.
@@ -289,11 +299,6 @@ class LLM_PDDL_Parser:
                     cnf.append(list(lits))
                 return [LiteralConjunction(clause) for clause in cnf]
 
-            # if len(negated_lits) == 1:
-            #     return negated_lits
-            # else:
-            #     return [LiteralConjunction(negated_lits)]
-
         if string.startswith("(or") and string[3] in (" ", "\n", "(", ")"):
             clauses = self._find_all_balanced_expressions(string[3:-1].strip())
             lits_list = [self._parse_into_cnf(clause, param_names, param_types, is_effect=is_effect) for clause in clauses]
@@ -382,7 +387,7 @@ if __name__ == "__main__":
     PARSING_LOGGER.addHandler(ch)
 
 
-    env = pddlgym.make("PDDLEnvTravel-v0")
+    env = pddlgym.make("PDDLEnvBaking-v0")
     observation_predicates = {p.name: p for p in env.observation_space.predicates}
     action_predicates = {p.name: p for p in env.action_space.predicates}
     types = set()
@@ -391,16 +396,30 @@ if __name__ == "__main__":
             types.add(v_type)
 
     parser = LLM_PDDL_Parser(action_predicates, observation_predicates, types)
-    def get_creation_time(item):
-        item_path = os.path.join('/home/catalan/llm_cache', item)
-        return os.path.getctime(item_path)
+    print(parser.parse_operators("""(:action putpaninoven
+    :parameters (?dish - pan ?oven - oven)
+    :precondition (and
+        (panisclean ?dish)
+        (paninoven ?dish)
+        (ovenisfull ?oven)
+        (not (inoven ?dish ?oven))
+    )
+    :effect (and
+        (inoven ?dish ?oven)
+        (not (paninoven ?dish))
+        ; Additional effects may include starting the baking process, closing the oven door, etc.
+    )
+)"""))
+    # def get_creation_time(item):
+    #     item_path = os.path.join('/home/catalan/llm_cache', item)
+    #     return os.path.getctime(item_path)
 
 
-    for f in sorted(os.listdir('/home/catalan/llm_cache'), key=get_creation_time):
-        if f == 'p.py': continue
-        with open(os.path.join('/home/catalan/llm_cache', f), 'rb') as fh:
-            contents = pickle.load(fh)[0]
-        # if "forall" in contents:
-        if '(or ' in contents and "(:action" in contents and "fly" in contents: 
-            print(contents)
-            (parser.parse_operators(contents))
+    # for f in sorted(os.listdir('/home/catalan/llm_cache'), key=get_creation_time):
+    #     if f == 'p.py': continue
+    #     with open(os.path.join('/home/catalan/llm_cache', f), 'rb') as fh:
+    #         contents = pickle.load(fh)[0]
+    #     # if "forall" in contents:
+    #     if '(or ' in contents and "(:action" in contents and "fly" in contents: 
+    #         print(contents)
+    #         (parser.parse_operators(contents))

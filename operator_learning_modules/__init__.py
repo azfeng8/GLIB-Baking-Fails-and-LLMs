@@ -10,7 +10,7 @@ def create_operator_learning_module(operator_learning_name, learned_operators, d
     if operator_learning_name == "LNDR":
         return ZPKOperatorLearningModule(learned_operators, domain_name)
     if operator_learning_name == "LLM+LNDR":
-        return LLMZPKOperatorLearningModule(learned_operators, domain_name, llm)
+        return LLMZPKOperatorLearningModule(learned_operators, domain_name, llm, planning_ops)
     if operator_learning_name == "TILDE":
         return FOLDTOperatorLearningModule(learned_operators)
     if operator_learning_name == "LLMIterative+ZPK":
