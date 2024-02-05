@@ -94,10 +94,22 @@ class ZPKOperatorLearningModule:
                 self._fits_all_data[action_predicate] = True
                 is_updated = True 
 
+                # Update planning operators for the action predicate here.
+                removes = set()
+                for op in self._planning_operators:
+                    if action_predicate.name in op.name:
+                        removes.add(op)
+                for op in removes:
+                    self._planning_operators.remove(op)
+                for i,ndr in enumerate(ndrs_for_action):
+                    operator = ndr.determinize(name_suffix=i)
+                    if len(operator.effects.literals) == 0 or NOISE_OUTCOME in operator.effects.literals:
+                        continue
+                    self._planning_operators.add(operator)
+
         # Update all learned_operators
         if is_updated:
             self._learned_operators.clear()
-            self._planning_operators.clear()
             for ndr_set in self._ndrs.values():
                 for i, ndr in enumerate(ndr_set):
                     operator = ndr.determinize(name_suffix=i)
@@ -105,7 +117,6 @@ class ZPKOperatorLearningModule:
                     if len(operator.effects.literals) == 0 or NOISE_OUTCOME in operator.effects.literals:
                         continue
                     self._learned_operators.add(operator)
-                    self._planning_operators.add(operator)
 
             # print_rule_set(self._ndrs)
 
