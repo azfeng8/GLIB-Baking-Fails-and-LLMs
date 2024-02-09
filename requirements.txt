@@ -1,7 +1,13 @@
 matplotlib
-pddlgym==0.0.1
+pddlgym
 termcolor
 graphviz
 seaborn
 transformers
 tiktoken
+openai
+numpy
+pickle
+gym
+tokenizers
+hashlib

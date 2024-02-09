@@ -7,7 +7,7 @@ class EnvConfig:
     """
     # domain_name = ["Rearrangement"]#["Minecraft", "Rearrangement", "Travel", "Baking"]
     # domain_name = ["Minecraft"]
-    domain_name = ["Doors"]
+    domain_name = ["Blocks"]
     # domain_name = ['Travel']
     # domain_name = ["Glibdoors", "Tireworld", "Glibblocks", "Explodingblocks"]
     # domain_name = ["Gripper", "Travel"]
@@ -43,15 +43,15 @@ class AgentConfig:
         # "LLM+GLIB_L2",
         # "LLM+GLIB_G1",
         "GLIB_L2",
-        "GLIB_G1",
+        # "GLIB_G1",
         # "oracle",
         # "random",
         # "GLIB_Seq"
     ]
 
-    learning_name = "LNDR"
+    # learning_name = "LNDR"
     # learning_name = "LLMIterative+ZPK"
-    # learning_name = "LLM+LNDR"
+    learning_name = "LLM+LNDR"
 
     cached_results_to_load = [
         # "GLIB_L2",
@@ -310,12 +310,12 @@ class GeneralConfig:
     """
     verbosity = 1
     start_seed = 40
-    num_seeds = 5
+    num_seeds = 1
 
 class LLMConfig:
     """LLM Configuration."""
     model = "gpt-4"
-    cache_dir = "/home/catalan/llm_cache"
+    cache_dir = "./llm_cache"
     max_tokens = 4096
 
 class PlottingConfig:
