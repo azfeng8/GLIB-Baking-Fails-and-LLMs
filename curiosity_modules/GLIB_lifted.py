@@ -298,16 +298,16 @@ class LLMGLIBL2CuriosityModule(GLIBL2CuriosityModule):
         """
         self._llm_goal_actions = []
         for o in self._llm_precondition_goal_ops:
-            if self._llm_precondition_goal_ops[o] is not None:
-                combined_preconds = self.mix_lifted_preconditions(o, self._llm_precondition_goal_ops[o])
+            # if self._llm_precondition_goal_ops[o] is not None:
+            #     combined_preconds = self.mix_lifted_preconditions(o, self._llm_precondition_goal_ops[o])
 
-                for precond in combined_preconds:
-                    action = [p for p in precond
-                                    if p.predicate in self._action_space.predicates][0]
-                    precond.remove(action) 
-                    self._llm_goal_actions.append((tuple(precond), action))
-            else:
-                action = [p for p in o.preconds.literals
-                        if p.predicate in self._action_space.predicates][0]
-                goal = tuple(sorted(set(o.preconds.literals) - {action}))
-                self._llm_goal_actions.append((goal, action))
+            #     for precond in combined_preconds:
+            #         action = [p for p in precond
+            #                         if p.predicate in self._action_space.predicates][0]
+            #         precond.remove(action) 
+            #         self._llm_goal_actions.append((tuple(precond), action))
+            # else:
+            action = [p for p in o.preconds.literals
+                    if p.predicate in self._action_space.predicates][0]
+            goal = tuple(sorted(set(o.preconds.literals) - {action}))
+            self._llm_goal_actions.append((goal, action))

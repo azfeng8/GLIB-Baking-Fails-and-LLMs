@@ -1,5 +1,6 @@
 """Operator search for LLM iterative method."""
 
+from pprint import pprint
 import pickle
 import numpy as np
 from typing import Iterable
@@ -29,7 +30,7 @@ def LEAP_operator_search(operators:list[Operator], dataset:list[list[tuple]], it
     op_idxes = set()
     j_last = np.inf
     # TODO: As data grows, lambda_val needs to get smaller.
-    lambda_val = 0.0001
+    lambda_val = 0.0000
     j_curr = LEAP_score([operators[i] for i in op_idxes], dataset, lambda_val)
     OPERATOR_SEARCH_LOGGER.info(f"\nStarting search with operators:\n")
     # for o in operators:
@@ -85,7 +86,7 @@ def improve_coverage(op_idxes, dataset, operators) -> list[int]:
         for i, op in enumerate(operators):
             if i in op_idxes: continue
 
-            s = transition_score(op, uncovered_transition, False)
+            s = transition_score(op, uncovered_transition, coverage=False, strict_precondition=False)
             if s < np.inf and s == best_score:
                 # Tied score, so increment the op being overwritten
                 best_op_i.append(i)
@@ -108,7 +109,6 @@ def improve_coverage(op_idxes, dataset, operators) -> list[int]:
 
     if len(op_i_to_transitions) == 0:
         return op_idxes
-    
     op_i = max(op_i_to_transitions, key=lambda x: len(op_i_to_transitions[x]))
 
     ops = op_idxes | set([op_i])
@@ -325,8 +325,8 @@ def LEAP_coverage(dataset, operators:Iterable[Operator]) -> tuple:
             best_score = 0
             for op in operators:
                 # When using LNDR, better to have a close-but-not-perfect operator effects than no operator at all.
-                c = transition_score(op, transition, True, strict_precondition=True)
-                # if "cleanpan" in op.name:
+                c = transition_score(op, transition, coverage=True, strict_precondition=False)
+                # if "bakesouffle" in op.name:
                 #     OPERATOR_SEARCH_LOGGER.debug(f"{op}, {c}")
                 if c > best_score:
                     best_score = c
@@ -437,17 +437,6 @@ if __name__ == "__main__":
     ch.setLevel(logging.DEBUG)
     OPERATOR_SEARCH_LOGGER.addHandler(ch)
 
-
-    # with open('/home/catalan/temp/dataset.pkl', 'rb')  as f:
-    #     stuff = pickle.load(f)
-    # with open('/home/catalan/temp/ops.pkl', 'rb') as f:
-    #     ops = pickle.load(f)
-    # with open('/home/catalan/temp/all_ops.pkl', 'rb') as f:
-    #     all_ops = pickle.load(f)
-    # with open('/home/catalan/temp/uncovered_transition.pkl', 'rb') as f:
-    #     uncovered_transition = pickle.load(f)
-
-    # print(consistency_score(o, uncovered_transition))
     LOG_PATH_READ = f'/home/catalan/temp/experiment7/iter_1500'
 
     with open(os.path.join(LOG_PATH_READ, "learner_ops.pkl"), 'rb') as f:
@@ -471,39 +460,59 @@ if __name__ == "__main__":
     #             raise Exception
     # for t in traj:
     #     print(t[1])
-    ops = list(lops) + llmops
-    # for op in ops:
-        # print('\n',op)
+    from operator_learning_modules.llm_plus.mixing_operators import mix_two_operators
+    from settings import AgentConfig as ac
+    import gym, pddlgym
+    ac.train_env = pddlgym.make("PDDLEnvBaking-v0")
+    ops = []
+    # for llm_op in llmops:
+    #     for learner_op in lops:
+    #         if learner_op.name.rstrip("0123456789") in llm_op.name:
+    #             ops.extend(mix_two_operators(llm_op, learner_op))
+    # ops.extend(lops)
+    # with open('debug.pkl', 'rb') as f:
+    #     ops = pickle.load( f)
 
-    # cleanpans = []
-    # for o in ops:
-    #     if 'cleanpan' in o.name:
-    #         cleanpans.append(o)
-    filtered_ops = []
+    # idxes = [0,4,76,10]
+    # idxes = [0,4,71,13]
+    # idxes = [0,4,71, 6]
+    # idxes = [72, 0, 4]
+    # idxes = [0,75,4,7, 11]
+    # idxes = [0,4,71,25]
+    # fops = [ops[i] for i in idxes]
+    # print("FOPS")
+    # for o in fops:
+    #     print(o)
+    ops = list(llmops) + list(lops)
+
     for o in LEAP_operator_search(ops, dataset, -1):
-        filtered_ops.append(ops[o])
         print(ops[o])
+        # print(fops[o])
     
-    # with open("debug_ops_strict_precond.pkl", 'rb') as f:
-        # filtered_ops = pickle.load( f)
-    # for o in filtered_ops:
-        # print(o)
-
-    _, uncovered_t, *_ = LEAP_coverage(dataset, filtered_ops)
-    # print(uncovered_t)
+    # s, u, *_ = (LEAP_coverage(dataset, [ops[i] for i in idxes]))
+    # print(s)
+    # s, u1, *_ = (LEAP_coverage(dataset, [ops[i] for i in [0,4,71]]))
+    # print(s)
+    # print(u == u1)
+    filtered_ops = [ops[i] for i in idxes]
+    # _, uncovered_t, *_ = LEAP_coverage(dataset, filtered_ops)
     # count = 0
     # d = []
     # for e in dataset:
     #     for t in e:
-    #         if 'cleanpan' in t[1].predicate.name:
-    #             found = False
-    #             for p in t[0].literals:
-    #                 if "panisclean" in p.predicate.name:
-    #                     found = True
-    #             if found:
-    #                 d.append(t)
+    #         if 'bakesouffle' in t[1].predicate.name:
+    #             d.append(t)
+                # found = False
+                # for p in t[0].literals:
+                #     if "panisclean" in p.predicate.name:
+                #         found = True
+                # if found:
+                #     d.append(t)
     # _,ut,*_ = LEAP_coverage([d], filtered_ops)
-    # print(ut)
+
+    # pprint(ops[25])
+    # pprint(d[0])
+    # print(transition_score(ops[25], d[0], True, False))
     # LEAP_coverage([d], cleanpans)
     # i = improve_coverage(set(), dataset, cleanpans)
     # print([cleanpans[j] for j in i])

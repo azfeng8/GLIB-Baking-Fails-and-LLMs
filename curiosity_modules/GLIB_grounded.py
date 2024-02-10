@@ -181,17 +181,25 @@ class GLIBG1LLMCuriosityModule(GoalBabblingCuriosityModule):
         """
         self._llm_goal_actions = []
         for op in self._llm_precondition_goal_ops:
-            learner_op = self._llm_precondition_goal_ops[op]
-            if learner_op is not None:
-                learned_lits_combinations = self.mix_lifted_preconditions(op, learner_op)
-            else:
-                learned_lits_combinations = [op.preconds.literals]
-            for literals in learned_lits_combinations:
-                for preconds,_ in ground_literals(literals, self._objects):
-                    action = [p for p in preconds
-                        if p.predicate in self._action_space.predicates][0]
-                    goal = tuple(sorted(set(preconds) - {action}))
-                    self._llm_goal_actions.append((goal, action))
+            for preconds,_ in ground_literals(op.preconds.literals, self._objects):
+                action = [p for p in preconds
+                    if p.predicate in self._action_space.predicates][0]
+                goal = tuple(sorted(set(preconds) - {action}))
+                self._llm_goal_actions.append((goal, action))
+
+
+        # for op in self._llm_precondition_goal_ops:
+        #     learner_op = self._llm_precondition_goal_ops[op]
+        #     if learner_op is not None:
+        #         learned_lits_combinations = self.mix_lifted_preconditions(op, learner_op)
+        #     else:
+        #         learned_lits_combinations = [op.preconds.literals]
+        #     for literals in learned_lits_combinations:
+        #         for preconds,_ in ground_literals(literals, self._objects):
+        #             action = [p for p in preconds
+        #                 if p.predicate in self._action_space.predicates][0]
+        #             goal = tuple(sorted(set(preconds) - {action}))
+        #             self._llm_goal_actions.append((goal, action))
 
         # print("\n\nUpdated LLM Goal/Actions\n")
         # print(self._llm_goal_actions)
