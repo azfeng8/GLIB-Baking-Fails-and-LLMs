@@ -43,7 +43,7 @@ class AgentConfig:
         # "LLM+GLIB_L2",
         # "LLM+GLIB_G1",
         "GLIB_L2",
-        # "GLIB_G1",
+        "GLIB_G1",
         # "oracle",
         # "random",
         # "GLIB_Seq"
