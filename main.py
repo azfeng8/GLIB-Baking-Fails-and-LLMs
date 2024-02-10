@@ -91,7 +91,7 @@ class Runner:
                 print("Gathering training data...")
 
             if episode_done or episode_time_step > ac.max_train_episode_length[self.domain_name]:
-                obs, _ = self.train_env.reset(seed=ec.seed)
+                obs, _ = self.train_env.reset()
                 self.agent.reset_episode(obs)
                 episode_time_step = 0
 
@@ -222,6 +222,7 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llm:b
     # learner, which uses the environment to access the predicates and
     # action names.
     ac.train_env = train_env
+    train_env.seed(ec.seed)
     agent = Agent(domain_name, train_env.action_space,
                   train_env.observation_space, curiosity_name, learning_name, log_llm=log_llm,
                   planning_module_name=ac.planner_name[domain_name])
