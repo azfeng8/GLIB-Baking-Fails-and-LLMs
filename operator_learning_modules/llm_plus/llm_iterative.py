@@ -17,6 +17,7 @@ from openai_interface import OpenAI_Model
 from pddlgym.parser import Operator
 from pddlgym.structs import Anti, TypedEntity
 from settings import AgentConfig as ac
+from settings import LLMConfig as lc
 
 from abc import abstractmethod
 from collections import defaultdict
@@ -34,7 +35,7 @@ LOG_PATH_READ = f'/home/catalan/temp/experiment26/iter_1300'
 class BaseLLMIterativeOperatorLearningModule:
     """LLM + learning algorithm combination method. Subclass this with the specific learning algorithm.
     """
-    def __init__(self, learned_operators, domain_name, llm, llm_precondition_goal_ops, log_llm:bool):
+    def __init__(self, learned_operators, domain_name, llm, llm_precondition_goal_ops, log_llm_path:str):
         self._llm:OpenAI_Model = llm
         self._llm_learn_interval = ac.LLM_learn_interval[domain_name]
         self._llm_start_interval = ac.LLM_start_interval[domain_name]
@@ -57,8 +58,9 @@ class BaseLLMIterativeOperatorLearningModule:
         # Keep track of actions that the LLM has seen, to prioritize unseen actions for the LLM to propose operators for
         self._llm_proposed_actions = set()
 
-        if log_llm:
-            base_dir = f'/home/catalan/temp' 
+        if log_llm_path:
+            base_dir = log_llm_path
+            os.makedirs(base_dir, exist_ok=True)
             next_num = 0
             for dir in os.listdir(base_dir):
                 if os.path.isdir(os.path.join(base_dir, dir)) and dir.startswith('experiment'):
@@ -541,11 +543,11 @@ from ndr.learn import iter_variable_names
 from pddlgym.structs import TypedEntity, ground_literal
 
 class LLMZPKIterativeOperatorLearningModule(BaseLLMIterativeOperatorLearningModule):
-    def __init__(self, learned_operators, domain_name, llm, llm_precondition_goal_ops, log_llm):
+    def __init__(self, learned_operators, domain_name, llm, llm_precondition_goal_ops, log_llm_path):
         self.learner = ZPKOperatorLearningModule(learned_operators, domain_name)
         self._ndrs = self.learner._ndrs
 
-        super().__init__(learned_operators, domain_name, llm, llm_precondition_goal_ops, log_llm)
+        super().__init__(learned_operators, domain_name, llm, llm_precondition_goal_ops, log_llm_path)
 
     def _update_operator_rep(self, ops:list[Operator], itr=-1) -> bool:
         """Update the NDRs.
@@ -680,4 +682,3 @@ def trim_episode(episode:list[tuple], idx:int) -> tuple[list[tuple], int]:
             state_occurence_indices[get_next_state(s,e)].append(len(episode))
             to_trim = any(len(state_occurence_indices[state]) > 2 for state in state_occurence_indices)
     return episode, idx
-

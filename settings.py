@@ -7,7 +7,7 @@ class EnvConfig:
     """
     # domain_name = ["Rearrangement"]#["Minecraft", "Rearrangement", "Travel", "Baking"]
     # domain_name = ["Minecraft"]
-    domain_name = ["Doors"]
+    domain_name = ["Baking"]
     # domain_name = ['Travel']
     # domain_name = ["Glibdoors", "Tireworld", "Glibblocks", "Explodingblocks"]
     # domain_name = ["Gripper", "Travel"]
@@ -49,8 +49,8 @@ class AgentConfig:
         # "GLIB_Seq"
     ]
 
-    learning_name = "LNDR"
-    # learning_name = "LLMIterative+ZPK"
+    # learning_name = "LNDR"
+    learning_name = "LLMIterative+ZPK"
     # learning_name = "LLM+LNDR"
 
     cached_results_to_load = [
@@ -315,7 +315,8 @@ class GeneralConfig:
 class LLMConfig:
     """LLM Configuration."""
     model = "gpt-4"
-    cache_dir = "/home/catalan/llm_cache"
+    cache_dir = "./llm_cache"
+    iterative_log_prefix = './iterative_log'
     max_tokens = 4096
 
 class PlottingConfig:
