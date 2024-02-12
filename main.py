@@ -11,11 +11,13 @@ from plotting import plot_results
 from settings import AgentConfig as ac
 from settings import EnvConfig as ec
 from settings import GeneralConfig as gc
+from settings import LLMConfig as lc
 
 from collections import defaultdict
 
 import glob
 import time
+from datetime import datetime
 import gym
 import numpy as np
 import os
@@ -213,7 +215,7 @@ class Runner:
         variational_dist /= len(self._variational_dist_transitions)
         return float(num_successes)/num_problems, variational_dist
 
-def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llm:bool):
+def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_path:str):
     start = time.time()
 
     ac.seed = seed
@@ -227,7 +229,7 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llm:b
     ac.train_env = train_env
     train_env.seed(ec.seed)
     agent = Agent(domain_name, train_env.action_space,
-                  train_env.observation_space, curiosity_name, learning_name, log_llm=log_llm,
+                  train_env.observation_space, curiosity_name, learning_name, log_llm_path=log_llmi_path,
                   planning_module_name=ac.planner_name[domain_name])
     test_env = gym.make("PDDLEnv{}Test-v0".format(domain_name))
     results, curiosity_avg_time, planning_results = Runner(agent, train_env, test_env, domain_name, curiosity_name).run()
@@ -273,6 +275,8 @@ def _main():
 
     if isinstance(ec.domain_name, str):
         ec.domain_name = [ec.domain_name]
+    
+
 
     for domain_name in ec.domain_name:
         all_results = defaultdict(list)
@@ -291,8 +295,14 @@ def _main():
                 for seed in range(gc.start_seed, gc.start_seed + gc.num_seeds):
                     print("\nRunning curiosity method: {}, with seed: {}\n".format(
                         curiosity_name, seed))
+
+                    if args.llm_log:
+                        llm_iterative_log_path = os.path.join(lc.iterative_log_prefix + datetime.now().strftime("%Y-%m-%d %H:%M:%S"), domain_name, curiosity_name)
+                    else:
+                        llm_iterative_log_path = None
+
                     single_seed_results = _run_single_seed(
-                        seed, domain_name, curiosity_name, ac.learning_name, args.llm_log)
+                        seed, domain_name, curiosity_name, ac.learning_name, llm_iterative_log_path)
                     for cur_name, results in single_seed_results.items():
                         all_results[cur_name].append(results)
                     plot_results(domain_name, ac.learning_name, all_results)
