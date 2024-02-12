@@ -46,19 +46,12 @@ class AgentConfig:
         "GLIB_G1",
         # "oracle",
         # "random",
-        # "GLIB_Seq"
     ]
 
     # learning_name = "LNDR"
     learning_name = "LLMIterative+ZPK"
     # learning_name = "LLM+LNDR"
 
-    cached_results_to_load = [
-        # "GLIB_L2",
-        # "GLIB_G1",
-        # "oracle",
-        # "random",
-    ]
     planner_name = {
         "Blocks": "ff",
         "Glibblocks": "ff",
@@ -311,12 +304,16 @@ class GeneralConfig:
     verbosity = 1
     start_seed = 40
     num_seeds = 1
+    vardisttrans_dir = 'data/'
+    results_dir = 'results/'
+    timings_dir = 'results/timings'
+    planning_results_dir = "planning_results"
 
 class LLMConfig:
     """LLM Configuration."""
     model = "gpt-4"
     cache_dir = "./llm_cache"
-    iterative_log_prefix = './iterative_log'
+    iterative_log_path = 'llm_iterative_log'
     max_tokens = 4096
 
 class PlottingConfig:

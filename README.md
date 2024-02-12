@@ -10,16 +10,31 @@ Put in ~/.bashrc:
 export OPEN_API_KEY="INSERT API KEY"
 ```
 
-## settings.py
+Run `python main.py ...`.
 
-### LLMConfig
-In LLMConfig, provide a path for caching LLM queries under variable `cache_dir`.
+## Required Arguments:
 
-### AgentConfig
-In AgentConfig, select the learning method:
+--domains : str, + :
 
-To run warm-start method, set `learning_name`="LLM+LNDR"
+list of PDDLGym domains.
 
-To run iterative method, set `learning_name`="LLMIterative+ZPK" and uncomment  "LLM+GLIB_L2" and/or "LLM+GLIB_G1" in `curiosity_modules_to_run`.
+--curiosity_methods : str, +:
 
-After changing the settings, run `python main.py`.
+list of curiosity methods. See settings.py for the complete list in AgentConfig.curiosity_methods_to_run.
+
+--learning_name : str:
+
+name of the learning method. See settings.py for the complete list in AgentConfig.learning_name. 
+
+--start_seed : int:
+
+starting seed number of the first seed. The following seeds increment from here.
+
+--num_seeds : int:
+
+number of seeds to run.
+
+
+### An example command is:
+
+python main.py --domains Baking  --curiosity_methods LLM+GLIB_G1  --learning_name LLMIterative+ZPK  --start_seed 40 --num_seeds 1

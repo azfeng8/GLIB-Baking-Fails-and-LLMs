@@ -1,6 +1,6 @@
 """Top-level script for learning operators.
 """
-import argparse
+from flags import parse_flags
 
 import matplotlib
 matplotlib.use("Agg")
@@ -18,6 +18,7 @@ from collections import defaultdict
 import glob
 import time
 from datetime import datetime
+import logging
 import gym
 import numpy as np
 import os
@@ -39,7 +40,7 @@ class Runner:
 
     def _initialize_variational_distance_transitions(self):
         print("Getting transitions for variational distance...")
-        fname = "data/{}.vardisttrans".format(self.domain_name)
+        fname = f"{gc.vardisttrans_dir}/{self.domain_name}.vardisttrans"
         if os.path.exists(fname):
             with open(fname, "rb") as f:
                 transitions = pickle.load(f)
@@ -86,12 +87,7 @@ class Runner:
         episode_time_step = 0
         itrs_on = None
         for itr in range(self.num_train_iters):
-            if gc.verbosity > 0:
-                print("\nIteration {} of {}".format(itr, self.num_train_iters))
-
-            # Gather training data
-            if gc.verbosity > 2:
-                print("Gathering training data...")
+            print("\nIteration {} of {}".format(itr, self.num_train_iters))
 
             if episode_done or episode_time_step > ac.max_train_episode_length[self.domain_name]:
                 obs, _ = self.train_env.reset()
@@ -115,8 +111,7 @@ class Runner:
             # Learn and test
             if itr % ac.learning_interval[self.domain_name] == 0:
                 start = time.time()
-                if gc.verbosity > 1:
-                    print("Learning...")
+                logging.debug("Learning...")
 
                 if self.domain_name == "PybulletBlocks" and self.curiosity_name == "oracle":
                     operators_changed = True
@@ -129,15 +124,13 @@ class Runner:
                 if operators_changed or ac.planner_name[self.domain_name] == "ffreplan" or \
                    itr + ac.learning_interval[self.domain_name] >= self.num_train_iters:  # last:
                     start = time.time()
-                    if gc.verbosity > 1:
-                        print("Testing...")
+                    logging.debug("Testing...")
 
                     test_solve_rate, variational_dist = self._evaluate_operators(use_planning_ops=False)
                     p_test_solve_rate, p_variational_dist = self._evaluate_operators(use_planning_ops=True)
 
-                    if gc.verbosity > 1:
-                        print("Result:", test_solve_rate, variational_dist)
-                        print("Testing took {} seconds".format(time.time()-start))
+                    logging.info("Result:", test_solve_rate, variational_dist)
+                    logging.debug("Testing took {} seconds".format(time.time()-start))
 
                     if "oracle" in self.agent.curiosity_module_name and \
                        test_solve_rate == 1 and ac.planner_name[self.domain_name] == "ff":
@@ -149,13 +142,12 @@ class Runner:
 
                 else:
                     assert results, "operators_changed is False but never learned any operators..."
-                    if gc.verbosity > 1:
-                        print("No operators changed, continuing...")
+                    logging.debug("No operators changed, continuing...")
 
                     test_solve_rate = results[-1][1]
                     variational_dist = results[-1][2]
-                    if gc.verbosity > 1:
-                        print("Result:", test_solve_rate, variational_dist)
+                    logging.info("Result:", test_solve_rate, variational_dist)
+
                 results.append((itr, test_solve_rate, variational_dist))
                 planning_results.append((itr, p_test_solve_rate, p_variational_dist))
 
@@ -233,13 +225,13 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_
                   planning_module_name=ac.planner_name[domain_name])
     test_env = gym.make("PDDLEnv{}Test-v0".format(domain_name))
     results, curiosity_avg_time, planning_results = Runner(agent, train_env, test_env, domain_name, curiosity_name).run()
-    with open("results/timings/{}_{}_{}_{}.txt".format(domain_name, curiosity_name, learning_name, seed), "w") as f:
+    with open(f"{gc.timings_dir}/{domain_name}_{curiosity_name}_{learning_name}_{seed}.txt", "w") as f:
         f.write("{} {} {} {} {}\n".format(domain_name, curiosity_name, learning_name, seed, curiosity_avg_time))
 
     outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                          "results", domain_name, learning_name, curiosity_name)
+                          gc.results_dir, domain_name, learning_name, curiosity_name)
     planning_outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                          "planning_results", domain_name, learning_name, curiosity_name)
+                          gc.planning_results_dir, domain_name, learning_name, curiosity_name)
     os.makedirs(planning_outdir, exist_ok=True)
     if not os.path.exists(outdir):
         os.makedirs(outdir, exist_ok=True)
@@ -257,56 +249,32 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_
     return {curiosity_name: results}
 
 
-def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-l", '--llm-log', action='store_true')
-    args = parser.parse_args()
-    return args
-
 def _main():
-    args = parse_args()
+    parse_flags()
+    os.makedirs(gc.results_dir, exist_ok=True)
+    os.makedirs(gc.timings_dir, exist_ok=True)
+    os.makedirs(gc.vardisttrans_dir, exist_ok=True)
+
     start = time.time()
-    if not os.path.exists("results/"):
-        os.mkdir("results/")
-    if not os.path.exists("results/timings/"):
-        os.mkdir("results/timings/")
-    if not os.path.exists("data/"):
-        os.mkdir("data/")
-
-    if isinstance(ec.domain_name, str):
-        ec.domain_name = [ec.domain_name]
-    
-
 
     for domain_name in ec.domain_name:
         all_results = defaultdict(list)
         for curiosity_name in ac.curiosity_methods_to_run:
-            if curiosity_name in ac.cached_results_to_load:
-                for pkl_fname in glob.glob(os.path.join(
-                        "results/", domain_name, ac.learning_name,
-                        curiosity_name, "*.pkl")):
-                    with open(pkl_fname, "rb") as f:
-                        saved_results = pickle.load(f)
-                    all_results[curiosity_name].append(saved_results)
-                if curiosity_name not in all_results:
-                    print("WARNING: Found no results to load for {}".format(
-                        curiosity_name))
-            else:
-                for seed in range(gc.start_seed, gc.start_seed + gc.num_seeds):
-                    print("\nRunning curiosity method: {}, with seed: {}\n".format(
-                        curiosity_name, seed))
+            for seed in range(gc.start_seed, gc.start_seed + gc.num_seeds):
+                print("\nRunning curiosity method: {}, with seed: {}\n".format(
+                    curiosity_name, seed))
 
-                    if args.llm_log:
-                        llm_iterative_log_path = os.path.join(lc.iterative_log_prefix + datetime.now().strftime("%Y-%m-%d %H:%M:%S"), domain_name, curiosity_name)
-                    else:
-                        llm_iterative_log_path = None
+                if lc.iterative_log_path:
+                    llm_iterative_log_path = os.path.join(lc.iterative_log_path, domain_name, curiosity_name)
+                else:
+                    llm_iterative_log_path = None
 
-                    single_seed_results = _run_single_seed(
-                        seed, domain_name, curiosity_name, ac.learning_name, llm_iterative_log_path)
-                    for cur_name, results in single_seed_results.items():
-                        all_results[cur_name].append(results)
-                    plot_results(domain_name, ac.learning_name, all_results)
-                    plot_results(domain_name, ac.learning_name, all_results, dist=True)
+                single_seed_results = _run_single_seed(
+                    seed, domain_name, curiosity_name, ac.learning_name, llm_iterative_log_path)
+                for cur_name, results in single_seed_results.items():
+                    all_results[cur_name].append(results)
+                plot_results(domain_name, ac.learning_name, all_results)
+                plot_results(domain_name, ac.learning_name, all_results, dist=True)
 
         plot_results(domain_name, ac.learning_name, all_results)
         plot_results(domain_name, ac.learning_name, all_results, dist=True)
