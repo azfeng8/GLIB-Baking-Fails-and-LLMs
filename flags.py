@@ -17,9 +17,7 @@ def parse_flags() -> None:
 
     args = parser.parse_args()
 
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    lc.iterative_log_path = args.llm_iterative_log + now
+    lc.iterative_log_path = args.llm_iterative_log
     lc.cache_dir = args.llm_cache_dir
     lc.model = args.llm_model_name
     lc.max_tokens = args.llm_max_tokens
@@ -28,9 +26,9 @@ def parse_flags() -> None:
     gc.start_seed = args.start_seed
     gc.num_seeds = args.num_seeds
     gc.vardisttrans_dir = args.data_dir
-    gc.results_dir = args.results_dir + now
-    gc.timings_dir = args.timings_dir + now
-    gc.planning_results_dir = args.planning_results_dir + now
+    gc.results_dir = args.results_dir
+    gc.timings_dir = args.timings_dir
+    gc.planning_results_dir = args.planning_results_dir
 
     ac.curiosity_methods_to_run = args.curiosity_methods
     ac.learning_name = args.learning_name
@@ -57,7 +55,7 @@ def parse_general_config(parser:argparse.ArgumentParser):
     parser.add_argument('--data_dir', type=str, default='data', help="Path to variational distance transition pickles")
     parser.add_argument("--results_dir", type=str, default='results')
     parser.add_argument("--timings_dir", type=str, default='results/timings')
-    parser.add_argument("--planning_results_dir", type=str, default='planning_results')
+    parser.add_argument("--planning_results_dir", type=str, default='results/planning_results')
 
 def parse_env_config(parser:argparse.ArgumentParser):
     parser.add_argument("--domains", required=True, nargs='+')
