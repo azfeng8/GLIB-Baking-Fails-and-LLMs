@@ -5,3 +5,4 @@ results/
 data/
 iterative_log*
 llm_cache/
+machines.txt

@@ -8,8 +8,7 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 import yaml
 
 SAVE_DIRS = [
-    "results", "logs", "saved_datasets", "saved_approaches",
-    "eval_trajectories"
+    "logs"
 ]
 DEFAULT_BRANCH = "master"
 
@@ -23,8 +22,6 @@ class RunConfig:
     args: List[str]  # e.g. --make_test_videos
     flags: Dict[str, Any]  # e.g. --num_train_tasks 1
     use_gpu: bool  # e.g. --use_gpu True
-    use_mujoco: bool  # needed for supercloud only
-    train_refinement_estimator: bool  # e.g. --train_refinement_estimator True
 
     def __post_init__(self) -> None:
         # For simplicity, disallow overrides of the SAVE_DIRS.
@@ -54,8 +51,7 @@ def config_to_logfile(cfg: RunConfig, suffix: str = ".log") -> str:
     else:
         assert isinstance(cfg, BatchSeedRunConfig)
         seed = None
-    name = "train_" if cfg.train_refinement_estimator else ""
-    name += f"{cfg.env}__{cfg.approach}__{cfg.experiment_id}__{seed}" + suffix
+    name = f"{cfg.env}__{cfg.approach}__{cfg.experiment_id}__{seed}" + suffix
     return name
 
 
@@ -63,13 +59,12 @@ def config_to_cmd_flags(cfg: RunConfig) -> str:
     """Create a string of command flags from a run config."""
     arg_str = " ".join(f"--{a}" for a in cfg.args)
     flag_str = " ".join(f"--{f} {v}" for f, v in cfg.flags.items())
-    args_and_flags_str = (f"--env {cfg.env} "
-                          f"--approach {cfg.approach} "
-                          f"--experiment_id {cfg.experiment_id} "
+    args_and_flags_str = (f"--domains {cfg.env} "
+                          f"--curiosity_methods {cfg.approach} "
                           f"{arg_str} "
-                          f"{flag_str}")
-    if isinstance(cfg, SingleSeedRunConfig):
-        args_and_flags_str += f" --seed {cfg.seed}"
+                          f"{flag_str} "
+                          f"--start_seed {cfg.seed} "
+                          f"--num_seeds 1")
     return args_and_flags_str
 
 
@@ -95,14 +90,6 @@ def generate_run_configs(config_filename: str,
             use_gpu = config["USE_GPU"]
         else:
             use_gpu = False
-        if "USE_MUJOCO" in config.keys():
-            use_mujoco = config["USE_MUJOCO"]
-        else:
-            use_mujoco = False
-        if "TRAIN_REFINEMENT_ESTIMATOR" in config.keys():
-            train_refinement_estimator = config["TRAIN_REFINEMENT_ESTIMATOR"]
-        else:
-            train_refinement_estimator = False
         # Loop over approaches.
         for approach_exp_id, approach_config in config["APPROACHES"].items():
             if approach_config.get("SKIP", False):
@@ -129,15 +116,11 @@ def generate_run_configs(config_filename: str,
                 if batch_seeds:
                     yield BatchSeedRunConfig(experiment_id, approach, env,
                                              run_args, run_flags, use_gpu,
-                                             use_mujoco,
-                                             train_refinement_estimator,
                                              start_seed, num_seeds)
                 else:
                     for seed in range(start_seed, start_seed + num_seeds):
                         yield SingleSeedRunConfig(experiment_id, approach, env,
                                                   run_args, run_flags, use_gpu,
-                                                  use_mujoco,
-                                                  train_refinement_estimator,
                                                   seed)
 
 
