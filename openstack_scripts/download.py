@@ -49,7 +49,10 @@ def _download_from_machine(machine: str, download_dir: str,
     for save_dir in SAVE_DIRS:
         local_save_dir = os.path.join(download_dir, save_dir)
         os.makedirs(local_save_dir, exist_ok=True)
-        cmd = f"scp -r -i {ssh_key} -o StrictHostKeyChecking=no " + \
+        cmd = f"scp -r " 
+        if ssh_key is not None:
+            cmd += f"-i {ssh_key} "
+        cmd += "-o StrictHostKeyChecking=no " + \
               f"ubuntu@{machine}:~/GLIB-Baking-Fails-and-LLMs/{save_dir}/* {local_save_dir}"
         retcode = os.system(cmd)
         if retcode != 0:
