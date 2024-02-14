@@ -8,7 +8,7 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 import yaml
 
 SAVE_DIRS = [
-    "logs"
+    "logs", "results", "llm_cache"
 ]
 DEFAULT_BRANCH = "master"
 
@@ -22,13 +22,6 @@ class RunConfig:
     args: List[str]  # e.g. --make_test_videos
     flags: Dict[str, Any]  # e.g. --num_train_tasks 1
     use_gpu: bool  # e.g. --use_gpu True
-
-    def __post_init__(self) -> None:
-        # For simplicity, disallow overrides of the SAVE_DIRS.
-        assert "results_dir" not in self.flags
-        assert "log_dir" not in self.flags
-        assert "approach_dir" not in self.flags
-        assert "data_dir" not in self.flags
 
 
 @dataclass(frozen=True)
