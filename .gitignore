@@ -3,6 +3,6 @@ __pycache__
 .DS_STORE
 results/
 data/
-iterative_log*
+llm_iterative_log/
 llm_cache/
 machines.txt

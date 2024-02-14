@@ -178,7 +178,7 @@ class AgentConfig:
         "River": 1001,
         "PybulletBlocks" : 501,
         "NDRBlocks" : 1501,
-        "Baking": 1799,
+        "Baking": 10,
         "Travel": 1501,
         "Minecraft": 1799
     }
@@ -306,8 +306,8 @@ class GeneralConfig:
     num_seeds = 1
     vardisttrans_dir = 'data/'
     results_dir = 'results/'
-    timings_dir = 'results/timings'
-    planning_results_dir = "planning_results"
+    timings_dir = results_dir + 'timings/'
+    planning_results_dir = results_dir + "planning_results/"
 
 class LLMConfig:
     """LLM Configuration."""

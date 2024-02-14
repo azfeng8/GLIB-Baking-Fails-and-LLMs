@@ -265,7 +265,7 @@ def _main():
                     curiosity_name, seed))
 
                 if lc.iterative_log_path:
-                    llm_iterative_log_path = os.path.join(lc.iterative_log_path, domain_name, curiosity_name)
+                    llm_iterative_log_path = os.path.join(lc.iterative_log_path, domain_name, curiosity_name, str(seed))
                 else:
                     llm_iterative_log_path = None
 
