@@ -3,10 +3,11 @@
 Requires a file that contains a list of IP addresses for instances that are:
     - Turned on
     - Accessible via ssh for the user of this file
-    - Configured with a predicators image
+    - Configured with an llm_glib image (current snapshot name: llm_glib-v1)
     - Sufficient in number to run all of the experiments in the config file
+Make sure to place this file within the openstack_scripts folder.
 
-The dir flag should point to a directory where the results, logs, and saved_*
+The dir flag should point to a directory where the results, logs, and llm_cache
 subdirectories will be downloaded.
 
 Usage example:
@@ -17,7 +18,7 @@ Usage example:
 import argparse
 import os
 
-from openstack_scripts.cluster_utils import SAVE_DIRS
+from cluster_utils import SAVE_DIRS
 
 
 def _main() -> None:
@@ -25,7 +26,7 @@ def _main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--dir", required=True, type=str)
     parser.add_argument("--machines", required=True, type=str)
-    parser.add_argument("--sshkey", required=True, type=str)
+    parser.add_argument("--sshkey", required=False, type=str, default=None)
     args = parser.parse_args()
     openstack_dir = os.path.dirname(os.path.realpath(__file__))
     # Load the machine IPs.
@@ -33,7 +34,8 @@ def _main() -> None:
     with open(machine_file, "r", encoding="utf-8") as f:
         machines = f.read().splitlines()
     # Make sure that the ssh key exists.
-    assert os.path.exists(args.sshkey)
+    if args.sshkey is not None:
+        assert os.path.exists(args.sshkey)
     # Create the download directory if it doesn't exist.
     os.makedirs(args.dir, exist_ok=True)
     # Loop over machines.
@@ -48,7 +50,7 @@ def _download_from_machine(machine: str, download_dir: str,
         local_save_dir = os.path.join(download_dir, save_dir)
         os.makedirs(local_save_dir, exist_ok=True)
         cmd = f"scp -r -i {ssh_key} -o StrictHostKeyChecking=no " + \
-              f"ubuntu@{machine}:~/predicators/{save_dir}/* {local_save_dir}"
+              f"ubuntu@{machine}:~/GLIB-Baking-Fails-and-LLMs/{save_dir}/* {local_save_dir}"
         retcode = os.system(cmd)
         if retcode != 0:
             print(f"WARNING: command failed: {cmd}")
