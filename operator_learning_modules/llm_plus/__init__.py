@@ -1,1 +1,1 @@
-from .llm_iterative import LLMZPKIterativeOperatorLearningModule
+from .llm_iterative import LLMZPKIterativeOperatorLearningModule, LLMZPKOperatorLearningModule

@@ -133,9 +133,9 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.planning_results:
-        path = 'planning_results'
+        path = 'results/planning_results'
     else:
-        path = 'results'
+        path = 'results/results/'
 
     if not args.individual_plots:
         main(path)

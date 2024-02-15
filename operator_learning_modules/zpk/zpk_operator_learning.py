@@ -130,7 +130,7 @@ class ZPKOperatorLearningModule:
         # return abs(1 - self.get_probability((state.literals, action, effects))) < 1e-5
 
 
-class LLMZPKOperatorLearningModule(ZPKOperatorLearningModule):
+class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
     """The ZPK operator learner but initialized with operators output by an LLM."""
 
     def __init__(self, learned_operators, domain_name, llm, planning_ops):

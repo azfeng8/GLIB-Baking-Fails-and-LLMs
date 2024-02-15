@@ -12,7 +12,7 @@ from ndr.learn import print_rule_set
 from operator_learning_modules.llm_plus.prompts import STATE_TRANSLATION_PROMPT
 from operator_learning_modules.llm_plus.operator_search import LEAP_operator_search, LEAP_coverage
 from llm_parsing import LLM_PDDL_Parser
-from operator_learning_modules import ZPKOperatorLearningModule
+from operator_learning_modules import ZPKOperatorLearningModule, LLMZPKWarmStartOperatorLearningModule
 from openai_interface import OpenAI_Model
 from pddlgym.parser import Operator
 from pddlgym.structs import Anti, TypedEntity
@@ -72,7 +72,12 @@ class BaseLLMIterativeOperatorLearningModule:
             os.makedirs(self.log_path_write, exist_ok=True)
         else:
             self.logging = False
+        self.init()
         
+    @abstractmethod
+    def init(self):
+        raise NotImplementedError("Override me!")
+
     def observe(self, state, action, effects, start_episode=False, **kwargs):
         """Observe a transition.
 
@@ -543,11 +548,9 @@ from ndr.learn import iter_variable_names
 from pddlgym.structs import TypedEntity, ground_literal
 
 class LLMZPKIterativeOperatorLearningModule(BaseLLMIterativeOperatorLearningModule):
-    def __init__(self, learned_operators, domain_name, llm, llm_precondition_goal_ops, log_llm_path):
-        self.learner = ZPKOperatorLearningModule(learned_operators, domain_name)
+    def init(self):
+        self.learner = ZPKOperatorLearningModule(self._learned_operators, self._domain_name)
         self._ndrs = self.learner._ndrs
-
-        super().__init__(learned_operators, domain_name, llm, llm_precondition_goal_ops, log_llm_path)
 
     def _update_operator_rep(self, ops:list[Operator], itr=-1) -> bool:
         """Update the NDRs.
@@ -602,6 +605,11 @@ class LLMZPKIterativeOperatorLearningModule(BaseLLMIterativeOperatorLearningModu
             for o in pickle.load(f):
                 self._learned_operators.add(o)
                 self.learner._learned_operators.add(o)
+
+class LLMZPKOperatorLearningModule(LLMZPKIterativeOperatorLearningModule):
+    def init(self):
+        self.learner = LLMZPKWarmStartOperatorLearningModule(self._learned_operators, self._domain_name, self._llm, self._planning_ops)
+        self._ndrs = self.learner._ndrs
 
 def get_next_state(goal_state, effects):
     goal_lits = set()
