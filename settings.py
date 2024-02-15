@@ -5,12 +5,11 @@
 class EnvConfig:
     """Environment-specific constants.
     """
-    # domain_name = ["Rearrangement"]#["Minecraft", "Rearrangement", "Travel", "Baking"]
-    # domain_name = ["Minecraft"]
-    domain_name = ["Baking"]
+    # domain_name = ["Rearrangement"]
+    domain_name = ["Minecraft"]
+    # domain_name = ["Baking"]
     # domain_name = ['Travel']
-    # domain_name = ["Glibdoors", "Tireworld", "Glibblocks", "Explodingblocks"]
-    # domain_name = ["Gripper", "Travel"]
+    # domain_name = ["Rearrangement","Baking", "Minecraft", "Travel"]
     
     # Number of test problems. Only needed for non-PDDLGym envs.
     num_test_problems = {}
@@ -49,8 +48,9 @@ class AgentConfig:
     ]
 
     # learning_name = "LNDR"
-    learning_name = "LLMIterative+ZPK"
-    # learning_name = "LLM+LNDR"
+    # learning_name = "LLMIterative+LNDR"
+    # learning_name = "LLMWarmStart+LNDR"
+    learning_name = "LLM+LNDR"
 
     planner_name = {
         "Blocks": "ff",
@@ -71,8 +71,6 @@ class AgentConfig:
         "Travel": "ff"
     }
 
-    # Random seed optionally used by curiosity modules.
-    seed = 0
     # Maximum trajectory length
     max_traj_len = 10
 
@@ -180,7 +178,7 @@ class AgentConfig:
         "River": 1001,
         "PybulletBlocks" : 501,
         "NDRBlocks" : 1501,
-        "Baking": 10,
+        "Baking": 1799,
         "Travel": 1501,
         "Minecraft": 1799
     }
@@ -296,7 +294,7 @@ class AgentConfig:
         "Travel": False
     }
 
-    # Major hacks. Only used by oracle_curiosity.py.
+    # Major hacks. Only used by oracle_curiosity.py and LLM methods.
     train_env = None
 
 
@@ -322,7 +320,6 @@ class PlottingConfig:
     """Plotting from cached results.
     """
     # domains = ["Baking",  "Minecraft", "Rearrangement"]#,"Baking", "Glibblocks", ]
-    # learner_explorer = [ ("LNDR", "GLIB_G1"),  ("LNDR", "GLIB_L2")]
     # learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_G1"), ("LNDR", "GLIB_G1"), ("LLM+LNDR", "GLIB_G1")]
     # learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2")]
     # learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_G1"), ("LLMIterative+ZPK", "LLM+GLIB_L2")]
@@ -330,8 +327,9 @@ class PlottingConfig:
 
     # learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_G1")]
 
-    learner_explorer = [("LLM+LNDR", "GLIB_G1"), ("LNDR", "GLIB_G1"), ("LLM+LNDR", "GLIB_L2"), ("LNDR", "GLIB_L2"),]
+    # learner_explorer = [("LLM+LNDR", "GLIB_G1"), ("LNDR", "GLIB_G1"), ("LLM+LNDR", "GLIB_L2"), ("LNDR", "GLIB_L2"),]
     # learner_explorer = [("LLM+LNDR", "GLIB_L2"), ("LNDR", "GLIB_L2")]
-    domains = ["Glibblocks"]
-    # domains = ["Baking"]
+    # domains = ["Glibblocks"]
+    learner_explorer = [  ("LNDR", "GLIB_L2")]
+    domains = ["Baking"]
     # domains = ["Travel"]

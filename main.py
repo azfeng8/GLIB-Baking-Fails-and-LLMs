@@ -122,7 +122,7 @@ class Runner:
 
                 # Only rerun tests if operators have changed, or stochastic env
                 if operators_changed or ac.planner_name[self.domain_name] == "ffreplan" or \
-                   itr + ac.learning_interval[self.domain_name] >= self.num_train_iters:  # last:
+                   itr + ac.learning_interval[self.domain_name] >= self.num_train_iters:
                     start = time.time()
                     logging.debug("Testing...")
 
