@@ -15,12 +15,13 @@ from llm_parsing import LLM_PDDL_Parser
 from operator_learning_modules import ZPKOperatorLearningModule
 from openai_interface import OpenAI_Model
 from pddlgym.parser import Operator
-from pddlgym.structs import Anti, TypedEntity
+from pddlgym.structs import Anti, TypedEntity, Type, LiteralConjunction, Literal
 from settings import AgentConfig as ac
-from settings import LLMConfig as lc
+from operator_learning_modules.llm_plus.mixing_operators import mix_two_operators
 
 from abc import abstractmethod
 from collections import defaultdict
+from copy import deepcopy
 import pickle
 import pdb
 import os
@@ -30,7 +31,7 @@ from typing import Iterable, Optional
 READING_DATASET = False
 READING_LLM_RESPONSES = False
 READING_LEARNING_MOD_OPS = False
-LOG_PATH_READ = f'/home/catalan/temp/experiment26/iter_1300'
+LOG_PATH_READ = f'/home/catalan/temp/experiment51/iter_930'
 
 class BaseLLMIterativeOperatorLearningModule:
     """LLM + learning algorithm combination method. Subclass this with the specific learning algorithm.
@@ -126,6 +127,7 @@ class BaseLLMIterativeOperatorLearningModule:
                 self._trajectories = pickle.load(f)
                 for e in self._trajectories:
                     for t in e:
+                        # LNDR
                         self.learner._transitions[t[1].predicate].append((t[0].literals, t[1], t[2]))
 
         if READING_LEARNING_MOD_OPS:
@@ -169,14 +171,19 @@ class BaseLLMIterativeOperatorLearningModule:
             with open(f'{self.log_path_write}/iter_{itr}/llm_proposed_ops.pkl', 'wb') as f:
                 pickle.dump(llm_ops, f)
 
+        # Mix the preconditions
+        mixed_ops = self._mix_operators(llm_ops)
+
         # score and filter the PDDL operators
-        ops = self._score_and_filter(llm_ops, itr)
+        ops = self._score_and_filter(mixed_ops, itr)
 
         # update planning operators
         self._planning_ops.clear()
         for o in ops:
             self._planning_ops.add(o)
 
+        # warm-start the learning algorithm search
+        is_updated = self._update_operator_rep(ops, itr)
         print("\n\nUPDATED\n")
         for o in self._planning_ops:
             print(o)
@@ -191,6 +198,23 @@ class BaseLLMIterativeOperatorLearningModule:
         return is_updated
         
             
+    def _mix_operators(self, llm_ops:list[Operator]) -> list[Operator]:
+        """For each operator proposed by the LLM, mix the preconditions with each of the operators from the learner that share the same action/skill (get all combinations).
+
+
+        Args:
+            llm_ops (list[Operator])
+        """
+        ops = []
+        for llm_op in llm_ops:
+            for learner_op in self.learner._learned_operators:
+                if learner_op.name.rstrip("0123456789") in llm_op.name:
+                    ops.extend(mix_two_operators(llm_op, learner_op))
+
+        print(f"{len(ops)} operators created")
+        return ops
+
+
     def _update_state_traj(self, window:tuple):
         """Return the trajectory of the given window, and update state variables.
 
@@ -479,30 +503,12 @@ class BaseLLMIterativeOperatorLearningModule:
         for op_i in op_idxes:
             if op_i < llm_end_index:
                 llm_accepted_op_i.append(op_i)
-        learner_ops_same_action = []
-        for op_i in llm_accepted_op_i:
-            action_name = all_ops[op_i].name.rstrip('0123456789')
-            candidates = []
-            for learner_op_i in range(llm_end_index, len(all_ops)):
-                if action_name == all_ops[learner_op_i].name.rstrip('012345689'):
-                    candidates.append(learner_op_i)
-            if len(candidates) == 0:
-                learner_ops_same_action.append(None)
-            else:
-                learner_ops_same_action.append(np.random.choice(candidates))
-
-        arg = []
-        for  j in learner_ops_same_action:
-            if j is None:
-                arg.append(None)
-            else:
-                arg.append(all_ops[j])
-        self._update_llm_learned_ops([all_ops[i] for i in llm_accepted_op_i], arg)
+        self._update_llm_learned_ops([all_ops[i] for i in llm_accepted_op_i])
 
         ops = [all_ops[i] for i in op_idxes]
         return ops
    
-    def _update_llm_learned_ops(self, llm_accepted_ops, learner_ops_same_action):
+    def _update_llm_learned_ops(self, llm_accepted_ops):
         """Update the set of operators proposed by LLM that are good.
 
         Don't just add to the previous set because the learner may have a better operator
@@ -516,13 +522,13 @@ class BaseLLMIterativeOperatorLearningModule:
             learner_ops_same_action: operators from the learner before scoring/filtering with same action predicate as the corresponding one in the `llm_accepted_ops` list.
         """
         self._llm_precondition_goal_ops.clear()
-        for o,lo in zip(llm_accepted_ops, learner_ops_same_action):
-            self._llm_precondition_goal_ops[o] = lo
+        for o in llm_accepted_ops:
+            self._llm_precondition_goal_ops[o] = None
         print("\n\nUPDATED from LLM ITERATIVE\n")
         print(self._llm_precondition_goal_ops)
 
     @abstractmethod
-    def _update_operator_rep(self, itr):
+    def _update_operator_rep(self, ops, itr):
         """To edit the learning algorithm's representation. Not currently used."""
         raise NotImplementedError("Override me!")
     

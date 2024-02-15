@@ -41,9 +41,9 @@ class AgentConfig:
     """
     curiosity_methods_to_run = [
         # "LLM+GLIB_L2",
-        # "LLM+GLIB_G1",
-        "GLIB_L2",
-        "GLIB_G1",
+        "LLM+GLIB_G1",
+        # "GLIB_L2",
+        # "GLIB_G1",
         # "oracle",
         # "random",
     ]
@@ -118,6 +118,8 @@ class AgentConfig:
         "Rearrangement": 15,
         "Glibdoors": 30
     }
+
+    LLM_iterative_max_lits = 6
 
     # Max training episode length.
     max_train_episode_length = {

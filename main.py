@@ -98,7 +98,7 @@ class Runner:
             action = self.agent.get_action(obs)
             # print(f"GET ACTION TIME: {time.time() - start}")
 
-            next_obs, _, episode_done, _ = self.train_env.step(action)
+            next_obs, _, episode_done, *_ = self.train_env.step(action)
 
             # # Exclude no-ops
             # while len(self.agent._compute_effects(obs, next_obs)) == 0:
@@ -186,7 +186,7 @@ class Runner:
                     action = policy(obs)
                 except (NoPlanFoundException, PlannerTimeoutException):
                     break
-                obs, reward, done, _ = self.test_env.step(action)
+                obs, reward, done, *_ = self.test_env.step(action)
                 if done:
                     break
             # Reward is 1 iff goal is reached
@@ -215,6 +215,7 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_
     ac.planner_timeout = 60 if "oracle" in curiosity_name else 10
 
     train_env = gym.make("PDDLEnv{}-v0".format(domain_name))
+    train_env.seed(ec.seed)
     # MAJOR HACK. Only used by oracle_curiosity.py and by the LLM-based
     # learner, which uses the environment to access the predicates and
     # action names.
