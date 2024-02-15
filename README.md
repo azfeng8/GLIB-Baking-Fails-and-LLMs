@@ -1,4 +1,14 @@
-# Steps to run LLM methods
+# Installation
+Instructions for running:
+* Use Python 3.5 or higher, e.g. with a virtual environment.
+* Download Python dependencies: `pip install -r requirements.txt`.
+* Download the Fast-Forward (FF) planner to any location on your computer.
+-> Linux: https://fai.cs.uni-saarland.de/hoffmann/ff/FF-v2.3.tgz
+-> Mac: https://github.com/ronuchit/FF
+* From the FF directory you just created, run `make` to build FF, producing the executable `ff`.
+* Create an environment variable "FF_PATH" pointing to this `ff` executable.
+* Follow the steps under the 'Setup OpenAI key' section below.
+* Back in the GLIB directory, you can now run `python main.py`.
 
 ## Setup OpenAI key
 
@@ -14,27 +24,29 @@ Run `python main.py ...`.
 
 ## Required Arguments:
 
---domains : str, + :
+`--domains : str, +` :
 
 list of PDDLGym domains.
 
---curiosity_methods : str, +:
+`--curiosity_methods : str, +` :
 
 list of curiosity methods. See settings.py for the complete list in AgentConfig.curiosity_methods_to_run.
 
---learning_name : str:
+`--learning_name : str` :
 
 name of the learning method. See settings.py for the complete list in AgentConfig.learning_name. 
 
---start_seed : int:
+`--start_seed : int` :
 
 starting seed number of the first seed. The following seeds increment from here.
 
---num_seeds : int:
+`--num_seeds : int` :
 
 number of seeds to run.
 
 
-### An example command is:
+### Example Command:
 
+```
 python main.py --domains Baking  --curiosity_methods LLM+GLIB_G1  --learning_name LLMIterative+ZPK  --start_seed 40 --num_seeds 1
+```
