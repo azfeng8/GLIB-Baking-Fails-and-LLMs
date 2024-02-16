@@ -38,18 +38,39 @@ def _main() -> None:
     # Make sure that the ssh key exists.
     if args.sshkey is not None:
         assert os.path.exists(args.sshkey)
-    # Generate all of the run configs and make sure that we have enough
-    # machines to run them all.
+    # Generate all of the run configs.
     run_configs = list(generate_run_configs(args.config))
     num_machines = len(machines)
-    assert num_machines >= len(run_configs)
-    # Launch the runs.
-    for machine, cfg in zip(machines, run_configs):
-        assert isinstance(cfg, SingleSeedRunConfig)
-        logfile = os.path.join("logs", config_to_logfile(cfg))
-        cmd_flags = config_to_cmd_flags(cfg)
-        cmd = f"python main.py {cmd_flags}"
-        _launch_experiment(cmd, machine, logfile, args.sshkey, args.branch)
+
+    if len(run_configs) > num_machines:
+        # Divide the runs between the machines.
+        runs_per_machine = [len(run_configs)  // num_machines] * num_machines
+        extra_runs = len(run_configs) % num_machines
+        for i in range(len(runs_per_machine)):
+            if i < extra_runs:
+                runs_per_machine[i] += 1
+
+        assert sum(runs_per_machine) == len(run_configs)
+
+        cfg_i = 0
+        for machine_i, runs in enumerate(runs_per_machine):
+            for _ in range(runs):
+                cfg = run_configs[cfg_i]
+                assert isinstance(cfg, SingleSeedRunConfig)
+                logfile = os.path.join("logs", config_to_logfile(cfg))
+                cmd_flags = config_to_cmd_flags(cfg)
+                cmd = f"python main.py {cmd_flags}"
+                _launch_experiment(cmd, machines[machine_i], logfile, args.sshkey, args.branch)
+                cfg_i += 1
+
+    else:
+        # Launch the runs.
+        for machine,cfg in zip(machines, run_configs):
+            assert isinstance(cfg, SingleSeedRunConfig)
+            logfile = os.path.join("logs", config_to_logfile(cfg))
+            cmd_flags = config_to_cmd_flags(cfg)
+            cmd = f"python main.py {cmd_flags}"
+            _launch_experiment(cmd, machine, logfile, args.sshkey, args.branch)
 
 
 def _launch_experiment(cmd: str, machine: str, logfile: str, ssh_key: str,
