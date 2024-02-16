@@ -2,15 +2,15 @@
 ---
 # This specifies the curiosity method argument.
 APPROACHES:
-  glib_l2:
+  glib_l2_warmstartLNDR:
     NAME: "GLIB_L2"
     FLAGS:
-      learning_name: LNDR
+      learning_name: LLMWarmStart+LNDR
 # Environments to run on.
 ENVS:
   baking:
     NAME: "Baking"
 ARGS: []
 FLAGS: {}
-START_SEED: 456
+START_SEED: 1
 NUM_SEEDS: 1
