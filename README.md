@@ -12,12 +12,12 @@ Instructions for running:
 
 ## Setup OpenAI key
 
-Set OPEN_API_KEY as an environment variable with the API key.
+Set OPENAI_API_KEY as an environment variable with the API key.
 
 Put in ~/.bashrc:
 
 ```
-export OPEN_API_KEY="INSERT API KEY"
+export OPENAI_API_KEY="INSERT API KEY"
 ```
 
 Run `python main.py ...`.
