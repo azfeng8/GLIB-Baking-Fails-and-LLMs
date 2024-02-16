@@ -318,16 +318,16 @@ class PlottingConfig:
     """Plotting from cached results.
     """
     # domains = ["Baking",  "Minecraft", "Rearrangement"]#,"Baking", "Glibblocks", ]
-    # learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_G1"), ("LNDR", "GLIB_G1"), ("LLM+LNDR", "GLIB_G1")]
-    # learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2")]
-    # learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_G1"), ("LLMIterative+ZPK", "LLM+GLIB_L2")]
-    # learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_G1"), ("LNDR", "GLIB_G1"), ("LLMIterative+ZPK", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2")]#, ("LNDR", "GLIB_G1")]
+    # learner_explorer = [("LLMIterative+LNDR", "LLM+GLIB_G1"), ("LNDR", "GLIB_G1"), ("LLM+LNDR", "GLIB_G1")]
+    # learner_explorer = [("LLMIterative+LNDR", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2")]
+    # learner_explorer = [("LLMIterative+LNDR", "LLM+GLIB_G1"), ("LLMIterative+ZPK", "LLM+GLIB_L2")]
+    # learner_explorer = [("LLMIterative+LNDR", "LLM+GLIB_G1"), ("LNDR", "GLIB_G1"), ("LLMIterative+ZPK", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2")]#, ("LNDR", "GLIB_G1")]
 
-    # learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_G1")]
+    # learner_explorer = [("LLMIterative+LNDR", "LLM+GLIB_G1")]
 
-    # learner_explorer = [("LLM+LNDR", "GLIB_G1"), ("LNDR", "GLIB_G1"), ("LLM+LNDR", "GLIB_L2"), ("LNDR", "GLIB_L2"),]
-    # learner_explorer = [("LLM+LNDR", "GLIB_L2"), ("LNDR", "GLIB_L2")]
+    # learner_explorer = [("LLMWarmStart+LNDR", "GLIB_G1"), ("LNDR", "GLIB_G1"), ("LLMWarmStart+LNDR", "GLIB_L2"), ("LNDR", "GLIB_L2"),]
+    learner_explorer = [("LLMWarmStart+LNDR", "GLIB_L2"), ("LNDR", "GLIB_L2")]
     # domains = ["Glibblocks"]
-    learner_explorer = [  ("LNDR", "GLIB_L2")]
+    # learner_explorer = [  ("LNDR", "GLIB_L2")]
     domains = ["Baking"]
     # domains = ["Travel"]

@@ -58,6 +58,9 @@ class BaseCuriosityModule:
         """
         pass
 
+    def learn(self, itr):
+        pass
+
     def learning_callback(self):
         """Called when an operator changes.
         """
