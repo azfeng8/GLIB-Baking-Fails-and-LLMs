@@ -54,14 +54,18 @@ def _main() -> None:
 
         cfg_i = 0
         for machine_i, runs in enumerate(runs_per_machine):
+            cmds = []
+            logfiles = []
             for _ in range(runs):
                 cfg = run_configs[cfg_i]
                 assert isinstance(cfg, SingleSeedRunConfig)
                 logfile = os.path.join("logs", config_to_logfile(cfg))
                 cmd_flags = config_to_cmd_flags(cfg)
                 cmd = f"python main.py {cmd_flags}"
-                _launch_experiment(cmd, machines[machine_i], logfile, args.sshkey, args.branch)
+                cmds.append(cmd)
+                logfiles.append(logfile)
                 cfg_i += 1
+            _launch_batched_experiment(cmds, machines[machine_i], logfiles, args.sshkey, args.branch)
 
     else:
         # Launch the runs.
@@ -83,6 +87,19 @@ def _launch_experiment(cmd: str, machine: str, logfile: str, ssh_key: str,
     # Run the main command.
     server_cmds.append(f"{cmd} &> {logfile} &")
     run_cmds_on_machine(server_cmds, "ubuntu", machine, ssh_key=ssh_key)
+
+def _launch_batched_experiment(cmds: list[str], machine: str, logfiles: list[str], ssh_key: str,
+                       branch: str) -> None:
+    print(f"Launching on machine {machine}: {cmds}")
+    # Enter the repo and activate conda.
+    server_cmds = ["llm_glib"]
+    # Prepare the repo.
+    server_cmds.extend(get_cmds_to_prep_repo(branch))
+    # Run the main command.
+    for cmd,logfile in zip(cmds, logfiles):
+        server_cmds.append(f"{cmd} &> {logfile} &")
+    run_cmds_on_machine(server_cmds, "ubuntu", machine, ssh_key=ssh_key)
+
 
 
 if __name__ == "__main__":
