@@ -73,11 +73,11 @@ def plot_results(domain_name, learning_name, all_results, outdir="results",
 
 def main(results_path):
     """Plot the results in results/, specified by settings."""
-    min_seeds = np.inf
-    max_seeds = 0
     for domain in pc.domains:
         outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), results_path)
         domain_path = os.path.join(results_path, domain)
+        min_seeds = np.inf
+        max_seeds = 0
         for dist_succ in ["dist", "succ"]:
             plt.figure()
             for learner, explorer in pc.learner_explorer:
