@@ -125,18 +125,38 @@ def main(results_path):
 
     
 if __name__ == "__main__":
-    # main('results')
-    main('planning_results')
-    # for i,f in enumerate(os.listdir(f"results/Travel/LNDR/GLIB_L2")):
-    #     all_results = defaultdict(list)
-    #     with open(os.path.join(f"results/Travel/LNDR/GLIB_L2",f), 'rb') as fh:
-    #         all_results["GLIB_L2"].append(pickle.load(fh))
-    #     plot_results(f"Travel{i}", "LNDR", all_results, outdir="individual_plots/succ", dist=False)
-    #     plot_results(f"Travel{i}", "LNDR", all_results, outdir="individual_plots/dist", dist=True)
-    # for i,f in enumerate(os.listdir(f"results/Baking/LLMIterative+ZPK/LLM+GLIB_G1")):
-    #     all_results = defaultdict(list)
-    #     num = f.rstrip(".pkl").split("_")[-1]
-    #     with open(os.path.join(f"results/Baking/LLMIterative+ZPK/LLM+GLIB_G1",f), 'rb') as fh:
-    #         all_results["LLM+GLIB_G1"].append(pickle.load(fh))
-    #     plot_results(f"Baking{num}", "LLMIterative+ZPK", all_results, outdir="individual_plots/succ", dist=False)
-    #     plot_results(f"Baking{num}", "LLMIterative+ZPK", all_results, outdir="individual_plots/dist", dist=True)
+    import argparse
+    import shutil
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-i", '--individual_plots', action='store_true')
+    parser.add_argument("-p", "--planning_results", action='store_true')
+    args = parser.parse_args()
+
+    if args.planning_results:
+        path = 'planning_results'
+    else:
+        path = 'results'
+
+    if not args.individual_plots:
+        main(path)
+    else:
+    ### Make individual plots
+        for domain_name in pc.domains:
+            for learning_name, curiosity_name in pc.learner_explorer:
+                outdir = f"individual_plots/{domain_name}/{learning_name}/{curiosity_name}"
+                succ_out = f"{outdir}/succ"
+                dist_out = f"{outdir}/dist"
+                if os.path.exists(succ_out):
+                    shutil.rmtree(succ_out)
+                if os.path.exists(dist_out):
+                    shutil.rmtree(dist_out)
+                os.makedirs(succ_out, exist_ok=True)
+                os.makedirs(dist_out, exist_ok=True)
+ 
+                for i,f in enumerate(os.listdir(f"{path}/{domain_name}/{learning_name}/{curiosity_name}")):
+                    all_results = defaultdict(list)
+                    num = f.rstrip(".pkl").split("_")[-1]
+                    with open(os.path.join(f"{path}/{domain_name}/{learning_name}/{curiosity_name}",f), 'rb') as fh:
+                        all_results[curiosity_name].append(pickle.load(fh))
+                    plot_results(f"{domain_name}{num}", learning_name, all_results, outdir=succ_out, dist=False)
+                    plot_results(f"{domain_name}{num}", learning_name, all_results, outdir=dist_out, dist=True)
