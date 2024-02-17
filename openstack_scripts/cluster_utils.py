@@ -8,7 +8,7 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 import yaml
 
 SAVE_DIRS = [
-    "logs", "results", "llm_cache"
+    "logs", "results", "llm_cache", "llm_iterative_log"
 ]
 DEFAULT_BRANCH = "master"
 

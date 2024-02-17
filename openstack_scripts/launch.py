@@ -90,7 +90,7 @@ def _launch_experiment(cmd: str, machine: str, logfile: str, ssh_key: str,
 
 def _launch_batched_experiment(cmds: list[str], machine: str, logfiles: list[str], ssh_key: str,
                        branch: str) -> None:
-    print(f"Launching on machine {machine}: {cmds}")
+    print(f"Launching on machine {machine}:\n\t" +  "\n\t".join(cmds))
     # Enter the repo and activate conda.
     server_cmds = ["llm_glib"]
     # Prepare the repo.
