@@ -207,7 +207,7 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
         if len(self._untried_episode_goal_actions) > 0:
             goal, action = self._untried_episode_goal_actions.pop(0)
             self._current_goal_action = (goal, action)
-            GLIB_L_LOGGER.debug("set self._current_goal_action in sampling goal-action", self._current_goal_action)
+            GLIB_L_LOGGER.debug(f"set self._current_goal_action in sampling goal-action {self._current_goal_action}")
             return self._structify_goal(goal)
         # No goals left to try
         # print("no goals left")

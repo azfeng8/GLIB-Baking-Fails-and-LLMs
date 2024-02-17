@@ -27,9 +27,9 @@ import os
 from typing import Iterable, Optional
 
 ### Debugging params
-READING_DATASET = True
-READING_LLM_RESPONSES = True
-READING_LEARNING_MOD_OPS = True
+READING_DATASET = False
+READING_LLM_RESPONSES = False
+READING_LEARNING_MOD_OPS = False
 LOG_PATH_READ = f'/home/catalan/GLIB-Baking-Fails-and-LLMs/results/llm_iterative_log/Baking/LLM+GLIB_G1/2/experiment0/iter_30/'
 
 class BaseLLMIterativeOperatorLearningModule:
