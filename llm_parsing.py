@@ -5,6 +5,7 @@ from ndr.learn import iter_variable_names
 from itertools import product
 from typing import Optional
 import re
+from typing import Optional
 
 PARSING_LOGGER = logging.getLogger('PARSER')
 
@@ -222,26 +223,30 @@ class LLM_PDDL_Parser:
             clauses = self._find_all_balanced_expressions(string[4:-1].strip())
             lits_list = [self._parse_into_cnf(clause, param_names, param_types, 
                                         is_effect=is_effect) for clause in clauses]
-            # [ [OR] AND [OR] ]
-            cnf = []
-            # Clear out empty clauses
-            for lits in lits_list:
-                lits = [l for l in lits if l is not None]
-                if len(lits) != 0:
-                    cnf.append(lits)
-            
-            if len(cnf) == 0:
+            clauses_to_and = []
+            # AND together the cnfs in `lits_list`
+            for _cnf in lits_list:
+                # Clear out empty clauses
+                _cnf = [l for l in _cnf if l is not None]
+                if len(_cnf) != 0:
+                    # itertools.product needs iterables, so create `final_cnf` which is just making the clauses in cnf into iterables if they aren't already.
+                    clauses_to_and.append(_cnf)
+
+            if len(clauses_to_and) == 0:
                 return [None]
 
-            if len(cnf) == 1:
-                # [ [expression] ]
-                if isinstance(cnf[0], list):
-                    return cnf[0]
+            if len(clauses_to_and) == 1:
+                # [ expression ]
+                if isinstance(clauses_to_and[0], list):
+                    return clauses_to_and[0]
+                elif isinstance(clauses_to_and[0], Literal) or isinstance(cnf[0], LiteralConjunction):
+                    return clauses_to_and
                 else: 
                     raise Exception(f"Got type unexpected: {cnf}")
                     
             lcs = []
-            for lits in product(*cnf):
+            
+            for lits in product(*clauses_to_and):
                 conj = []
                 for l in lits:
                     if isinstance(l, LiteralConjunction):
@@ -303,13 +308,16 @@ class LLM_PDDL_Parser:
         if string.startswith("(or") and string[3] in (" ", "\n", "(", ")"):
             clauses = self._find_all_balanced_expressions(string[3:-1].strip())
             lits_list = [self._parse_into_cnf(clause, param_names, param_types, is_effect=is_effect) for clause in clauses]
+            # OR the AND clauses
             disjunctions = []
-            for lits in lits_list:
-                lits = [l for l in lits if l is not None]
-                if len(lits) == 1:
-                    disjunctions.append(lits[0])
-                elif len(lits) != 0:
-                    disjunctions.append(lits)
+            for _cnf in lits_list:
+                _cnf = [l for l in _cnf if l is not None]
+                for clause in _cnf:
+                    if isinstance(clause, list):
+                        disjunctions.extend(clause)
+                    else:
+                        disjunctions.append(clause)
+
             if len(disjunctions) == 0:
                 return [None]
             return disjunctions
@@ -374,9 +382,9 @@ if __name__ == "__main__":
     import pickle
     import os
 
-    PARSING_LOGGER.setLevel(logging.DEBUG)
+    # PARSING_LOGGER.setLevel(logging.DEBUG)
     ch = logging.StreamHandler()
-    ch.setLevel(logging.DEBUG)
+    # ch.setLevel(logging.DEBUG)
 
     # create formatter
     formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -397,30 +405,38 @@ if __name__ == "__main__":
             types.add(v_type)
 
     parser = LLM_PDDL_Parser(action_predicates, observation_predicates, types)
-    print(parser.parse_operators("""(:action putpaninoven
-    :parameters (?dish - pan ?oven - oven)
-    :precondition (and
-        (panisclean ?dish)
-        (paninoven ?dish)
-        (ovenisfull ?oven)
-        (not (inoven ?dish ?oven))
-    )
-    :effect (and
-        (inoven ?dish ?oven)
-        (not (paninoven ?dish))
-        ; Additional effects may include starting the baking process, closing the oven door, etc.
-    )
-)"""))
+#     print(parser.parse_operators("""(:action walk
+#     :parameters (?from - state ?to - state)
+#     :precondition (and 
+#                     (at ?from)
+#                     (adjacent ?from ?to)
+#                     (or (caravailable ?car)
+#                         (and (planeavailable ?plane)
+#                              (or (and (isredplane ?plane) (isredstate ?to))
+#                                  (and (isblueplane ?plane) (isbluestate ?to)))
+#                         )
+#                     )
+#                 )
+#     :effect (and 
+#                 (not (at ?from))
+#                 (at ?to)
+#                 (visited ?to)
+#             )
+# )
+# """))
+    # path = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results/llm_cache'
     # def get_creation_time(item):
-    #     item_path = os.path.join('/home/catalan/llm_cache', item)
+    #     item_path = os.path.join(path, item)
     #     return os.path.getctime(item_path)
 
 
-    # for f in sorted(os.listdir('/home/catalan/llm_cache'), key=get_creation_time):
+    # for f in sorted(os.listdir(path), key=get_creation_time):
+    #     # if '(or ' in contents and "(:action" in contents and "fly" in contents: 
     #     if f == 'p.py': continue
-    #     with open(os.path.join('/home/catalan/llm_cache', f), 'rb') as fh:
+    #     with open(os.path.join(path, f), 'rb') as fh:
     #         contents = pickle.load(fh)[0]
     #     # if "forall" in contents:
-    #     if '(or ' in contents and "(:action" in contents and "fly" in contents: 
+    #     # if '(or ' in contents and "(:action" in contents and "fly" in contents: 
+    #     if 'cleanpan' in contents and "(:action" in contents:
     #         print(contents)
-    #         (parser.parse_operators(contents))
+    #         print(parser.parse_operators(contents))
