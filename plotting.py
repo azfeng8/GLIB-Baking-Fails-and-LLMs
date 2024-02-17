@@ -73,6 +73,7 @@ def plot_results(domain_name, learning_name, all_results, outdir="results",
 
 def main(results_path):
     """Plot the results in results/, specified by settings."""
+    missing_seeds = set()
     for domain in pc.domains:
         outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), results_path)
         domain_path = os.path.join(results_path, domain)
@@ -84,7 +85,12 @@ def main(results_path):
                 seeds_path = os.path.join(domain_path, learner, explorer)
                 results = []
                 min_length = np.inf
-                for pkl_fname in glob.glob(os.path.join(seeds_path, "*.pkl")):
+                # for pkl_fname in glob.glob(os.path.join(seeds_path, "*.pkl")):
+                for seed in pc.seeds:
+                    pkl_fname = os.path.join(seeds_path, f'{domain}_{learner}_{explorer}_{str(seed)}.pkl')
+                    if not os.path.exists(pkl_fname):
+                        missing_seeds.add(f"\t{domain}\t{learner}\t{explorer} Seed {seed}")
+                        continue
                     with open(pkl_fname, "rb") as f:
                         saved_results = pickle.load(f)
                         if len(saved_results) < min_length:
@@ -122,6 +128,7 @@ def main(results_path):
                 domain, dist_succ))
             plt.savefig(outfile, dpi=300)
             print("Wrote out to {}".format(outfile))
+    print(f"Missing seeds:\n\t" + "\n\t".join(sorted(missing_seeds)))
 
     
 if __name__ == "__main__":

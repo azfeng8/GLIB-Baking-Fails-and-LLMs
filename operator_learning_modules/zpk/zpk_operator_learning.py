@@ -24,7 +24,6 @@ class ZPKOperatorLearningModule:
         self._seed = ac.seed
         self._rand_state = np.random.RandomState(seed=ac.seed)
         self._learning_on = True
-        #TODO: make sure that each action predicate can have more than one operator associated with it.
         self._ndrs:Dict[pddlgym.structs.Predicate,NDRSet] = {}
         self._fits_all_data = defaultdict(bool)
 
@@ -85,19 +84,6 @@ class ZPKOperatorLearningModule:
                 self._fits_all_data[action_predicate] = True
                 is_updated = True 
 
-                # Update planning operators for the action predicate here.
-                removes = set()
-                for op in self._planning_operators:
-                    if action_predicate.name in op.name:
-                        removes.add(op)
-                for op in removes:
-                    self._planning_operators.remove(op)
-                for i,ndr in enumerate(ndrs_for_action):
-                    operator = ndr.determinize(name_suffix=i)
-                    if len(operator.effects.literals) == 0 or NOISE_OUTCOME in operator.effects.literals:
-                        continue
-                    self._planning_operators.add(operator)
-
         # Update all learned_operators
         if is_updated:
             self._learned_operators.clear()
@@ -133,8 +119,8 @@ class ZPKOperatorLearningModule:
 class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
     """The ZPK operator learner but initialized with operators output by an LLM."""
 
-    def __init__(self, learned_operators, domain_name, llm, planning_ops):
-        super().__init__(learned_operators, domain_name, planning_ops)
+    def __init__(self, learned_operators, domain_name, llm):
+        super().__init__(learned_operators, domain_name)
 
         self._llm:OpenAI_Model = llm
         ap = {p.name: p for p in ac.train_env.action_space.predicates}
@@ -200,10 +186,117 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         return prompt
 
     def _query_llm(self, prompt):
-        response, path = self._llm.sample_completions([{"role": "user", "content": prompt}], temperature=0, seed=self._seed, num_completions=1)
-        response = response[0]
-        print("Got response", response)
-        print("Saved response at path:", path)
+        # response, path = self._llm.sample_completions([{"role": "user", "content": prompt}], temperature=0, seed=self._seed, num_completions=1)
+        # response = response[0]
+        # print("Got response", response)
+        # print("Saved response at path:", path)
+        response ="""(define (domain baking)
+	(:types oven pan ingredient soap)
+	(:predicates
+		(hypothetical ?v0 - ingredient)
+		(inoven ?v0 - pan ?v1 - oven)
+		(inpan ?v0 - ingredient ?v1 - pan)
+		(iscake ?v0 - ingredient)
+		(isegg ?v0 - ingredient)
+		(isflour ?v0 - ingredient)
+		(ismixed ?v0 - pan)
+		(issouffle ?v0 - ingredient)
+		(ovenisfull ?v0 - oven)
+		(panhasegg ?v0 - pan)
+		(panhasflour ?v0 - pan)
+		(paninoven ?v0 - pan)
+		(panisclean ?v0 - pan)
+		(soapconsumed ?v0 - soap)
+	)
+
+	(:action bakecake
+		:parameters (?v0 - ingredient ?v1 - oven ?v2 - pan)
+		:precondition (and
+				(iscake ?v0)
+				(inoven ?v2 ?v1)
+				(ismixed ?v2)
+		)
+		:effect (and
+				(hypothetical ?v0)
+				(not (ismixed ?v2))
+		)
+	)
+	(:action bakesouffle
+		:parameters (?v0 - ingredient ?v1 - oven ?v2 - pan)
+		:precondition (and
+				(issouffle ?v0)
+				(inoven ?v2 ?v1)
+				(ismixed ?v2)
+		)
+		:effect (and
+				(hypothetical ?v0)
+				(not (ismixed ?v2))
+		)
+	)
+	(:action cleanpan
+		:parameters (?v0 - pan ?v1 - soap)
+		:precondition (and
+				(not (panisclean ?v0))
+				(not (soapconsumed ?v1))
+		)
+		:effect (and
+				(panisclean ?v0)
+				(soapconsumed ?v1)
+		)
+	)
+	(:action mix
+		:parameters (?v0 - pan)
+		:precondition (and
+				(panhasegg ?v0)
+				(panhasflour ?v0)
+		)
+		:effect (and
+				(ismixed ?v0)
+		)
+	)
+	(:action putegginpan
+		:parameters (?v0 - ingredient ?v1 - pan)
+		:precondition (and
+				(isegg ?v0)
+				(panisclean ?v1)
+		)
+		:effect (and
+				(panhasegg ?v1)
+		)
+	)
+	(:action putflourinpan
+		:parameters (?v0 - ingredient ?v1 - pan)
+		:precondition (and
+				(isflour ?v0)
+				(panisclean ?v1)
+		)
+		:effect (and
+				(panhasflour ?v1)
+		)
+	)
+	(:action putpaninoven
+		:parameters (?v0 - pan ?v1 - oven)
+		:precondition (and
+				(not (ovenisfull ?v1))
+				(ismixed ?v0)
+		)
+		:effect (and
+				(inoven ?v0 ?v1)
+				(ovenisfull ?v1)
+		)
+	)
+	(:action removepanfromoven
+		:parameters (?v0 - pan ?v1 - oven)
+		:precondition (and
+				(inoven ?v0 ?v1)
+		)
+		:effect (and
+				(not (inoven ?v0 ?v1))
+				(not (ovenisfull ?v1))
+		)
+	)
+)
+""" 
         return response
 
 

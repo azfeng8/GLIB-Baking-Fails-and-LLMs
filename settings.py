@@ -39,10 +39,10 @@ class AgentConfig:
     """Agent-specific constants.
     """
     curiosity_methods_to_run = [
-        # "LLM+GLIB_L2",
-        # "LLM+GLIB_G1",
-        "GLIB_L2",
-        "GLIB_G1",
+        "LLM+GLIB_L2",
+        "LLM+GLIB_G1",
+        # "GLIB_L2",
+        # "GLIB_G1",
         # "oracle",
         # "random",
     ]
@@ -328,6 +328,7 @@ class PlottingConfig:
     # learner_explorer = [("LLM+LNDR", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2")]
     # learner_explorer = [("LLM+LNDR", "LLM+GLIB_G1"), ("LNDR", "GLIB_G1")]
     learner_explorer = [("LLM+LNDR", "LLM+GLIB_G1"), ("LNDR", "GLIB_G1"), ("LLM+LNDR", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2")]
+    seeds = range(1, 11)
     
 
     domains = ["Baking",  "Minecraft", "Travel"]

@@ -127,7 +127,7 @@ class Runner:
 
                     test_solve_rate, variational_dist = self._evaluate_operators()
 
-                    logging.info("Result:", test_solve_rate, variational_dist)
+                    logging.info(f"Result: {test_solve_rate} {variational_dist}")
                     logging.debug("Testing took {} seconds".format(time.time()-start))
 
                     if "oracle" in self.agent.curiosity_module_name and \
@@ -144,7 +144,7 @@ class Runner:
 
                     test_solve_rate = results[-1][1]
                     variational_dist = results[-1][2]
-                    logging.info("Result:", test_solve_rate, variational_dist)
+                    logging.info("Result: {test_solve_rate} {variational_dist}")
 
                 results.append((itr, test_solve_rate, variational_dist))
 
@@ -240,6 +240,9 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_
 
 def _main():
     parse_flags()
+    logger = logging.getLogger()
+    logger.setLevel(gc.verbosity)
+
     os.makedirs(gc.results_dir, exist_ok=True)
     os.makedirs(gc.timings_dir, exist_ok=True)
     os.makedirs(gc.vardisttrans_dir, exist_ok=True)

@@ -3,6 +3,7 @@ from pddlgym.structs import Anti, Type, LiteralConjunction, Literal,TypedEntity,
 from pddlgym.parser import Operator
 from ndr.learn import iter_variable_names
 from itertools import product
+from typing import Optional
 import re
 
 PARSING_LOGGER = logging.getLogger('PARSER')
@@ -29,7 +30,7 @@ class LLM_PDDL_Parser:
             start, end = match.start(), match.end()
             pddl_str = pddl_str[:start]+pddl_str[end-1:]
 
-    def parse_operators(self, llm_response:str) -> list[Operator] or None:
+    def parse_operators(self, llm_response:str) -> Optional[list[Operator]]:
         """Parse an Operator from the LLM response.
 
         Args:
@@ -206,7 +207,7 @@ class LLM_PDDL_Parser:
         exprs.append(string[start_index:index+1])
         return exprs
 
-    def _parse_into_cnf(self, string:str, param_names:list, param_types:list, is_effect:bool) -> list[Literal or None]:
+    def _parse_into_cnf(self, string:str, param_names:list, param_types:list, is_effect:bool) -> list[Optional[Literal]]:
         """Parses the string into a CNF or None if predicate name or argument types are invalid.
 
         Args:

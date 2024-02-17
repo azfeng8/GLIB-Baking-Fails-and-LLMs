@@ -44,9 +44,6 @@ class Agent:
         # The main objective of the agent is to learn good operators
         self.learned_operators = set()
 
-        # The set of operators for planning for exploration.
-        self.planning_operators = set()
-
         self.llm = OpenAI_Model()
         self.llm_precondition_goals = dict() # Op from LLM: Op from Learner with the same action predicate (random)
 
@@ -62,7 +59,7 @@ class Agent:
         # It may use the learned operators to select actions
         self._curiosity_module = create_curiosity_module(
             curiosity_module_name, action_space, observation_space,
-            self._planning_module, 
+            self._planning_module, self.learned_operators,
             self._operator_learning_module, domain_name, self.llm_precondition_goals)
         
         # Flag to tell if at the episode start. Unset after observing the first effect.
@@ -121,6 +118,6 @@ class Agent:
         return positive_effects | negative_effects
 
     ## Test time methods
-    def get_policy(self, problem_fname, curiosity:bool):
+    def get_policy(self, problem_fname):
         """Get a plan given the learned operators and a PDDL problem file."""
-        return self._planning_module.get_policy(problem_fname, curiosity=curiosity)
+        return self._planning_module.get_policy(problem_fname)

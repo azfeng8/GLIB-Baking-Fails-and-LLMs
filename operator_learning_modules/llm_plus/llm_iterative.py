@@ -27,10 +27,10 @@ import os
 from typing import Iterable, Optional
 
 ### Debugging params
-READING_DATASET = False
-READING_LLM_RESPONSES = False
-READING_LEARNING_MOD_OPS = False
-LOG_PATH_READ = f'/home/catalan/temp/experiment26/iter_1300'
+READING_DATASET = True
+READING_LLM_RESPONSES = True
+READING_LEARNING_MOD_OPS = True
+LOG_PATH_READ = f'/home/catalan/GLIB-Baking-Fails-and-LLMs/results/llm_iterative_log/Baking/LLM+GLIB_G1/2/experiment0/iter_30/'
 
 class BaseLLMIterativeOperatorLearningModule:
     """LLM + learning algorithm combination method. Subclass this with the specific learning algorithm.
@@ -179,8 +179,8 @@ class BaseLLMIterativeOperatorLearningModule:
         if self.logging:
             with open(f'{self.log_path_write}/iter_{itr}/ndrs.pkl', 'wb') as f:
                 pickle.dump(self._ndrs, f)
-            with open(f'{self.log_path_write}/iter_{itr}/updated_planning_ops.pkl', 'wb') as f:
-                pickle.dump(self._planning_ops, f)
+            with open(f'{self.log_path_write}/iter_{itr}/updated_ops.pkl', 'wb') as f:
+                pickle.dump(self._learned_operators, f)
 
         return is_updated
         
@@ -317,6 +317,8 @@ class BaseLLMIterativeOperatorLearningModule:
         if READING_LLM_RESPONSES:
             with open(f'{LOG_PATH_READ}/response_files.pkl', 'rb') as f:
                 response_paths = pickle.load(f)
+            for i in range(len(response_paths)):
+                response_paths[i] = os.path.join('results/', response_paths[i])
 
         assert len(transitions) > 0
 
@@ -608,7 +610,7 @@ class LLMZPKIterativeOperatorLearningModule(BaseLLMIterativeOperatorLearningModu
 
 class LLMZPKOperatorLearningModule(LLMZPKIterativeOperatorLearningModule):
     def init(self):
-        self.learner = LLMZPKWarmStartOperatorLearningModule(self._learned_operators, self._domain_name, self._llm, self._planning_ops)
+        self.learner = LLMZPKWarmStartOperatorLearningModule(self._learned_operators, self._domain_name, self._llm)
         self._ndrs = self.learner._ndrs
 
 def get_next_state(goal_state, effects):

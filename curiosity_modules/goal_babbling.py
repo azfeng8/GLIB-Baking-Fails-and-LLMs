@@ -51,7 +51,7 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
         if self._plan and (last_state != state):
             self.line_stats.append(1)
             logging.debug("CONTINUING PLAN")
-            logging.debug("PLAN:", self._plan)
+            logging.debug(f"PLAN: {self._plan}")
             return self._plan.pop(0)
 
         # Try to sample a goal for which we can find a plan
@@ -60,6 +60,7 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
                planning_attempts < ac.max_planning_tries):
 
             goal = self._sample_goal(state)
+            logging.debug(f"SAMPLED GOAL: {goal}")
             sampling_attempts += 1
 
             if not self._goal_is_valid(goal):
@@ -87,8 +88,8 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
 
             if self._plan_is_good():
                 self._plan = self._finish_plan(self._plan)
-                logging.debug("\tGOAL:", goal)
-                logging.debug("\tPLAN:", self._plan)
+                logging.debug(f"\tGOAL: {goal}")
+                logging.debug(f"\tPLAN: {self._plan}")
                 # import ipdb; ipdb.set_trace()
                 # Take the first step in the plan
                 self.line_stats.append(1)

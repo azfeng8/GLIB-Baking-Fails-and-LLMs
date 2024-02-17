@@ -199,6 +199,8 @@ class GLIBG1LLMCuriosityModule(GoalBabblingCuriosityModule):
                     action = [p for p in preconds
                         if p.predicate in self._action_space.predicates][0]
                     goal = tuple(sorted(set(preconds) - {action}))
+                    if len(goal) == 0:
+                        continue
                     self._llm_goal_actions.append((goal, action))
 
         # print("\n\nUpdated LLM Goal/Actions\n")

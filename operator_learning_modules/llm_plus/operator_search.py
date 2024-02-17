@@ -1,4 +1,10 @@
-"""Operator search for LLM iterative method."""
+#TODO: experiment 7, iteration 1500: cleanpan0 and cleanpan1 should be accepted by operator search.
+"""Operator search for LLM iterative method.
+
+Debugging notes:
+
+- If change transition_coverage or consistency_score, likely need to change the other as well.
+"""
 
 import pickle
 import numpy as np
@@ -52,24 +58,18 @@ def LEAP_operator_search(operators:list[Operator], dataset:list[list[tuple]], it
         OPERATOR_SEARCH_LOGGER.debug(f"Iterating. operator set: {op_idxes} score: {j_curr}")
     return op_idxes
 
-def improve_coverage(op_idxes, dataset, operators) -> list[int]:
-    """Finds the operator that best covers the most uncovered transitions.
+def improve_coverage(op_idxes, dataset, operators) -> list[Operator]:
+    """Finds a transition not covered yet in the dataset and adds an operator to better cover it.
 
-    For each non-covered transition, assign it to the operator that best describes it. Suggest the operator that has most transitions assigned to it.
-    
     Use notion of "best consistent operator" by counting difference in add and delete effects.
 
     Prunes out null data operators.
-
-    Returns:
-        [ int ] : the indices into `operators` that form the suggested set of operators
 
     """
     # Get the set of transitions not covered.
     _, uncovered_transitions, covered_transitions, *_ = LEAP_coverage(dataset, [operators[i] for i in op_idxes])
     if len(uncovered_transitions) == 0:
         # Can't improve coverage more.
-        OPERATOR_SEARCH_LOGGER.debug("All transitions are covered by the given operators.")
         return op_idxes
 
     ### Find the operator, that if added, covers the most uncovered transitions.
@@ -104,7 +104,7 @@ def improve_coverage(op_idxes, dataset, operators) -> list[int]:
             #     pickle.dump(operators, f)
             # with open('/home/catalan/temp/uncovered_transition.pkl', 'wb') as f:
             #     pickle.dump(uncovered_transition, f)
-            OPERATOR_SEARCH_LOGGER.debug(f"Got uncovered transition for action: {uncovered_transition[1]}")
+            print("Got uncovered transition for action:", uncovered_transition[1])
 
     if len(op_i_to_transitions) == 0:
         return op_idxes
@@ -118,7 +118,7 @@ def improve_coverage(op_idxes, dataset, operators) -> list[int]:
 
     return ops
 
-def transition_score(op:Operator, transition:tuple, coverage=False, strict_precondition=False, debug=False) -> float:
+def transition_score(op:Operator, transition:tuple, coverage=False, debug=False) -> float:
     """Score how much the operator covers the transition.
 
     Score has same meaning on two different scales for the operator search algorithm.
@@ -158,7 +158,6 @@ def transition_score(op:Operator, transition:tuple, coverage=False, strict_preco
     
     Args:
         coverage (bool): If true, return 1. Coverage score. Else, return 2. Consistency score.
-        strict_precondition (bool): if True, if the precondition is not a subset of the state, then don't update the score (coverage=0 and consistency=np.inf).
     """
     ### For all valid: Ground operator precondition in state.objects
 
@@ -203,9 +202,6 @@ def transition_score(op:Operator, transition:tuple, coverage=False, strict_preco
         consistency_precond_score += len(positive_preconds - state.literals) - len(positive_preconds & state.literals)
         consistency_precond_score = max(0, consistency_precond_score)
         coverage_precond_score += len(positive_preconds - state.literals)
-
-        if strict_precondition and coverage_precond_score > 0:
-            continue
 
         ground_effects_assign = ground_literals(op.effects.literals, state.objects, assignment)
         # if len(ground_effects_assign) > 1: print("Warning: computed multiple effects possible")
@@ -260,7 +256,7 @@ def get_add_delete_eff(effects:Iterable[Literal]) -> tuple[set[Literal], set[Lit
 
 
 
-def prune(op_idxes:set[int], covered_transitions:list[tuple], operators) -> set[int]:
+def prune(op_idxes:set[int], covered_transitions:list[tuple], operators):
     """Prune out null data operators.
 
     If several operators cover a transition, assign the transition to the operator that 'best' describes it.
@@ -325,9 +321,7 @@ def LEAP_coverage(dataset, operators:Iterable[Operator]) -> tuple:
             best_score = 0
             for op in operators:
                 # When using LNDR, better to have a close-but-not-perfect operator effects than no operator at all.
-                c = transition_score(op, transition, True, strict_precondition=True)
-                # if "cleanpan" in op.name:
-                #     OPERATOR_SEARCH_LOGGER.debug(f"{op}, {c}")
+                c = transition_score(op, transition, True)
                 if c > best_score:
                     best_score = c
             
@@ -435,20 +429,19 @@ if __name__ == "__main__":
     OPERATOR_SEARCH_LOGGER.setLevel(logging.DEBUG)
     ch = logging.StreamHandler()
     ch.setLevel(logging.DEBUG)
+
+    # # create formatter
+    # formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+
+    # # add formatter to ch
+    # ch.setFormatter(formatter)
+
+    # add ch to logger
     OPERATOR_SEARCH_LOGGER.addHandler(ch)
 
 
-    # with open('/home/catalan/temp/dataset.pkl', 'rb')  as f:
-    #     stuff = pickle.load(f)
-    # with open('/home/catalan/temp/ops.pkl', 'rb') as f:
-    #     ops = pickle.load(f)
-    # with open('/home/catalan/temp/all_ops.pkl', 'rb') as f:
-    #     all_ops = pickle.load(f)
-    # with open('/home/catalan/temp/uncovered_transition.pkl', 'rb') as f:
-    #     uncovered_transition = pickle.load(f)
-
     # print(consistency_score(o, uncovered_transition))
-    LOG_PATH_READ = f'/home/catalan/temp/experiment7/iter_1500'
+    LOG_PATH_READ = f'/home/catalan/temp/experiment3/iter_300'
 
     with open(os.path.join(LOG_PATH_READ, "learner_ops.pkl"), 'rb') as f:
         lops = pickle.load(f)
@@ -472,38 +465,8 @@ if __name__ == "__main__":
     # for t in traj:
     #     print(t[1])
     ops = list(lops) + llmops
-    # for op in ops:
-        # print('\n',op)
+    for op in ops:
+        print('\n',op)
 
-    # cleanpans = []
-    # for o in ops:
-    #     if 'cleanpan' in o.name:
-    #         cleanpans.append(o)
-    filtered_ops = []
-    for o in LEAP_operator_search(ops, dataset, -1):
-        filtered_ops.append(ops[o])
-        print(ops[o])
-    
-    # with open("debug_ops_strict_precond.pkl", 'rb') as f:
-        # filtered_ops = pickle.load( f)
-    # for o in filtered_ops:
-        # print(o)
-
-    _, uncovered_t, *_ = LEAP_coverage(dataset, filtered_ops)
-    # print(uncovered_t)
-    # count = 0
-    # d = []
-    # for e in dataset:
-    #     for t in e:
-    #         if 'cleanpan' in t[1].predicate.name:
-    #             found = False
-    #             for p in t[0].literals:
-    #                 if "panisclean" in p.predicate.name:
-    #                     found = True
-    #             if found:
-    #                 d.append(t)
-    # _,ut,*_ = LEAP_coverage([d], filtered_ops)
-    # print(ut)
-    # LEAP_coverage([d], cleanpans)
-    # i = improve_coverage(set(), dataset, cleanpans)
-    # print([cleanpans[j] for j in i])
+    for o in (LEAP_operator_search(ops, dataset, -1)):
+        print(o)
