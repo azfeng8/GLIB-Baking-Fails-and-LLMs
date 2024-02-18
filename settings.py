@@ -110,11 +110,9 @@ class AgentConfig:
         "Glibdoors": 10
     }
     LLM_start_interval = {
-        "Baking": 30,
-        "Minecraft": 35,
+        "Baking": 50,
+        "Minecraft": 50,
         "Travel": 50,
-        "Rearrangement": 15,
-        "Glibdoors": 30
     }
 
     # Max training episode length.
@@ -326,11 +324,11 @@ class PlottingConfig:
     # learner_explorer = [  ("LNDR", "GLIB_L2"), ("LNDR", "GLIB_G1"), ("LNDR", "random")]
 
     # learner_explorer = [("LLM+LNDR", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2")]
-    # learner_explorer = [("LLM+LNDR", "LLM+GLIB_G1"), ("LNDR", "GLIB_G1")]
-    learner_explorer = [("LLM+LNDR", "LLM+GLIB_G1"), ("LNDR", "GLIB_G1"), ("LLM+LNDR", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2")]
-    seeds = range(1, 11)
+    learner_explorer = [("LLM+LNDR", "LLM+GLIB_G1")]
+    # learner_explorer = [("LLM+LNDR", "LLM+GLIB_G1"), ("LNDR", "GLIB_G1"), ("LLM+LNDR", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2")]
+    seeds = range(11, 12)
     
 
-    domains = ["Baking",  "Minecraft", "Travel"]
+    # domains = ["Baking",  "Minecraft", "Travel"]
     # domains = ["Baking", "Rearrangement", "Travel", "Minecraft", "Glibblocks", "Doors", "Easygripper"]
-    # domains = ["Travel"]
+    domains = ["Minecraft"]

@@ -30,7 +30,7 @@ from typing import Iterable, Optional
 READING_DATASET = False
 READING_LLM_RESPONSES = False
 READING_LEARNING_MOD_OPS = False
-LOG_PATH_READ = f'/home/catalan/GLIB-Baking-Fails-and-LLMs/results/llm_iterative_log/Baking/LLM+GLIB_G1/2/experiment0/iter_30/'
+LOG_PATH_READ = f'/home/catalan/GLIB-Baking-Fails-and-LLMs/results/llm_iterative_log/Minecraft/LLM+GLIB_G1/2/experiment0/iter_35'
 
 class BaseLLMIterativeOperatorLearningModule:
     """LLM + learning algorithm combination method. Subclass this with the specific learning algorithm.
@@ -122,7 +122,7 @@ class BaseLLMIterativeOperatorLearningModule:
             return is_updated
 
         if READING_DATASET:
-            with open(f'{LOG_PATH_READ}/trajectories.pkl', 'rb') as f:
+            with open(os.path.join(LOG_PATH_READ, 'trajectories.pkl'), 'rb') as f:
                 self._trajectories = pickle.load(f)
                 for e in self._trajectories:
                     for t in e:
@@ -181,7 +181,15 @@ class BaseLLMIterativeOperatorLearningModule:
                 pickle.dump(self._ndrs, f)
             with open(f'{self.log_path_write}/iter_{itr}/updated_ops.pkl', 'wb') as f:
                 pickle.dump(self._learned_operators, f)
-
+            filename = os.path.join(self.log_path_write, f'llm_ops_accepted.pkl')
+            if os.path.exists(filename):
+                with open(filename, 'rb') as f:
+                    arr = pickle.load(f)
+            else:
+                arr = [] 
+            arr.append([itr, len(self._llm_precondition_goal_ops)])
+            with open(filename, 'wb') as f:
+                pickle.dump(arr, f)
         return is_updated
         
             
