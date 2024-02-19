@@ -144,7 +144,7 @@ class Runner:
 
                     test_solve_rate = results[-1][1]
                     variational_dist = results[-1][2]
-                    logging.info("Result: {test_solve_rate} {variational_dist}")
+                    logging.info(f"Result: {test_solve_rate} {variational_dist}")
 
                 results.append((itr, test_solve_rate, variational_dist))
 

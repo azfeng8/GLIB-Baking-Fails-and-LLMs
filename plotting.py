@@ -70,7 +70,7 @@ def plot_results(domain_name, learning_name, all_results, outdir="results",
     plt.tight_layout()
     plt.savefig(outfile, dpi=300)
     print("Wrote out to {}".format(outfile))
-
+import random
 def main(results_path):
     """Plot the results in results/, specified by settings."""
     missing_seeds = set()
@@ -81,12 +81,17 @@ def main(results_path):
         max_seeds = 0
         for dist_succ in ["dist", "succ"]:
             plt.figure()
-            for learner, explorer in pc.learner_explorer:
+            number_of_colors = len(pc.learner_explorer)
+            ax = plt.gca()
+            # colors = ["#"+''.join([random.choice('0123456789ABCDEF') for j in range(6)]) for i in range(number_of_colors)]
+            colors = [next(ax._get_lines.prop_cycler)['color'] for _ in range(number_of_colors)]
+            color_idx = 0
+            for seeds, learner_explorer in zip(pc.seeds, pc.learner_explorer):
+                learner, explorer = learner_explorer
                 seeds_path = os.path.join(domain_path, learner, explorer)
                 results = []
                 min_length = np.inf
-                # for pkl_fname in glob.glob(os.path.join(seeds_path, "*.pkl")):
-                for seed in pc.seeds:
+                for seed in seeds:
                     pkl_fname = os.path.join(seeds_path, f'{domain}_{learner}_{explorer}_{str(seed)}.pkl')
                     if not os.path.exists(pkl_fname):
                         missing_seeds.add(f"\t{domain}\t{learner}\t{explorer} Seed {seed}")
@@ -110,20 +115,27 @@ def main(results_path):
                 else:
                     ys = results[:, :, 1]
                 results_mean = np.mean(ys, axis=0)
-                plt.plot(xs, results_mean, label=label.replace("_", " "))
-                if min_seeds == max_seeds:
-                    title = f"{domain} Domain ({min_seeds} seeds)"
-                else:
-                    title = f"{domain} Domain, ({min_seeds} to {max_seeds} seeds)"
-                plt.title(title)
-                plt.ylim((-0.1, 1.1))
-                plt.legend(loc="lower right")
-                plt.tight_layout()
-                plt.xlabel("Iterations")
-                if dist_succ == 'dist':
-                    plt.ylabel("Variational distance to 'true' transition model") 
-                if dist_succ == 'succ':
-                    plt.ylabel("Success rate on test problems")
+                std = np.std(ys, axis=0)
+                std_top = results_mean + std
+                std_bot = results_mean - std
+                plt.plot(xs, results_mean, label=label.replace("_", " "), color=colors[color_idx])
+                plt.fill_between(xs, std_bot, std_top, alpha=0.3, color=colors[color_idx])
+                color_idx += 1
+            if min_seeds == max_seeds:
+                title = f"{domain} Domain ({min_seeds} seeds)"
+            else:
+                title = f"{domain} Domain, ({min_seeds} to {max_seeds} seeds)"
+            
+            if dist_succ == 'dist':
+                plt.ylabel("Variational distance to 'true' transition model") 
+            if dist_succ == 'succ':
+                plt.ylabel("Success rate on test problems")
+            plt.title(title)
+            plt.ylim((-0.1, 1.1))
+            plt.legend(loc="lower right")
+            plt.tight_layout()
+            plt.xlabel("Iterations")
+ 
             outfile = os.path.join(outdir, "{}_{}.png".format(
                 domain, dist_succ))
             plt.savefig(outfile, dpi=300)
