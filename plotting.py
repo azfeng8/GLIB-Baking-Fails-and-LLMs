@@ -21,7 +21,7 @@ def smooth_curve(x, y):
 
 
 def plot_results(domain_name, learning_name, all_results, outdir="results",
-                 smooth=False, dist=False):
+                 smooth=False, dist=False, llm_queries=None):
     """Results are lists of single-run result lists, across different
     random seeds.
     """
@@ -50,9 +50,18 @@ def plot_results(domain_name, learning_name, all_results, outdir="results",
         if smooth:
             xs, results_mean = smooth_curve(xs, results_mean)
             # _, results_std = smooth_curve(xs, results_std)
-        plt.plot(xs, results_mean, label=label.replace("_", " "))
+        plt.plot(xs, results_mean, 'blue', label=label.replace("_", " "))
         # plt.fill_between(xs, results_mean+results_std,
         #                  results_mean-results_std, alpha=0.2)
+    if llm_queries is not None:
+        llm_ys = []
+        llm_xs = []
+        for iter, num_accept in llm_queries:
+            if num_accept > 0:
+                llm_ys.append(results_mean[iter])
+                llm_xs.append(iter)
+        plt.scatter(llm_xs, llm_ys, c='#2ca02c')
+
     min_seeds = min(len(x) for x in all_results.values())
     max_seeds = max(len(x) for x in all_results.values())
     if min_seeds == max_seeds:
@@ -70,7 +79,7 @@ def plot_results(domain_name, learning_name, all_results, outdir="results",
     plt.tight_layout()
     plt.savefig(outfile, dpi=300)
     print("Wrote out to {}".format(outfile))
-import random
+
 def main(results_path):
     """Plot the results in results/, specified by settings."""
     missing_seeds = set()
@@ -121,6 +130,7 @@ def main(results_path):
                 plt.plot(xs, results_mean, label=label.replace("_", " "), color=colors[color_idx])
                 plt.fill_between(xs, std_bot, std_top, alpha=0.3, color=colors[color_idx])
                 color_idx += 1
+
             if min_seeds == max_seeds:
                 title = f"{domain} Domain ({min_seeds} seeds)"
             else:
@@ -155,6 +165,7 @@ if __name__ == "__main__":
         path = 'results/planning_results'
     else:
         path = 'results/results/'
+    llm_path = 'results/llm_iterative_log'
 
     if not args.individual_plots:
         main(path)
@@ -171,11 +182,24 @@ if __name__ == "__main__":
                     shutil.rmtree(dist_out)
                 os.makedirs(succ_out, exist_ok=True)
                 os.makedirs(dist_out, exist_ok=True)
+
  
-                for i,f in enumerate(os.listdir(f"{path}/{domain_name}/{learning_name}/{curiosity_name}")):
+                # for i,f in enumerate(os.listdir(f"{path}/{domain_name}/{learning_name}/{curiosity_name}")):
+                for seed in pc.seeds[0]:
                     all_results = defaultdict(list)
-                    num = f.rstrip(".pkl").split("_")[-1]
-                    with open(os.path.join(f"{path}/{domain_name}/{learning_name}/{curiosity_name}",f), 'rb') as fh:
+                    results_path = os.path.join(f"{path}/{domain_name}/{learning_name}/{curiosity_name}",f'{domain_name}_{learning_name}_{curiosity_name}_{seed}.pkl')
+                    if not os.path.exists(results_path):
+                        print(f"Missing seed {seed} for domain {domain_name} learner {learning_name} curiosity {curiosity_name}")
+                        continue
+                    with open(results_path, 'rb') as fh:
                         all_results[curiosity_name].append(pickle.load(fh))
-                    plot_results(f"{domain_name}{num}", learning_name, all_results, outdir=succ_out, dist=False)
-                    plot_results(f"{domain_name}{num}", learning_name, all_results, outdir=dist_out, dist=True)
+
+
+                    llm_queries = None
+                    if learning_name == 'LLM+LNDR' or learning_name == "LLMIterative+LNDR" or learning_name == "LLMIterative+ZPK":
+                        p = os.path.join(llm_path, domain_name, curiosity_name, str(seed), 'experiment0', 'llm_ops_accepted.pkl') 
+                        if os.path.exists(p):
+                            with open(p, 'rb') as f:
+                                llm_queries = pickle.load(f)
+                    plot_results(f"{domain_name}{seed}", learning_name, all_results, outdir=succ_out, dist=False, llm_queries=llm_queries)
+                    plot_results(f"{domain_name}{seed}", learning_name, all_results, outdir=dist_out, dist=True, llm_queries=llm_queries)

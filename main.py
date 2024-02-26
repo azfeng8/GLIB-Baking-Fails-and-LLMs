@@ -39,7 +39,7 @@ class Runner:
         self._variational_dist_transitions = self._initialize_variational_distance_transitions()
 
     def _initialize_variational_distance_transitions(self):
-        print("Getting transitions for variational distance...")
+        logging.info("Getting transitions for variational distance...")
         fname = f"{gc.vardisttrans_dir}/{self.domain_name}.vardisttrans"
         if os.path.exists(fname):
             with open(fname, "rb") as f:
@@ -60,7 +60,7 @@ class Runner:
             obs, _ = self.test_env.reset()
             for _ in range(ec.num_var_dist_trans[self.domain_name]//num_problems):
                 action = self.test_env.action_space.sample(obs)
-                next_obs, _, done, _ = self.test_env.step(action)
+                next_obs, _, done, _, _ = self.test_env.step(action)
                 null_effect = (next_obs.literals == obs.literals)
                 keep_transition = ((not null_effect or
                                     (num_no_effects[action.predicate] <
@@ -86,18 +86,16 @@ class Runner:
         episode_time_step = 0
         itrs_on = None
         for itr in range(self.num_train_iters):
-            print("\nIteration {} of {}".format(itr, self.num_train_iters))
+            logging.info("\nIteration {} of {}".format(itr, self.num_train_iters))
 
             if episode_done or episode_time_step > ac.max_train_episode_length[self.domain_name]:
-                obs, _ = self.train_env.reset()
+                obs, _ = self.train_env.reset(seed=ec.seed)
                 self.agent.reset_episode(obs)
                 episode_time_step = 0
 
-            # start = time.time()
             action = self.agent.get_action(obs)
-            # print(f"GET ACTION TIME: {time.time() - start}")
 
-            next_obs, _, episode_done, _ = self.train_env.step(action)
+            next_obs, _, episode_done, _, _ = self.train_env.step(action)
 
             # # Exclude no-ops
             # while len(self.agent._compute_effects(obs, next_obs)) == 0:
@@ -115,9 +113,7 @@ class Runner:
                 if self.domain_name == "PybulletBlocks" and self.curiosity_name == "oracle":
                     operators_changed = True
                 else:
-                    # s = time.time()
                     operators_changed = self.agent.learn(itr)
-                    # print(f"LEARNING TIME: {time.time() - s}")
 
                 # Only rerun tests if operators have changed, or stochastic env
                 if operators_changed or ac.planner_name[self.domain_name] == "ffreplan" or \
@@ -128,7 +124,7 @@ class Runner:
                     test_solve_rate, variational_dist = self._evaluate_operators()
 
                     logging.info(f"Result: {test_solve_rate} {variational_dist}")
-                    logging.debug("Testing took {} seconds".format(time.time()-start))
+                    # logging.debug("Testing took {} seconds".format(time.time()-start))
 
                     if "oracle" in self.agent.curiosity_module_name and \
                        test_solve_rate == 1 and ac.planner_name[self.domain_name] == "ff":
@@ -151,7 +147,7 @@ class Runner:
         if itrs_on is None:
             itrs_on = self.num_train_iters
         curiosity_avg_time = self.agent.curiosity_time/itrs_on
-
+        
         return results, curiosity_avg_time
 
     def _evaluate_operators(self):
@@ -167,7 +163,7 @@ class Runner:
         else:
             num_problems = len(self.test_env.problems)
         for problem_idx in range(num_problems):
-            print("\tTest case {} of {}, {} successes so far".format(
+            logging.info("\tTest case {} of {}, {} successes so far".format(
                 problem_idx+1, num_problems, num_successes))#, end="\r")
             self.test_env.fix_problem_index(problem_idx)
             obs, debug_info = self.test_env.reset()
@@ -183,7 +179,7 @@ class Runner:
                     action = policy(obs)
                 except (NoPlanFoundException, PlannerTimeoutException):
                     break
-                obs, reward, done, _ = self.test_env.step(action)
+                obs, reward, done, _, _ = self.test_env.step(action)
                 if done:
                     break
             # Reward is 1 iff goal is reached
@@ -191,7 +187,6 @@ class Runner:
                 num_successes += 1
             else:
                 assert reward == 0.
-        print()
         variational_dist = 0
         for state, action, next_state in self._variational_dist_transitions:
             if ac.learning_name.startswith("groundtruth"):
@@ -216,7 +211,6 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_
     # learner, which uses the environment to access the predicates and
     # action names.
     ac.train_env = train_env
-    train_env.seed(ec.seed)
     agent = Agent(domain_name, train_env.action_space,
                   train_env.observation_space, curiosity_name, learning_name, log_llm_path=log_llmi_path,
                   planning_module_name=ac.planner_name[domain_name])
@@ -233,8 +227,16 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_
         domain_name, learning_name, curiosity_name, seed))
     with open(cache_file, 'wb') as f:
         pickle.dump(results, f)
-        print("Dumped results to {}".format(cache_file))
-    print("\n\n\nFinished single seed in {} seconds".format(time.time()-start))
+        logging.info("Dumped results to {}".format(cache_file))
+
+    if "GLIB" in curiosity_name:
+        path = os.path.join(f'results', 'GLIB', domain_name, learning_name, curiosity_name)
+        os.makedirs(path, exist_ok=True)
+        with open(os.path.join(path, f'{seed}_babbling_stats.pkl'), 'wb') as f:
+            pickle.dump(agent._curiosity_module.line_stats, f)
+
+       
+    logging.info("\n\n\nFinished single seed in {} seconds".format(time.time()-start))
     return {curiosity_name: results}
 
 
@@ -253,7 +255,7 @@ def _main():
         all_results = defaultdict(list)
         for curiosity_name in ac.curiosity_methods_to_run:
             for seed in range(gc.start_seed, gc.start_seed + gc.num_seeds):
-                print("\nRunning curiosity method: {}, with seed: {}\n".format(
+                logging.info("\nRunning curiosity method: {}, with seed: {}\n".format(
                     curiosity_name, seed))
 
                 if lc.iterative_log_path:
@@ -271,7 +273,7 @@ def _main():
         plot_results(domain_name, ac.learning_name, all_results)
         plot_results(domain_name, ac.learning_name, all_results, dist=True)
 
-    print("\n\n\n\n\nFinished in {} seconds".format(time.time()-start))
+    logging.info("\n\n\n\n\nFinished in {} seconds".format(time.time()-start))
 
 
 if __name__ == "__main__":

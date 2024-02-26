@@ -104,7 +104,7 @@ def improve_coverage(op_idxes, dataset, operators) -> list[Operator]:
             #     pickle.dump(operators, f)
             # with open('/home/catalan/temp/uncovered_transition.pkl', 'wb') as f:
             #     pickle.dump(uncovered_transition, f)
-            print("Got uncovered transition for action:", uncovered_transition[1])
+            OPERATOR_SEARCH_LOGGER.debug("Got uncovered transition for action:", uncovered_transition[1])
 
     if len(op_i_to_transitions) == 0:
         return op_idxes
@@ -127,7 +127,6 @@ def transition_score(op:Operator, transition:tuple, coverage=False, debug=False)
         the observed transition effects e,
         ground operator precondition positive literals P+ and negative literals P-,
         the positive state literals S+ and negative state literals S-,
-        the assignment A of variables to objects,
 
     1. Coverage score: fractional measure, bounded [0,1]. 1 is perfectly cover, 0 is not covering at all.
 
@@ -440,7 +439,6 @@ if __name__ == "__main__":
     OPERATOR_SEARCH_LOGGER.addHandler(ch)
 
 
-    # print(consistency_score(o, uncovered_transition))
     LOG_PATH_READ = f'/home/catalan/temp/experiment3/iter_300'
 
     with open(os.path.join(LOG_PATH_READ, "learner_ops.pkl"), 'rb') as f:

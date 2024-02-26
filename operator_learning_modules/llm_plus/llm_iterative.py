@@ -21,6 +21,7 @@ from settings import LLMConfig as lc
 
 from abc import abstractmethod
 from collections import defaultdict
+import logging
 import pickle
 import pdb
 import os
@@ -107,7 +108,6 @@ class BaseLLMIterativeOperatorLearningModule:
             bool: if operators were updated
         """
         is_updated = self.learner.learn()
-        self._learned_operators = self.learner._learned_operators
 
         # if itr % self._llm_learn_interval != 0:
             # Debugging. Check that the learner operators are updated correctly.
@@ -131,9 +131,9 @@ class BaseLLMIterativeOperatorLearningModule:
         if READING_LEARNING_MOD_OPS:
             with open(f'{LOG_PATH_READ}/learner_ops.pkl', 'rb') as f:
                 lops = pickle.load(f)
-                self.learner._learned_operators.clear()
+                self._learned_operators.clear()
                 for o in lops:
-                    self.learner._learned_operators.add(o)
+                    self._learned_operators.add(o)
 
         # sample random episode. Use all the actions in the episode.
         traj = self._sample_trajectory()
@@ -150,7 +150,7 @@ class BaseLLMIterativeOperatorLearningModule:
             with open(f"{self.log_path_write}/iter_{itr}/traj.pkl", 'wb') as f:
                 pickle.dump(traj, f)
             with open(f'{self.log_path_write}/iter_{itr}/learner_ops.pkl', 'wb') as f:
-                pickle.dump(self.learner._learned_operators, f)
+                pickle.dump(self._learned_operators, f)
             with open(f'{self.log_path_write}/iter_{itr}/trajectories.pkl', 'wb') as f:
                 pickle.dump(self._trajectories, f)
 
@@ -158,12 +158,12 @@ class BaseLLMIterativeOperatorLearningModule:
 
         llm_ops = self._propose_operators(traj, itr)
 
-        print('\n\nFROM LLM\n')
+        logging.info('\n\nFROM LLM\n')
         for o in llm_ops:
-            print(o)
-        print('\n\nFROM LEARNER\n')
-        for o in self.learner._learned_operators:
-            print(o)
+            logging.info(o)
+        logging.info('\n\nFROM LEARNER\n')
+        for o in self._learned_operators:
+            logging.info(o)
 
         if self.logging:
             with open(f'{self.log_path_write}/iter_{itr}/llm_proposed_ops.pkl', 'wb') as f:
@@ -172,7 +172,10 @@ class BaseLLMIterativeOperatorLearningModule:
         # score and filter the PDDL operators
         ops = self._score_and_filter(llm_ops, itr)
 
-        print("\n\nUPDATED\n")
+        logging.info("\n\nUPDATED\n")
+        for o in ops:
+            logging.info(o)
+
         is_updated = self._update_operator_rep(ops, itr)
 
 
@@ -257,7 +260,7 @@ class BaseLLMIterativeOperatorLearningModule:
         if (sum(len(l) for l in self._trajectories) == 0): return None
         ### 1. 
         # Get uncovered_transitions, the episode index, index within episode
-        *_, uncovered_transition_indices = LEAP_coverage(self._trajectories, self.learner._learned_operators)
+        *_, uncovered_transition_indices = LEAP_coverage(self._trajectories, self._learned_operators)
         candidates = []
         for ep_i, j in uncovered_transition_indices:
             _, action, _ = self._trajectories[ep_i][j]
@@ -440,7 +443,7 @@ class BaseLLMIterativeOperatorLearningModule:
                     with open(f'{self.log_path_write}/iter_{itr}/response_files.pkl', 'wb') as f:
                         pickle.dump(response_paths, f)
 
-            print("GOT LLM RESPONSE", response)
+            logging.info(f"GOT LLM RESPONSE {response}")
             ops = self._llm_pddl_parser.parse_operators(response)
             if ops is not None:
                 for op in ops:
@@ -465,7 +468,7 @@ class BaseLLMIterativeOperatorLearningModule:
             list[Operator]: _description_
         """
         llm_end_index = len(llm_ops)
-        all_ops = llm_ops + list(self.learner._learned_operators)
+        all_ops = llm_ops + list(self._learned_operators)
 
         # Renumber the operators so names don't clash.
         # NOTE: Assume initially, operator names are action names or have digits at the end of them.
@@ -522,36 +525,14 @@ class BaseLLMIterativeOperatorLearningModule:
         self._llm_precondition_goal_ops.clear()
         for o,lo in zip(llm_accepted_ops, learner_ops_same_action):
             self._llm_precondition_goal_ops[o] = lo
-        print("\n\nUPDATED from LLM ITERATIVE\n")
-        print(self._llm_precondition_goal_ops)
+        logging.info("\n\nUPDATED from LLM ITERATIVE\n")
+        logging.info(self._llm_precondition_goal_ops)
 
     @abstractmethod
     def _update_operator_rep(self, ops, itr):
         """To edit the learning algorithm's representation. Not currently used."""
         raise NotImplementedError("Override me!")
     
-    def debug_parsing(self):
-        problem = """(:action putpaninoven
-        :parameters (?p - pan ?o - oven)
-        :precondition (and 
-            (not (ovenisfull ?o))
-            (or (panhasegg ?p) (panhasflour ?p))
-        )
-        :effect (and 
-            (inoven ?p ?o)
-            (not (panisclean ?p))
-            (ovenisfull ?o)
-        )
-    )"""
-        ops =  self._llm_pddl_parser.parse_operators(problem)
-        print(ops)
-        return ops
- 
-    @abstractmethod
-    def _resume(self):
-        """For debugging."""
-        raise NotImplementedError("Override me!")
-        
 import numpy as np
 from ndr.ndrs import NDR, NDRSet, NOISE_OUTCOME
 from ndr.learn import iter_variable_names
@@ -573,9 +554,6 @@ class LLMZPKIterativeOperatorLearningModule(BaseLLMIterativeOperatorLearningModu
         """
         ndrs = defaultdict(list)
         for op in ops:
-            # In initializing the learner from previous, we assume a
-            # standard variable naming scheme.
-            # This makes sure that grounded `action` is the same for all ops with that action.
             action = [p for p in op.preconds.literals
                         if p.predicate in ac.train_env.action_space.predicates][0]
             preconditions = sorted(set(op.preconds.literals) - {action})
@@ -587,6 +565,9 @@ class LLMZPKIterativeOperatorLearningModule(BaseLLMIterativeOperatorLearningModu
                         variables.append(v)
             sub = {old: TypedEntity(new_name, old.var_type)
                     for old, new_name in zip(variables, iter_variable_names())}
+            # In initializing the learner from previous, we assume a
+            # standard variable naming scheme.
+            # This makes sure that grounded `action` is the same for all ops with that action.
             action = ground_literal(action, sub)
             preconditions = [ground_literal(l, sub) for l in preconditions]
             effects = [ground_literal(l, sub) for l in effects]
@@ -603,18 +584,6 @@ class LLMZPKIterativeOperatorLearningModule(BaseLLMIterativeOperatorLearningModu
         self._ndrs = ndr_sets
         self.learner._ndrs = ndr_sets
         return True
-
-    def _resume(self, itr):
-
-        with open(f'/home/catalan/temp/iter_{itr}/ndrs.pkl', 'rb') as f:
-            self._ndrs = pickle.load(f)
-            self.learner._ndrs = self._ndrs 
-        with open(f'/home/catalan/temp/iter_{itr}/updated_learned_ops.pkl', 'rb') as f:
-            self._learned_operators.clear()
-            self.learner._learned_operators.clear()
-            for o in pickle.load(f):
-                self._learned_operators.add(o)
-                self.learner._learned_operators.add(o)
 
 class LLMZPKOperatorLearningModule(LLMZPKIterativeOperatorLearningModule):
     def init(self):

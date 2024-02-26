@@ -127,6 +127,7 @@ def get_cmds_to_prep_repo(branch: str) -> List[str]:
         "git fetch --all",
         f"git checkout {branch}",
         "git pull",
+        "pip install -r requirements.txt",
         # Remove old results.
         f"rm -rf {old_dir_pattern}",
         "mkdir -p logs",

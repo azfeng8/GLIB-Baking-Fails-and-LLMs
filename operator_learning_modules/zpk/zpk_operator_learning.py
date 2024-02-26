@@ -13,6 +13,7 @@ import pickle
 from collections import defaultdict
 from typing import Dict
 import pddlgym
+import logging
 
 
 class ZPKOperatorLearningModule:
@@ -181,15 +182,15 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
             s += f"\t\t:effect (and\n\t\t\t\t<TODO>\n\t\t)\n\t)"
             prompt += s + "\n"
         prompt += ")"
-        print("Prompt:", prompt)
+        logging.info(f"Prompt: {prompt}")
 
         return prompt
 
     def _query_llm(self, prompt):
         response, path = self._llm.sample_completions([{"role": "user", "content": prompt}], temperature=0, seed=self._seed, num_completions=1)
         response = response[0]
-        print("Got response", response)
-        print("Saved response at path:", path)
+        logging.info(f"Got response {response}")
+        logging.debug(f"Saved response at path: {path}")
         return response
 
 
@@ -244,4 +245,3 @@ if __name__ == '__main__':
     ndrs_nonnoop = learn_ndrs({pred: nonnoop}, max_timeout=ac.max_zpk_learning_time, max_action_batch_size=ac.max_zpk_action_batch_size['Baking'], get_batch_probs=get_batch_probs,init_rule_sets=None, rng=np.random.RandomState(seed=ac.seed), max_ee_transitions= ac.max_zpk_explain_examples_transitions["Baking"])
     for ndr in ndrs_nonnoop[pred]:
         print(ndr.determinize())
- 

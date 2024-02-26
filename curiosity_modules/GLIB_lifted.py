@@ -121,7 +121,7 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
                 lambda ga: frozenset(ga[0]) not in mutex_pairs,
                 self._untried_episode_goal_actions))
         # Forget the goal-action that was going to be taken at the end of the plan in progress
-        GLIB_L_LOGGER.debug("Resetting self._current_goal_action")
+        # GLIB_L_LOGGER.debug("Resetting self._current_goal_action")
         self._current_goal_action = None
 
     def _get_goal_action_priority(self, goal_action):
@@ -147,9 +147,9 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
         # First check whether we just finished a plan and now must take the final action
         if (not (self._current_goal_action is None)) and (len(self._plan) == 0):
             action = self._get_ground_action_to_execute(state)
-            GLIB_L_LOGGER.debug("*** Finished the plan")
+            # GLIB_L_LOGGER.debug("*** Finished the plan")
             if action != None:
-                GLIB_L_LOGGER.debug("*** Finished the plan, now executing the action")
+                # GLIB_L_LOGGER.debug("*** Finished the plan, now executing the action")
                 # Execute the action
                 self.line_stats.append(1)
                 return action
@@ -159,7 +159,7 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
     def _get_ground_action_to_execute(self, state):
         lifted_goal, lifted_action = self._current_goal_action
         # Forget this goal-action because we're about to execute it
-        GLIB_L_LOGGER.debug("Setting None in _get_ground_action_to_execute")
+        # GLIB_L_LOGGER.debug("Setting None in _get_ground_action_to_execute")
         self._current_goal_action = None
         # Sample a grounding for the action conditioned on the lifted goal and state
         action = self._sample_action_from_goal(lifted_goal, lifted_action, state, self._rand_state)
@@ -207,7 +207,7 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
         if len(self._untried_episode_goal_actions) > 0:
             goal, action = self._untried_episode_goal_actions.pop(0)
             self._current_goal_action = (goal, action)
-            GLIB_L_LOGGER.debug(f"set self._current_goal_action in sampling goal-action {self._current_goal_action}")
+            # GLIB_L_LOGGER.debug(f"set self._current_goal_action in sampling goal-action {self._current_goal_action}")
             return self._structify_goal(goal)
         # No goals left to try
         # print("no goals left")

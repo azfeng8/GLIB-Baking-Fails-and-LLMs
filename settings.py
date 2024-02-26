@@ -324,13 +324,17 @@ class PlottingConfig:
     # learner_explorer = [  ("LNDR", "GLIB_L2"), ("LNDR", "GLIB_G1"), ("LNDR", "random")]
 
     # learner_explorer = [("LLM+LNDR", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2")]
-    # learner_explorer = [("LLM+LNDR", "LLM+GLIB_G1"), ("LNDR", "GLIB_G1")]
-    learner_explorer = [("LLMIterative+ZPK", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2")]#, ("LLM+LNDR", "LLM+GLIB_G1")]
-    seeds = [range(24, 30)]  + [range(1, 11)] #+ [range(12,22)]
+    # learner_explorer = [("LLM+LNDR", "LLM+GLIB_L2")]#, ("LNDR", "GLIB_G1")]
+    # learner_explorer = [("LLMWarmStart+LNDR", "GLIB_L2"), ("LNDR", "GLIB_L2")]
+    # learner_explorer = [("LLMWarmStart+LNDR", "GLIB_G1"), ("LNDR", "GLIB_G1")]
+    # seeds = [range(12, 22)]  #+ [range(1, 11)]
+
+    learner_explorer= [("LNDR", "GLIB_L2")]
+    seeds = [range(1,11)]
 
     # learner_explorer = [("LLM+LNDR", "LLM+GLIB_G1"), ("LLM+LNDR", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2"), ("LNDR", "GLIB_G1")]
     # seeds = [range(12, 22)] * 2 + [range(1, 11)]  * 2
 
     # domains = ["Baking",  "Minecraft", "Travel"]
     # domains = ["Baking", "Rearrangement", "Travel", "Minecraft", "Glibblocks", "Doors", "Easygripper"]
-    domains = ["Travel"]
+    domains = ["Baking"]
