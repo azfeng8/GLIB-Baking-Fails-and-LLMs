@@ -4,6 +4,10 @@ from planning_modules import create_planning_module
 from pddlgym.structs import Anti
 from settings import LLMConfig as lc
 from openai_interface import OpenAI_Model
+from settings import EnvConfig as ec
+from settings import AgentConfig as ac
+import os
+import pickle
 import time
 import numpy as np
 from typing import Optional
@@ -75,7 +79,7 @@ class Agent:
         self.curiosity_time += time.time()-start_time
         return action
 
-    def observe(self, state, action, next_state):
+    def observe(self, state, action, next_state, itr):
         # Get effects
         effects = self._compute_effects(state, next_state)
         # Add data
@@ -84,6 +88,14 @@ class Agent:
         start_time = time.time()
         self._curiosity_module.observe(state, action, effects)
         self.curiosity_time += time.time()-start_time
+
+        # Log transition dataset at the start of each episode, and the last iteration.
+        if ('LNDR' in self.operator_learning_name) and ((self.episode_start) or (itr == ac.num_train_iters[self.domain_name] - 1)):
+            dataset_dump_path = os.path.join('results', 'LNDR', self.domain_name, self.curiosity_module_name, ec.seed)
+            os.makedirs(dataset_dump_path, exist_ok=True)
+            filename = os.path.join(dataset_dump_path, f'transition_data_itr{itr}.pkl')
+            with open(filename, 'wb') as f:
+                pickle.dump(self._operator_learning_module._transitions, f)
 
         self.episode_start = False
 

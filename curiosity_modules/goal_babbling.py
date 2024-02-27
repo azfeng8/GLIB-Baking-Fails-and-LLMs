@@ -25,6 +25,8 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
         self._llm_goal_actions = []
         # Keep track of the number of times that we follow a plan
         self.line_stats = []
+        # Keep track of the number of times that we follow a plan using the LLM
+        self.llm_line_stats = []
 
     def reset_episode(self, state):
         self._last_state = set()
@@ -52,6 +54,8 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
         # Continue executing plan?
         if self._plan and (last_state != state):
             self.line_stats.append(1)
+            if self._goal_from_llm:
+                self.llm_line_stats.append(1)
             GOAL_BABBLING_LOGGER.debug("CONTINUING PLAN")
             GOAL_BABBLING_LOGGER.debug(f"PLAN: {self._plan}")
             return self._plan.pop(0)
@@ -61,7 +65,7 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
         while (sampling_attempts < ac.max_sampling_tries and \
                planning_attempts < ac.max_planning_tries):
 
-            goal = self._sample_goal(state)
+            goal, self._goal_from_llm = self._sample_goal(state)
             GOAL_BABBLING_LOGGER.debug(f"SAMPLED GOAL: {goal}")
             sampling_attempts += 1
 
@@ -95,6 +99,8 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
                 # import ipdb; ipdb.set_trace()
                 # Take the first step in the plan
                 self.line_stats.append(1)
+                if self._goal_from_llm:
+                    self.llm_line_stats.append(1)
                 return self._plan.pop(0)
             self._plan = []
 
@@ -104,6 +110,7 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
 
     def _get_fallback_action(self, state):
         self.line_stats.append(0)
+        self.llm_line_stats.append(0)
         return self._action_space.sample(state)
 
     def _plan_is_good(self):

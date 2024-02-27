@@ -1,5 +1,3 @@
-#TODO: if LLM has no learned operators, then pick some operator preconditions to try first (operators with action that has most no-ops should be prioritized).
-
 """Goal-literal babbling with grounded novelty. Outputs single-literal goals and
 also actions.
 """
@@ -40,7 +38,7 @@ class GLIBG1CuriosityModule(GoalBabblingCuriosityModule):
                lit.predicate in self._static_preds:  # ignore static goals
                 continue
             for act in self._action_space.all_ground_literals(state):
-                self._unseen_lits_acts.add((lit, act))
+                self._unseen_lits_acts.add((lit, act, False))
         self._unseen_lits_acts = sorted(self._unseen_lits_acts)
 
     def _get_action(self, state):
@@ -48,8 +46,8 @@ class GLIBG1CuriosityModule(GoalBabblingCuriosityModule):
             self._recompute_unseen_lits_acts(state)
         action = super()._get_action(state)
         for lit in state:  # update novelty
-            if (lit, action) in self._unseen_lits_acts:
-                self._unseen_lits_acts.remove((lit, action))
+            if (lit, action, False) in self._unseen_lits_acts:
+                self._unseen_lits_acts.remove((lit, action, False))
         return action
 
     def learning_callback(self):
@@ -58,12 +56,17 @@ class GLIBG1CuriosityModule(GoalBabblingCuriosityModule):
         self._unseen_lits_acts = None
 
     def _sample_goal(self, state):
+        """
+        Returns:
+            goal
+            from_llm (bool): False, the goal is not from the LLM
+        """
         if not self._unseen_lits_acts:
             return None
-        goal, act = self._unseen_lits_acts[self._rand_state.choice(
+        goal, act, _ = self._unseen_lits_acts[self._rand_state.choice(
             len(self._unseen_lits_acts))]
         self._last_sampled_action = act
-        return goal
+        return goal, False
 
     def _goal_is_valid(self, goal):
         return not (goal is None)
@@ -84,11 +87,16 @@ class GLIBG1LLMCuriosityModule(GoalBabblingCuriosityModule):
         self._name = "llm-glibg1"
 
     def _sample_goal(self, state):
+        """
+            Returns:
+                goal
+                from_llm (bool): if the goal was from the LLM
+        """
         if not self._unseen_lits_acts:
             return None
-        goal, act = self._unseen_lits_acts.pop(0)
+        goal, act, from_llm = self._unseen_lits_acts.pop(0)
         self._last_sampled_action = act
-        return self._structify_goal(goal)
+        return self._structify_goal(goal), from_llm
 
     def learning_callback(self):
         super().learning_callback()
@@ -124,11 +132,11 @@ class GLIBG1LLMCuriosityModule(GoalBabblingCuriosityModule):
 
         # update novelty
         for lit in state:
-            if ((lit,), action) in self._unseen_lits_acts:
-                self._unseen_lits_acts.remove(((lit,), action))
+            if ((lit,), action, False) in self._unseen_lits_acts:
+                self._unseen_lits_acts.remove(((lit,), action, False))
 
         removes = set()
-        for goal,act in self._unseen_lits_acts:
+        for goal,act,from_llm in self._unseen_lits_acts:
             all_in_state = True
             for g in goal:
                 if g.predicate.is_negative:
@@ -137,7 +145,7 @@ class GLIBG1LLMCuriosityModule(GoalBabblingCuriosityModule):
                 elif g not in state:
                     all_in_state = False
             if all_in_state:
-                removes.add((goal,act))
+                removes.add((goal,act,from_llm))
         for r in removes:
             self._unseen_lits_acts.remove(r)
                     
@@ -153,11 +161,11 @@ class GLIBG1LLMCuriosityModule(GoalBabblingCuriosityModule):
                lit.predicate in self._static_preds:  # ignore static goals
                 continue
             for act in self._action_space.all_ground_literals(state):
-                self._unseen_lits_acts.add(((lit,), act))
+                self._unseen_lits_acts.add(((lit,), act, False))
 
         self._recompute_llm_goal_actions()
-        for goal_action in self._llm_goal_actions:
-            self._unseen_lits_acts.add(goal_action)
+        for goal, action in self._llm_goal_actions:
+            self._unseen_lits_acts.add((goal, action, True))
 
         self._unseen_lits_acts = sorted(self._unseen_lits_acts, key=self.priority_goal_action)
 

@@ -99,7 +99,7 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
                         if goal_action_valid:
                             goal = tuple([l for l in goal_action_lits if l.predicate != action_pred])
                             action = [l for l in goal_action_lits if l.predicate == action_pred][0]
-                            unseen_goal_actions.add((goal, action))
+                            unseen_goal_actions.add((goal, action, False))
         return unseen_goal_actions
 
     ### Reset ###
@@ -202,16 +202,20 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
         return lifted_action.predicate(*grounding)
 
     def _sample_goal(self, state):
-        """Produce a new goal to try to plan towards"""
+        """Produce a new goal to try to plan towards
+        
+        Returns:
+            goal
+            from_llm (bool): whether the goal is from the LLM"""
         # Note that these are already in random order as per _iw_reset
         if len(self._untried_episode_goal_actions) > 0:
-            goal, action = self._untried_episode_goal_actions.pop(0)
+            goal, action, from_llm = self._untried_episode_goal_actions.pop(0)
             self._current_goal_action = (goal, action)
             # GLIB_L_LOGGER.debug(f"set self._current_goal_action in sampling goal-action {self._current_goal_action}")
-            return self._structify_goal(goal)
+            return self._structify_goal(goal), from_llm
         # No goals left to try
         # print("no goals left")
-        return None
+        return None, False
 
     def _finish_plan(self, plan):
         # If the plan is empty, then we want to immediately take the action.
@@ -310,4 +314,4 @@ class LLMGLIBL2CuriosityModule(GLIBL2CuriosityModule):
                 action = [p for p in o.preconds.literals
                         if p.predicate in self._action_space.predicates][0]
                 goal = tuple(sorted(set(o.preconds.literals) - {action}))
-                self._llm_goal_actions.append((goal, action))
+                self._llm_goal_actions.append((goal, action, True))

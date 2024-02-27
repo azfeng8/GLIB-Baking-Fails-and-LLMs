@@ -14,6 +14,7 @@ from collections import defaultdict
 from typing import Dict
 import pddlgym
 import logging
+import os
 
 
 class ZPKOperatorLearningModule:
@@ -40,6 +41,7 @@ class ZPKOperatorLearningModule:
                 self._fits_all_data[action.predicate] = False
 
     def learn(self, iter=-1):
+
         if not self._learning_on:
             return False
 

@@ -142,6 +142,8 @@ class BaseLLMIterativeOperatorLearningModule:
         if traj is None:
             return is_updated
 
+        traj, code = traj
+
         if READING_LLM_RESPONSES:
             with open(os.path.join(LOG_PATH_READ, "traj.pkl"), 'rb') as f:
                 traj = pickle.load(f)
@@ -153,6 +155,10 @@ class BaseLLMIterativeOperatorLearningModule:
                 pickle.dump(self._learned_operators, f)
             with open(f'{self.log_path_write}/iter_{itr}/trajectories.pkl', 'wb') as f:
                 pickle.dump(self._trajectories, f)
+            with open(os.path.join(self.log_path_write, f'iter_{itr}', 'LNDR_transitions.pkl'), 'wb') as f:
+                pickle.dump(self.learner._transitions, f)
+            with open(os.path.join(self.log_path_write, 'traj_types.txt'), 'a') as f:
+                f.write(f'{str(code)}\n')
 
         # LLM proposes new operator for each of the actions in the trajectory.
 
@@ -176,6 +182,27 @@ class BaseLLMIterativeOperatorLearningModule:
         for o in ops:
             logging.info(o)
 
+        if self.logging:
+            path = os.path.join(f'{self.log_path_write}',  'num_new_action_accepted_llm_ops.pkl')
+            if os.path.exists(path):
+                with open(path, 'rb') as f:
+                    new_action_accept_arr = pickle.load(f)
+            else:
+                new_action_accept_arr = []
+            action_names = [a.name for a in ac.train_env.action_space.predicates]
+            learner_actions = set()
+            for o in self._learned_operators:
+                pred_name = [lit.predicate.name for lit in o.preconds.literals if lit.predicate.name in action_names][0]
+                learner_actions.add(pred_name)
+            cnt = 0
+            for o in self._llm_precondition_goal_ops:
+                action_pred = [p.predicate.name for p in o.preconds.literals if p.predicate.name in action_names][0]
+                if action_pred not in learner_actions:
+                    cnt += 1
+            new_action_accept_arr.append([itr, cnt])
+            with open(path, 'wb') as f:
+                pickle.dump(new_action_accept_arr, f)
+        
         is_updated = self._update_operator_rep(ops, itr)
 
 
@@ -193,6 +220,7 @@ class BaseLLMIterativeOperatorLearningModule:
             arr.append([itr, len(self._llm_precondition_goal_ops)])
             with open(filename, 'wb') as f:
                 pickle.dump(arr, f)
+            
         return is_updated
         
             
@@ -212,17 +240,18 @@ class BaseLLMIterativeOperatorLearningModule:
             self._llm_proposed_actions.add(t[1].predicate)
         return traj
 
-    def _sample_trajectory(self) -> Optional[list[tuple]]:
+    def _sample_trajectory(self) -> Optional[tuple[list[tuple], int]]:
         """Returns the current trajectory for the episode.
 
         Prioritize in order:
-        1. Trajectories including actions that the learner hasn't created operators for yet.
+        1. Trajectories with a coverage score of 0 with LNDR operators.
         2. Trajectories with actions that the LLM hasn't seen yet.
         3. Trajectories that have not been proposed to the LLM yet.
         4. All trajectories.
 
         Returns:
-            traj (list[transition]) or None if no data.
+            None if no data.
+            traj (list[transition]), and the type of trajectory returned (by the priority #s).
 
         """
         def get_windows(i,j) -> Iterable[tuple]:
@@ -271,11 +300,11 @@ class BaseLLMIterativeOperatorLearningModule:
                         candidates.append(window)
                     else:
                         # This is the ideal candidate window. Include one per uncovered transition, and choose randomly.
-                        return self._update_state_traj(window)
+                        return self._update_state_traj(window), 1
 
         if len(candidates) > 0:
             window = candidates[np.random.choice(len(candidates))]
-            return self._update_state_traj(window)
+            return self._update_state_traj(window), 1
                 
         ### 2.
         # Look through the learner's dataset to find a transition with action LLM hasn't seen yet
@@ -293,7 +322,7 @@ class BaseLLMIterativeOperatorLearningModule:
                 action = self._trajectories[episode_i][transition_i][1]
                 if found_unseen_action and action.predicate == action_pred:
                     for window in get_windows(episode_i, transition_i):
-                        return self._update_state_traj(window)
+                        return self._update_state_traj(window), 2
                 else:
                     for window in get_windows(episode_i, transition_i):
                         if window not in self._llm_proposed_traj:
@@ -301,7 +330,7 @@ class BaseLLMIterativeOperatorLearningModule:
 
         if len(candidates) > 0:
             window = candidates[np.random.choice(len(candidates))]
-            return self._update_state_traj(window)
+            return self._update_state_traj(window), 3
         
         ### 4. Consider all trajectories.
 
@@ -314,7 +343,7 @@ class BaseLLMIterativeOperatorLearningModule:
         idx =  np.random.choice(range(len(self._trajectories[episode_index])))
         gen = get_windows(episode_index, idx)
         window = next(gen)
-        return self._update_state_traj(window)
+        return self._update_state_traj(window), 4
 
     def _propose_operators(self, transitions, itr=-1):
         """

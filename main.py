@@ -101,7 +101,7 @@ class Runner:
             # while len(self.agent._compute_effects(obs, next_obs)) == 0:
             #     next_obs, _, episode_done, _ = self.train_env.step(action)
 
-            self.agent.observe(obs, action, next_obs)
+            self.agent.observe(obs, action, next_obs, itr)
             obs = next_obs
             episode_time_step += 1
 
