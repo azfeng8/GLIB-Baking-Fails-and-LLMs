@@ -234,6 +234,9 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_
         os.makedirs(path, exist_ok=True)
         with open(os.path.join(path, f'{seed}_babbling_stats.pkl'), 'wb') as f:
             pickle.dump(agent._curiosity_module.line_stats, f)
+        if "LLM" in curiosity_name:
+            with open(os.path.join(path, f'{seed}_llm_babbling_stats.pkl') ,'wb') as f:
+                pickle.dump(agent._curiosity_module.llm_line_stats, f)
 
        
     logging.info("\n\n\nFinished single seed in {} seconds".format(time.time()-start))

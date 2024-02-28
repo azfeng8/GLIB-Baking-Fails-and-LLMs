@@ -19,6 +19,7 @@ class GLIBG1CuriosityModule(GoalBabblingCuriosityModule):
         self._static_preds = self._compute_static_preds()
         # Keep track of the number of times that we follow a plan
         self.line_stats = []
+        self.llm_line_stats = []
 
     def reset_episode(self, state, ops=None):
         """Recompute the set of ground literals to sample from.
@@ -62,7 +63,7 @@ class GLIBG1CuriosityModule(GoalBabblingCuriosityModule):
             from_llm (bool): False, the goal is not from the LLM
         """
         if not self._unseen_lits_acts:
-            return None
+            return None, False
         goal, act, _ = self._unseen_lits_acts[self._rand_state.choice(
             len(self._unseen_lits_acts))]
         self._last_sampled_action = act
@@ -83,6 +84,7 @@ class GLIBG1LLMCuriosityModule(GoalBabblingCuriosityModule):
         self._rand_state = np.random.RandomState(seed=ac.seed)
         self._static_preds = self._compute_static_preds()
         self.line_stats = []
+        self.llm_line_stats = []
         self._num_steps = 0
         self._name = "llm-glibg1"
 
@@ -93,7 +95,7 @@ class GLIBG1LLMCuriosityModule(GoalBabblingCuriosityModule):
                 from_llm (bool): if the goal was from the LLM
         """
         if not self._unseen_lits_acts:
-            return None
+            return None, False
         goal, act, from_llm = self._unseen_lits_acts.pop(0)
         self._last_sampled_action = act
         return self._structify_goal(goal), from_llm

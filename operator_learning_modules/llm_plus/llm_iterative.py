@@ -28,9 +28,9 @@ import os
 from typing import Iterable, Optional
 
 ### Debugging params
-READING_DATASET = False
-READING_LLM_RESPONSES = False
-READING_LEARNING_MOD_OPS = False
+READING_DATASET = True
+READING_LLM_RESPONSES = True
+READING_LEARNING_MOD_OPS = True
 LOG_PATH_READ = f'/home/catalan/GLIB-Baking-Fails-and-LLMs/results/llm_iterative_log/Minecraft/LLM+GLIB_G1/2/experiment0/iter_35'
 
 class BaseLLMIterativeOperatorLearningModule:
@@ -87,6 +87,7 @@ class BaseLLMIterativeOperatorLearningModule:
         """
 
         self.learner.observe(state, action, effects)
+        self._transitions = self.learner._transitions
 
         if start_episode:
         # When episode ends, discard trajectories of length 0.
@@ -555,7 +556,8 @@ class BaseLLMIterativeOperatorLearningModule:
         for o,lo in zip(llm_accepted_ops, learner_ops_same_action):
             self._llm_precondition_goal_ops[o] = lo
         logging.info("\n\nUPDATED from LLM ITERATIVE\n")
-        logging.info(self._llm_precondition_goal_ops)
+        for llm_op, lo in self._llm_precondition_goal_ops.items():
+            logging.info(f'{llm_op} : {lo}')
 
     @abstractmethod
     def _update_operator_rep(self, ops, itr):

@@ -22,6 +22,7 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
 
     def _initialize(self):
         super()._initialize()
+        self.llm_line_stats = []
         self._rand_state = np.random.RandomState(seed=ac.seed)
         self._name = "newiw"
         self._episode_start_state = None
@@ -268,6 +269,7 @@ class GLIBL2CuriosityModule(GLIBLCuriosityModule):
 class LLMGLIBL2CuriosityModule(GLIBL2CuriosityModule):
 
     def _initialize(self):
+        self.llm_line_stats = []
         super()._initialize()
 
     ### Update goals with LLM proposed operator preconditions
