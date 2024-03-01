@@ -164,7 +164,7 @@ if __name__ == "__main__":
     if args.planning_results:
         path = 'results/planning_results'
     else:
-        path = 'results/results/'
+        path = 'results_openstack/results'
     llm_path = 'results/llm_iterative_log'
 
     if not args.individual_plots:
