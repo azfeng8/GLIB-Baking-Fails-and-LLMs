@@ -180,8 +180,8 @@ class GLIBG1LLMCuriosityModule(GoalBabblingCuriosityModule):
         """
         if itr % ac.LLM_learn_interval[self._domain_name] == 0:
             self._recompute_llm_goal_actions()
-            for goal_action in self._llm_goal_actions:
-                self._unseen_lits_acts.append(goal_action)
+            for goal,action in self._llm_goal_actions:
+                self._unseen_lits_acts.append((goal, action, True))
 
             self._unseen_lits_acts = sorted(self._unseen_lits_acts, key=self.priority_goal_action)
 

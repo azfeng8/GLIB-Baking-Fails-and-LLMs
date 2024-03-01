@@ -31,7 +31,7 @@ from typing import Iterable, Optional
 READING_DATASET = True
 READING_LLM_RESPONSES = True
 READING_LEARNING_MOD_OPS = True
-LOG_PATH_READ = f'/home/catalan/GLIB-Baking-Fails-and-LLMs/results/llm_iterative_log/Minecraft/LLM+GLIB_G1/2/experiment0/iter_35'
+LOG_PATH_READ = f'/home/catalan/GLIB-Baking-Fails-and-LLMs/results_openstack/llm_iterative_log/Travel/LLM+GLIB_G1/19/experiment0/iter_650'
 
 class BaseLLMIterativeOperatorLearningModule:
     """LLM + learning algorithm combination method. Subclass this with the specific learning algorithm.
