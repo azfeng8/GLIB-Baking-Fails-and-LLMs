@@ -128,8 +128,8 @@ def get_cmds_to_prep_repo(branch: str) -> List[str]:
         f"git checkout {branch}",
         "git pull",
         # Remove old results.
-        f"rm -rf {old_dir_pattern}",
-        "mkdir -p logs",
+        # f"rm -rf {old_dir_pattern}",
+        # "mkdir -p logs",
     ]
 
 
