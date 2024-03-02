@@ -325,12 +325,14 @@ class PlottingConfig:
 
     # learner_explorer = [("LLM+LNDR", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2")]
     # learner_explorer = [("LLM+LNDR", "LLM+GLIB_L2")]#, ("LNDR", "GLIB_G1")]
-    # learner_explorer = [("LLMWarmStart+LNDR", "GLIB_L2"), ("LNDR", "GLIB_L2")]
-    # learner_explorer = [("LLMWarmStart+LNDR", "GLIB_G1"), ("LNDR", "GLIB_G1")]
-    # seeds = [range(12, 22)]  #+ [range(1, 11)]
+    # learner_explorer = [("LLMWarmStart+LNDR", "GLIB_L2"),  ("LNDR", "GLIB_L2")]
+    learner_explorer = [("LLMWarmStart+LNDR", "GLIB_G1"), ("LNDR", "GLIB_G1")]
+    seeds = [range(60, 70)]  + [range(1, 11)]
 
-    learner_explorer= [("LNDR", "GLIB_L2"), ("LNDR", "GLIB_G1")]
-    seeds = [range(50,60), range(50,60)]
+    # learner_explorer= [("LNDR", "GLIB_L2"), ("LNDR", "GLIB_G1")]
+    # seeds = [range(1, 11), range(1,11)]
+    # # seeds = [range(50,60), range(50,60)]
+    # seeds = [range(60,70), range(60,70)]
 
     # learner_explorer = [("LLM+LNDR", "LLM+GLIB_G1"), ("LLM+LNDR", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2"), ("LNDR", "GLIB_G1")]
     # seeds = [range(12, 22)] * 2 + [range(1, 11)]  * 2
