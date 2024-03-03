@@ -56,6 +56,8 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
             self.line_stats.append(1)
             if self._goal_from_llm:
                 self.llm_line_stats.append(1)
+            else:
+                self.llm_line_stats.append(0)
             GOAL_BABBLING_LOGGER.debug("CONTINUING PLAN")
             GOAL_BABBLING_LOGGER.debug(f"PLAN: {self._plan}")
             return self._plan.pop(0)
@@ -101,6 +103,8 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
                 self.line_stats.append(1)
                 if self._goal_from_llm:
                     self.llm_line_stats.append(1)
+                else:
+                    self.llm_line_stats.append(0)
                 return self._plan.pop(0)
             self._plan = []
 
