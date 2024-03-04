@@ -89,7 +89,7 @@ class Runner:
             logging.info("\nIteration {} of {}".format(itr, self.num_train_iters))
 
             if episode_done or episode_time_step > ac.max_train_episode_length[self.domain_name]:
-                obs, _ = self.train_env.reset(ec.seed)
+                obs, _ = self.train_env.reset(seed=ec.seed)
                 self.agent.reset_episode(obs)
                 episode_time_step = 0
 
