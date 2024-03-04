@@ -85,6 +85,8 @@ class Runner:
         episode_done = True
         episode_time_step = 0
         itrs_on = None
+        prev_test_solve_rate = 0
+        success_rates = []
         for itr in range(self.num_train_iters):
             logging.info("\nIteration {} of {}".format(itr, self.num_train_iters))
 
@@ -105,6 +107,10 @@ class Runner:
             obs = next_obs
             episode_time_step += 1
 
+            log = False
+            if (episode_time_step == 1) and ('LNDR' in self.agent.operator_learning_name):
+                log = True
+
             # Learn and test
             if itr % ac.learning_interval[self.domain_name] == 0:
                 start = time.time()
@@ -118,10 +124,10 @@ class Runner:
                 # Only rerun tests if operators have changed, or stochastic env
                 if operators_changed or ac.planner_name[self.domain_name] == "ffreplan" or \
                    itr + ac.learning_interval[self.domain_name] >= self.num_train_iters:
-                    start = time.time()
+                    # start = time.time()
                     logging.debug("Testing...")
 
-                    test_solve_rate, variational_dist = self._evaluate_operators()
+                    test_solve_rate, variational_dist, successes = self._evaluate_operators()
 
                     logging.info(f"Result: {test_solve_rate} {variational_dist}")
                     # logging.debug("Testing took {} seconds".format(time.time()-start))
@@ -134,6 +140,13 @@ class Runner:
                         if itrs_on is None:
                             itrs_on = itr
 
+                    # Logging
+                    if (test_solve_rate > prev_test_solve_rate) and ('LNDR' in self.agent.operator_learning_name):
+                        log = True
+                        success_rates.append([itr, test_solve_rate])
+
+                    prev_test_solve_rate = test_solve_rate
+
                 else:
                     assert results, "operators_changed is False but never learned any operators..."
                     logging.debug("No operators changed, continuing...")
@@ -143,6 +156,25 @@ class Runner:
                     logging.info(f"Result: {test_solve_rate} {variational_dist}")
 
                 results.append((itr, test_solve_rate, variational_dist))
+
+                if log:
+                    path = os.path.join('results', 'LNDR', self.domain_name, self.agent.curiosity_module_name, str(ec.seed), f'iter_{itr}' )
+                    os.makedirs(path, exist_ok=True)
+                    with open(os.path.join(path, 'operators.pkl'), 'wb') as f:
+                        pickle.dump(list(self.agent._operator_learning_module._learned_operators), f)
+                    with open(os.path.join(path, 'ndrs.pkl'), 'wb') as f:
+                        pickle.dump(self.agent._operator_learning_module._ndrs, f)
+                    with open(os.path.join(path, 'transition_data.pkl'), 'wb') as f:
+                        pickle.dump(self.agent._operator_learning_module._transitions, f)
+                    np.savetxt(os.path.join(path, 'test_cases.txt'), np.array(successes), fmt='%1.3f')
+
+ 
+
+
+        if ('LNDR' in self.agent.operator_learning_name):
+            path = os.path.join('results', 'LNDR', self.domain_name, self.agent.curiosity_module_name, str(ec.seed))
+            os.makedirs(path, exist_ok=True)
+            np.savetxt(os.path.join(path, 'success_increases.txt'), np.array(success_rates), fmt='%1.3f')
 
         if itrs_on is None:
             itrs_on = self.num_train_iters
@@ -162,6 +194,7 @@ class Runner:
             num_problems = ec.num_test_problems[self.domain_name]
         else:
             num_problems = len(self.test_env.problems)
+        successes = []
         for problem_idx in range(num_problems):
             logging.info("\tTest case {} of {}, {} successes so far".format(
                 problem_idx+1, num_problems, num_successes))#, end="\r")
@@ -171,6 +204,7 @@ class Runner:
                 policy = self.agent.get_policy(debug_info["problem_file"])
             except (NoPlanFoundException, PlannerTimeoutException):
                 # Automatic failure
+                successes.append(0)
                 continue
             # Test plan open-loop
             reward = 0.
@@ -185,8 +219,10 @@ class Runner:
             # Reward is 1 iff goal is reached
             if reward == 1.:
                 num_successes += 1
+                successes.append(1)
             else:
                 assert reward == 0.
+                successes.append(0)
         variational_dist = 0
         for state, action, next_state in self._variational_dist_transitions:
             if ac.learning_name.startswith("groundtruth"):
@@ -197,7 +233,7 @@ class Runner:
                predicted_next_state.literals != next_state.literals:
                 variational_dist += 1
         variational_dist /= len(self._variational_dist_transitions)
-        return float(num_successes)/num_problems, variational_dist
+        return float(num_successes)/num_problems, variational_dist, successes
 
 def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_path:str):
     start = time.time()

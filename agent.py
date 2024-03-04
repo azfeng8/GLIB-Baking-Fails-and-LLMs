@@ -88,15 +88,6 @@ class Agent:
         start_time = time.time()
         self._curiosity_module.observe(state, action, effects)
         self.curiosity_time += time.time()-start_time
-
-        # Log transition dataset at the start of each episode, and the last iteration.
-        if ('LNDR' in self.operator_learning_name) and ((self.episode_start) or (itr == ac.num_train_iters[self.domain_name] - 1)):
-            dataset_dump_path = os.path.join('results', 'LNDR', self.domain_name, self.curiosity_module_name, str(ec.seed))
-            os.makedirs(dataset_dump_path, exist_ok=True)
-            filename = os.path.join(dataset_dump_path, f'transition_data_itr{itr}.pkl')
-            with open(filename, 'wb') as f:
-                pickle.dump(self._operator_learning_module._transitions, f)
-
         self.episode_start = False
 
     def learn(self, itr):

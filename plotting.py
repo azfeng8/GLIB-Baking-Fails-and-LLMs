@@ -50,7 +50,7 @@ def plot_results(domain_name, learning_name, all_results, outdir="results",
         if smooth:
             xs, results_mean = smooth_curve(xs, results_mean)
             # _, results_std = smooth_curve(xs, results_std)
-        plt.plot(xs, results_mean, 'blue', label=label.replace("_", " "))
+        plt.plot(xs, results_mean,  label=label.replace("_", " "))
         # plt.fill_between(xs, results_mean+results_std,
         #                  results_mean-results_std, alpha=0.2)
     if llm_queries is not None:
