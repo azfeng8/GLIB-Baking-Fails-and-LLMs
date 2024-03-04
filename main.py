@@ -60,7 +60,7 @@ class Runner:
             obs, _ = self.test_env.reset()
             for _ in range(ec.num_var_dist_trans[self.domain_name]//num_problems):
                 action = self.test_env.action_space.sample(obs)
-                next_obs, _, done, _ = self.test_env.step(action)
+                next_obs, _, done, _, _= self.test_env.step(action)
                 null_effect = (next_obs.literals == obs.literals)
                 keep_transition = ((not null_effect or
                                     (num_no_effects[action.predicate] <
@@ -89,13 +89,13 @@ class Runner:
             logging.info("\nIteration {} of {}".format(itr, self.num_train_iters))
 
             if episode_done or episode_time_step > ac.max_train_episode_length[self.domain_name]:
-                obs, _ = self.train_env.reset()
+                obs, _ = self.train_env.reset(ec.seed)
                 self.agent.reset_episode(obs)
                 episode_time_step = 0
 
             action = self.agent.get_action(obs)
 
-            next_obs, _, episode_done, _ = self.train_env.step(action)
+            next_obs, _, episode_done, _, _ = self.train_env.step(action)
 
             # # Exclude no-ops
             # while len(self.agent._compute_effects(obs, next_obs)) == 0:
@@ -179,7 +179,7 @@ class Runner:
                     action = policy(obs)
                 except (NoPlanFoundException, PlannerTimeoutException):
                     break
-                obs, reward, done, _ = self.test_env.step(action)
+                obs, reward, done, _, _ = self.test_env.step(action)
                 if done:
                     break
             # Reward is 1 iff goal is reached
@@ -207,7 +207,6 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_
     ac.planner_timeout = 60 if "oracle" in curiosity_name else 10
 
     train_env = gym.make("PDDLEnv{}-v0".format(domain_name))
-    train_env.seed(seed)
     # MAJOR HACK. Only used by oracle_curiosity.py and by the LLM-based
     # learner, which uses the environment to access the predicates and
     # action names.
