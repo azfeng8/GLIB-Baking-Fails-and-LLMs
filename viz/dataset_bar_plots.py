@@ -8,10 +8,14 @@ from collections import defaultdict
 SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results/LNDR'
 SAVE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/dataset_visualizations'
 
+curr_pos_view_1 = 0
+curr_pos_view_2 = 0
 
 # View 1
 
 def view1(base_path, save_path):
+    """Create and write the view1 plot from the logs to the `save_path` folder as `nops_plot.png`.
+    """
     with open(os.path.join(base_path, 'operators.pkl'), 'rb') as f:
         operators = pickle.load(f)
 
@@ -72,9 +76,10 @@ def view1(base_path, save_path):
     plt.gcf().set_size_inches(18, 14)
     os.makedirs(save_path, exist_ok=True)
     plt.savefig(os.path.join(save_path, 'nops_plot.png'), dpi=300)
+    plt.close()
 
 def view2(base_path, save_path):
-    """Create a plot for each skill.
+    """Create a plot for each skill (view2), and save to `save_path` folder with each skill labeled by `{skill_name}.png`.
 
     Args:
         base_path (str): iteration folder with the operators, transition data, and NDRs.
@@ -134,7 +139,8 @@ def view2(base_path, save_path):
         
         os.makedirs(save_path, exist_ok=True)
         plt.gcf().set_size_inches(18, 14)
-        plt.savefig(os.path.join(save_path, f'{action_pred.name}.png'), dpi=1300)
+        plt.savefig(os.path.join(save_path, f'{action_pred.name}.png'), dpi=300)
+        plt.close()
 
 
 def interactive_view1(domain_name, curiosity_name, seed):
@@ -165,8 +171,8 @@ def interactive_view1(domain_name, curiosity_name, seed):
         view1(iter_path, iter_save_path)
 
     success_increases = np.loadtxt(os.path.join(SOURCE_PATH, domain_name, curiosity_name, seed, 'success_increases.txt'))
-    success_itrs, successes = zip(success_increases)
-    success_itrs, successes = list(success_itrs), list(successes)
+    success_itrs = success_increases[:, 0].tolist()
+    successes = success_increases[:, 1].tolist()
     successes.insert(0,0)
     succ = []
     i = 0 
@@ -176,39 +182,42 @@ def interactive_view1(domain_name, curiosity_name, seed):
             i+=1
         succ.append(successes[i])
 
-    curr_pos = 0
     def key_event(e):
-        global curr_pos
+        global curr_pos_view_1
 
         if e.key == "right":
-            curr_pos = curr_pos + 1
+            curr_pos_view_1 = curr_pos_view_1 + 1
         elif e.key == "left":
-            curr_pos = curr_pos - 1
+            curr_pos_view_1 = curr_pos_view_1 - 1
         elif e.key == 'up':
-            curr_itr = int(iter_dirs[curr_pos][5:])
+            curr_pos_view_1 += 1
+            curr_pos_view_1 = curr_pos_view_1 % len(iter_dirs)
+            curr_itr = int(iter_dirs[curr_pos_view_1][5:])
             while curr_itr not in success_itrs:
-                curr_pos += 1
-                curr_pos = curr_pos % len(iter_dirs)
-                curr_itr = int(iter_dirs[curr_pos][5:])
+                curr_pos_view_1 += 1
+                curr_pos_view_1 = curr_pos_view_1 % len(iter_dirs)
+                curr_itr = int(iter_dirs[curr_pos_view_1][5:])
         elif e.key == 'down':
-            curr_itr = int(iter_dirs[curr_pos][5:])
+            curr_pos_view_1 -= 1
+            curr_pos_view_1 = curr_pos_view_1 % len(iter_dirs)
+            curr_itr = int(iter_dirs[curr_pos_view_1][5:])
             while curr_itr not in success_itrs:
-                curr_pos -= 1
-                curr_pos = curr_pos % len(iter_dirs)
-                curr_itr = int(iter_dirs[curr_pos][5:])
+                curr_pos_view_1 -= 1
+                curr_pos_view_1 = curr_pos_view_1 % len(iter_dirs)
+                curr_itr = int(iter_dirs[curr_pos_view_1][5:])
         else:
             return
-        curr_pos = curr_pos % len(iter_dirs)
+        curr_pos_view_1 = curr_pos_view_1 % len(iter_dirs)
 
         ax.cla()
-        iter_dir = iter_dirs[curr_pos]
+        iter_dir = iter_dirs[curr_pos_view_1]
         iter_path = os.path.join(seed_path, iter_dir)
         iter_save_path = os.path.join(SAVE_PATH, domain_name, curiosity_name, seed, iter_dir)
         filepath = os.path.join(iter_save_path, 'nops_plot.png')
         if not os.path.exists(filepath):
             view1(iter_path, iter_save_path)
         img = mpimg.imread(filepath)
-        ax.set_title(f"{iter_dir} : success rate {succ[curr_pos]}")
+        ax.set_title(f"{iter_dir} : success rate {succ[curr_pos_view_1]}")
         ax.imshow(img)
         fig.canvas.draw()
 
@@ -220,22 +229,319 @@ def interactive_view1(domain_name, curiosity_name, seed):
     plt.imshow(img)
     plt.show()
 
+def interactive_view2(domain_name, curiosity_name, seed):
+    """Interactive plots for view2.
+    
+    right/left arrow keys to toggle between iterations, in order.
+    
+    up/down arrow keys to jump to the next iteration where success increases/decreases.
+
+    A window for each skill is spinned up, and each time the arrow key is pressed, all of the plots are updated to that iteration.
+
+    Args:
+        domain_name (str)
+        curiosity_name (str)
+        seed (str)
+    """
+
+    path = os.path.join(SOURCE_PATH, domain_name, curiosity_name)
+    seed_path = os.path.join(path, seed)
+    iter_dirs = os.listdir(seed_path)
+    iter_dirs.remove('success_increases.txt')
+    iter_dirs = sorted(iter_dirs, key=lambda x: int(x[5:]))
+
+    #spin up a figure for each skill eventually seen
+    with open(os.path.join(seed_path, iter_dirs[-1], 'transition_data.pkl'),'rb')  as f:
+        transition_data = pickle.load(f)
+    actions = []
+    figs = {}
+    for action_pred in transition_data:
+        actions.append(action_pred.name)
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        figs[action_pred.name] = (fig, ax)
+
+
+    # Initialize the plot at iter=0
+    iter_dir = iter_dirs[0]
+    iter_path = os.path.join(seed_path, iter_dir)
+    iter_save_path = os.path.join(SAVE_PATH, domain_name, curiosity_name, seed, iter_dir)
+
+    # Create `succ`, an array of success rates for each iter_dir logged
+    success_increases = np.loadtxt(os.path.join(SOURCE_PATH, domain_name, curiosity_name, seed, 'success_increases.txt'))
+    success_itrs = success_increases[:, 0].tolist()
+    successes = success_increases[:, 1].tolist()
+    successes.insert(0,0)
+    succ = []
+    i = 0 
+    for j, iterdir in enumerate(iter_dirs):
+        if iterdir == 'success_increases.txt': continue
+        if int(iterdir[5:]) in success_itrs:
+            i+=1
+        succ.append(successes[i])
+
+    def key_event(e):
+        global curr_pos_view_2
+
+        if e.key == "right":
+            curr_pos_view_2 = curr_pos_view_2 + 1
+        elif e.key == "left":
+            curr_pos_view_2 = curr_pos_view_2 - 1
+        elif e.key == 'up':
+            curr_pos_view_2 += 1
+            curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
+            curr_itr = int(iter_dirs[curr_pos_view_2][5:])
+            while curr_itr not in success_itrs:
+                curr_pos_view_2 += 1
+                curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
+                curr_itr = int(iter_dirs[curr_pos_view_2][5:])
+        elif e.key == 'down':
+            curr_pos_view_2 -= 1
+            curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
+            curr_itr = int(iter_dirs[curr_pos_view_2][5:])
+            while curr_itr not in success_itrs:
+                curr_pos_view_2 -= 1
+                curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
+                curr_itr = int(iter_dirs[curr_pos_view_2][5:])
+        else:
+            return
+        curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
+        iter_dir = iter_dirs[curr_pos_view_2]
+        iter_path = os.path.join(seed_path, iter_dir)
+        iter_save_path = os.path.join(SAVE_PATH, domain_name, curiosity_name, seed, iter_dir)
+ 
+        create = False
+        with open(os.path.join(iter_path, 'transition_data.pkl'), 'rb') as f:
+            transition_data = pickle.load(f)
+        
+        actions_to_plot = []
+        for action in transition_data:
+            filepath = os.path.join(iter_save_path, f'{action.name}.png')
+            if not os.path.exists(filepath):
+                create = True
+            actions_to_plot.append(action.name)
+        if create:
+            print(iter_path)
+            view2(iter_path, iter_save_path)
+
+        for act, figax in figs.items():
+            fig, ax = figax
+            ax.cla()
+            if act in actions_to_plot:
+                filepath = os.path.join(iter_save_path, f'{act}.png')
+                img = mpimg.imread(filepath)
+                ax.set_title(f"{iter_dir} : success rate {succ[curr_pos_view_2]}")
+                ax.imshow(img)
+                fig.canvas.draw()
+
+    # Initialize the plots for each skill
+    with open(os.path.join(seed_path, iter_dirs[0], 'transition_data.pkl'),'rb')  as f:
+        transition_data = pickle.load(f)
+
+    create = False
+    init_actions = []
+    for act in transition_data:
+        filepath = os.path.join(iter_save_path, f'{act.name}.png')
+        init_actions.append(act.name)
+        if not os.path.exists(filepath):
+            create = True
+    if create:
+        view2(iter_path, iter_save_path)
+
+    for act, figax in figs.items():
+        fig, ax = figax
+        fig.canvas.mpl_connect('key_press_event', key_event)
+        if act in init_actions:
+            filepath = os.path.join(iter_save_path, f'{act}.png')
+            img = mpimg.imread(filepath)
+            ax.set_title(f'{iter_dirs[0]} : success rate {succ[0]}')
+            ax.imshow(img)
+    plt.show()
+
+def interactive_view_1_and_2(domain_name, curiosity_name, seed):
+    """Interactive View 1 and 2.
+
+    use right/left arrow keys to toggle between iterations.
+    use up/down arrow keys to toggle between success increase/decrease iterations.
+    
+    The view1 plot is independent of the view2 plots, which all change from one keystroke.
+    """
+
+    path = os.path.join(SOURCE_PATH, domain_name, curiosity_name)
+    seed_path = os.path.join(path, seed)
+    iter_dirs = os.listdir(seed_path)
+    iter_dirs.remove('success_increases.txt')
+    iter_dirs = sorted(iter_dirs, key=lambda x: int(x[5:]))
+
+    #spin up a figure for each skill eventually seen
+    with open(os.path.join(seed_path, iter_dirs[-1], 'transition_data.pkl'),'rb')  as f:
+        transition_data = pickle.load(f)
+    actions = []
+    figs = {}
+    for action_pred in transition_data:
+        actions.append(action_pred.name)
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        figs[action_pred.name] = (fig, ax)
+
+
+    # Initialize the plot at iter=0
+    iter_dir = iter_dirs[0]
+    iter_path = os.path.join(seed_path, iter_dir)
+    iter_save_path = os.path.join(SAVE_PATH, domain_name, curiosity_name, seed, iter_dir)
+
+    # Create `succ`, an array of success rates for each iter_dir logged
+    success_increases = np.loadtxt(os.path.join(SOURCE_PATH, domain_name, curiosity_name, seed, 'success_increases.txt'))
+    success_itrs = success_increases[:, 0].tolist()
+    successes = success_increases[:, 1].tolist()
+    successes.insert(0,0)
+    succ = []
+    i = 0 
+    for j, iterdir in enumerate(iter_dirs):
+        if iterdir == 'success_increases.txt': continue
+        if int(iterdir[5:]) in success_itrs:
+            i+=1
+        succ.append(successes[i])
+
+    def key_event_view_2(e):
+        global curr_pos_view_2
+
+        if e.key == "right":
+            curr_pos_view_2 = curr_pos_view_2 + 1
+        elif e.key == "left":
+            curr_pos_view_2 = curr_pos_view_2 - 1
+        elif e.key == 'up':
+            curr_pos_view_2 += 1
+            curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
+            curr_itr = int(iter_dirs[curr_pos_view_2][5:])
+            while curr_itr not in success_itrs:
+                curr_pos_view_2 += 1
+                curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
+                curr_itr = int(iter_dirs[curr_pos_view_2][5:])
+        elif e.key == 'down':
+            curr_pos_view_2 -= 1
+            curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
+            curr_itr = int(iter_dirs[curr_pos_view_2][5:])
+            while curr_itr not in success_itrs:
+                curr_pos_view_2 -= 1
+                curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
+                curr_itr = int(iter_dirs[curr_pos_view_2][5:])
+        else:
+            return
+        curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
+        iter_dir = iter_dirs[curr_pos_view_2]
+        iter_path = os.path.join(seed_path, iter_dir)
+        iter_save_path = os.path.join(SAVE_PATH, domain_name, curiosity_name, seed, iter_dir)
+ 
+        create = False
+        with open(os.path.join(iter_path, 'transition_data.pkl'), 'rb') as f:
+            transition_data = pickle.load(f)
+        
+        actions_to_plot = []
+        for action in transition_data:
+            filepath = os.path.join(iter_save_path, f'{action.name}.png')
+            if not os.path.exists(filepath):
+                create = True
+            actions_to_plot.append(action.name)
+        if create:
+            print(iter_path)
+            view2(iter_path, iter_save_path)
+
+        for act, figax in figs.items():
+            fig, ax = figax
+            ax.cla()
+            if act in actions_to_plot:
+                filepath = os.path.join(iter_save_path, f'{act}.png')
+                img = mpimg.imread(filepath)
+                ax.set_title(f"{iter_dir} : success rate {succ[curr_pos_view_2]}")
+                ax.imshow(img)
+                fig.canvas.draw()
+
+    # Initialize the plots for each skill
+    with open(os.path.join(seed_path, iter_dirs[0], 'transition_data.pkl'),'rb')  as f:
+        transition_data = pickle.load(f)
+
+    create = False
+    init_actions = []
+    for act in transition_data:
+        filepath = os.path.join(iter_save_path, f'{act.name}.png')
+        init_actions.append(act.name)
+        if not os.path.exists(filepath):
+            create = True
+    if create:
+        view2(iter_path, iter_save_path)
+
+    for act, figax in figs.items():
+        fig, ax = figax
+        fig.canvas.mpl_connect('key_press_event', key_event_view_2)
+        if act in init_actions:
+            filepath = os.path.join(iter_save_path, f'{act}.png')
+            img = mpimg.imread(filepath)
+            ax.set_title(f'{iter_dirs[0]} : success rate {succ[0]}')
+            ax.imshow(img)
+
+    def key_event_view_1(e):
+        global curr_pos_view_1
+
+        if e.key == "right":
+            curr_pos_view_1 = curr_pos_view_1 + 1
+        elif e.key == "left":
+            curr_pos_view_1 = curr_pos_view_1 - 1
+        elif e.key == 'up':
+            curr_pos_view_1 += 1
+            curr_pos_view_1 = curr_pos_view_1 % len(iter_dirs)
+            curr_itr = int(iter_dirs[curr_pos_view_1][5:])
+            while curr_itr not in success_itrs:
+                curr_pos_view_1 += 1
+                curr_pos_view_1 = curr_pos_view_1 % len(iter_dirs)
+                curr_itr = int(iter_dirs[curr_pos_view_1][5:])
+        elif e.key == 'down':
+            curr_pos_view_1 -= 1
+            curr_pos_view_1 = curr_pos_view_1 % len(iter_dirs)
+            curr_itr = int(iter_dirs[curr_pos_view_1][5:])
+            while curr_itr not in success_itrs:
+                curr_pos_view_1 -= 1
+                curr_pos_view_1 = curr_pos_view_1 % len(iter_dirs)
+                curr_itr = int(iter_dirs[curr_pos_view_1][5:])
+        else:
+            return
+        curr_pos_view_1 = curr_pos_view_1 % len(iter_dirs)
+
+        ax.cla()
+        iter_dir = iter_dirs[curr_pos_view_1]
+        iter_path = os.path.join(seed_path, iter_dir)
+        iter_save_path = os.path.join(SAVE_PATH, domain_name, curiosity_name, seed, iter_dir)
+        filepath = os.path.join(iter_save_path, 'nops_plot.png')
+        if not os.path.exists(filepath):
+            view1(iter_path, iter_save_path)
+        img = mpimg.imread(filepath)
+        ax.set_title(f"{iter_dir} : success rate {succ[curr_pos_view_1]}")
+        ax.imshow(img)
+        fig.canvas.draw()
+
+    # Initialize the view1 at iter=0
+    iter_dir = iter_dirs[0]
+    iter_path = os.path.join(seed_path, iter_dir)
+    iter_save_path = os.path.join(SAVE_PATH, domain_name, curiosity_name, seed, iter_dir)
+    filepath = os.path.join(iter_save_path, 'nops_plot.png')
+    if not os.path.exists(filepath):
+        view1(iter_path, iter_save_path)
+
+    fig = plt.figure()
+    fig.canvas.mpl_connect('key_press_event', key_event_view_1)
+    ax = fig.add_subplot(111)
+    img = mpimg.imread(filepath)
+    ax.set_title(f'{iter_dirs[0]} : success rate {succ[0]}')
+    plt.imshow(img)
+    plt.show()
+
+
+
 if __name__ == "__main__":
         
     domain_name = 'Blocks'
     curiosity_name = 'GLIB_L2'
-    seed = '400'
-# root_source_path = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results/LNDR'
-
-# domain_name = 'Blocks'
-# curiosity = 'GLIB_L2'
-# seed = 402
-
-# root_save_path = '/home/catalan/GLIB-Baking-Fails-and-LLMs/dataset_visualizations'
-# # for iter_num in [101, 35, 45, 286]:
-# for iter_num in [53, 80, 82, 338]:
-#     save_path = os.path.join(root_save_path, domain_name, curiosity, str(seed), f'iter_{iter_num}')
-#     os.makedirs(save_path, exist_ok=True)
-#     source_path = os.path.join(root_source_path, domain_name, curiosity, str(seed), f'iter_{iter_num}')
-#     view1(source_path, save_path)
-#     view2(source_path, save_path)
+    seed = '402'
+    interactive_view_1_and_2(domain_name, curiosity_name, seed)
+    # interactive_view2(domain_name, curiosity_name, seed)
+    # interactive_view1(domain_name, curiosity_name, seed)
