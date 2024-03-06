@@ -168,13 +168,15 @@ class Runner:
                         pickle.dump(self.agent._operator_learning_module._transitions, f)
                     np.savetxt(os.path.join(path, 'test_cases.txt'), np.array(successes), fmt='%1.3f')
 
- 
-
 
         if ('LNDR' in self.agent.operator_learning_name):
             path = os.path.join('results', 'LNDR', self.domain_name, self.agent.curiosity_module_name, str(ec.seed))
             os.makedirs(path, exist_ok=True)
             np.savetxt(os.path.join(path, 'success_increases.txt'), np.array(success_rates), fmt='%1.3f')
+
+            with open(os.path.join(path, 'skill_sequence.pkl'), 'wb') as f:
+                pickle.dump(self.agent._operator_learning_module._actions, f)
+
 
         if itrs_on is None:
             itrs_on = self.num_train_iters

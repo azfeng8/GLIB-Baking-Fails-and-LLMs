@@ -12,6 +12,7 @@ from pddlgym.parser import Operator
 from pddlgym.structs import Type, TypedEntity, Literal, LiteralConjunction
 from itertools import combinations
 from pddlgym.parser import PDDLDomainParser
+from copy import deepcopy
 
 GOAL_BABBLING_LOGGER = logging.getLogger("GOAL_BABBLING")
 
@@ -53,7 +54,7 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
 
         # Continue executing plan?
         if self._plan and (last_state != state):
-            self.line_stats.append(1)
+            self.line_stats.append((self._goal, deepcopy(self._plan)))
             if self._goal_from_llm:
                 self.llm_line_stats.append(1)
             else:
@@ -96,11 +97,12 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
 
             if self._plan_is_good():
                 self._plan = self._finish_plan(self._plan)
+                self._goal = goal
                 GOAL_BABBLING_LOGGER.debug(f"\tGOAL: {goal}")
                 GOAL_BABBLING_LOGGER.debug(f"\tPLAN: {self._plan}")
                 # import ipdb; ipdb.set_trace()
                 # Take the first step in the plan
-                self.line_stats.append(1)
+                self.line_stats.append((goal, deepcopy(self._plan)))
                 if self._goal_from_llm:
                     self.llm_line_stats.append(1)
                 else:
