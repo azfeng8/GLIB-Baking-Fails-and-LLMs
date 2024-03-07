@@ -87,6 +87,7 @@ class Runner:
         itrs_on = None
         prev_test_solve_rate = 0
         success_rates = []
+        episode_start_itrs = []
         for itr in range(self.num_train_iters):
             logging.info("\nIteration {} of {}".format(itr, self.num_train_iters))
 
@@ -107,9 +108,12 @@ class Runner:
             obs = next_obs
             episode_time_step += 1
 
-            log = False
+            log_data = False
+            log_ops = False
             if (episode_time_step == 1) and ('LNDR' in self.agent.operator_learning_name):
-                log = True
+                episode_start_itrs.append(itr)
+                log_data = True
+                log_ops = True
 
             # Learn and test
             if itr % ac.learning_interval[self.domain_name] == 0:
@@ -141,8 +145,9 @@ class Runner:
                             itrs_on = itr
 
                     # Logging
+                    log_ops = True
                     if (test_solve_rate > prev_test_solve_rate) and ('LNDR' in self.agent.operator_learning_name):
-                        log = True
+                        log_data = True
                         success_rates.append([itr, test_solve_rate])
 
                     prev_test_solve_rate = test_solve_rate
@@ -157,22 +162,26 @@ class Runner:
 
                 results.append((itr, test_solve_rate, variational_dist))
 
-                if log:
+                if log_ops:
                     path = os.path.join('results', 'LNDR', self.domain_name, self.agent.curiosity_module_name, str(ec.seed), f'iter_{itr}' )
                     os.makedirs(path, exist_ok=True)
                     with open(os.path.join(path, 'operators.pkl'), 'wb') as f:
                         pickle.dump(list(self.agent._operator_learning_module._learned_operators), f)
                     with open(os.path.join(path, 'ndrs.pkl'), 'wb') as f:
                         pickle.dump(self.agent._operator_learning_module._ndrs, f)
+                if log_data:
+                    path = os.path.join('results', 'LNDR', self.domain_name, self.agent.curiosity_module_name, str(ec.seed), f'iter_{itr}' )
+                    os.makedirs(path, exist_ok=True)
                     with open(os.path.join(path, 'transition_data.pkl'), 'wb') as f:
                         pickle.dump(self.agent._operator_learning_module._transitions, f)
-                    np.savetxt(os.path.join(path, 'test_cases.txt'), np.array(successes), fmt='%1.3f')
+                    # np.savetxt(os.path.join(path, 'test_cases.txt'), np.array(successes), fmt='%1.3f')
 
 
         if ('LNDR' in self.agent.operator_learning_name):
             path = os.path.join('results', 'LNDR', self.domain_name, self.agent.curiosity_module_name, str(ec.seed))
             os.makedirs(path, exist_ok=True)
             np.savetxt(os.path.join(path, 'success_increases.txt'), np.array(success_rates), fmt='%1.3f')
+            np.savetxt(os.path.join(path, 'episode_start_iters.txt'), np.array(episode_start_itrs), fmt="%d")
 
             with open(os.path.join(path, 'skill_sequence.pkl'), 'wb') as f:
                 pickle.dump(self.agent._operator_learning_module._actions, f)
