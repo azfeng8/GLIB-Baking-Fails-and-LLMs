@@ -174,7 +174,7 @@ class Runner:
                     os.makedirs(path, exist_ok=True)
                     with open(os.path.join(path, 'transition_data.pkl'), 'wb') as f:
                         pickle.dump(self.agent._operator_learning_module._transitions, f)
-                    # np.savetxt(os.path.join(path, 'test_cases.txt'), np.array(successes), fmt='%1.3f')
+                    np.savetxt(os.path.join(path, 'test_cases.txt'), np.array(successes), fmt='%1.3f')
 
 
         if ('LNDR' in self.agent.operator_learning_name):

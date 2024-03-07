@@ -1,3 +1,4 @@
+#TODO: refactor interactive views 1, 2, and 123
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import matplotlib.image  as mpimg
@@ -75,7 +76,7 @@ def view1(save_path, operators, transition_data):
     plt.savefig(os.path.join(save_path, 'nops_plot.png'), dpi=300)
     plt.close()
 
-def view2(base_path, save_path):
+def view2(save_path, operators, transition_data, ndrs):
     """Create a plot for each skill (view2), and save to `save_path` folder with each skill labeled by `{skill_name}.png`.
 
     Args:
@@ -83,15 +84,7 @@ def view2(base_path, save_path):
         save_path (str): folder where the plots are saved.
     """
 
-    with open(os.path.join(base_path, 'operators.pkl'), 'rb') as f:
-        operators = pickle.load(f)
-
-    with open(os.path.join(base_path, 'transition_data.pkl'), 'rb') as f:
-        transition_data = pickle.load(f)
-
-    with open(os.path.join(base_path, 'ndrs.pkl'), 'rb') as f:
-        ndrs = pickle.load(f)
-    
+   
     # alternate color of different predicates to see better
     colors = '#1f77b4', '#ff7f0e'
     for action_pred in transition_data:
@@ -310,7 +303,6 @@ def interactive_view1(domain_name, curiosity_name, learning_name, seed):
                 if iter_dir not in iter_dirs:
                     iter_dirs.append(iter_dir)
                     iter_dirs = sorted(iter_dirs, key = lambda x: int(x[5:]))
-                curr_pos_view_1 -= 1
             else:
                 return
         elif e.key == 'j':
@@ -387,7 +379,7 @@ def interactive_view1(domain_name, curiosity_name, learning_name, seed):
     plt.imshow(img)
     plt.show()
 
-def interactive_view2(domain_name, curiosity_name, seed):
+def interactive_view2(domain_name, curiosity_name, learning_name, seed):
     """Interactive plots for view2.
     
     right/left arrow keys to toggle between iterations, in order.
@@ -402,14 +394,18 @@ def interactive_view2(domain_name, curiosity_name, seed):
         seed (str)
     """
 
-    path = os.path.join(SOURCE_PATH, domain_name, curiosity_name)
-    seed_path = os.path.join(path, seed)
-    iter_dirs = os.listdir(seed_path)
-    iter_dirs.remove('success_increases.txt')
+    path = os.path.join(SOURCE_PATH, domain_name, curiosity_name, seed)
+    iter_dirs = []
+    for dir in os.listdir(path):
+        if '.txt' in dir or '.pkl' in dir: continue
+        iter_dirs.append(dir)
     iter_dirs = sorted(iter_dirs, key=lambda x: int(x[5:]))
 
     #spin up a figure for each skill eventually seen
-    with open(os.path.join(seed_path, iter_dirs[-1], 'transition_data.pkl'),'rb')  as f:
+    idx = len(iter_dirs) - 1
+    while not os.path.exists(os.path.join(path, iter_dirs[idx], 'transition_data.pkl')):
+        idx -= 1
+    with open(os.path.join(path, iter_dirs[idx], 'transition_data.pkl'),'rb')  as f:
         transition_data = pickle.load(f)
     actions = []
     figs = {}
@@ -419,27 +415,28 @@ def interactive_view2(domain_name, curiosity_name, seed):
         ax = fig.add_subplot(111)
         figs[action_pred.name] = (fig, ax)
 
-
-    # Initialize the plot at iter=0
-    iter_dir = iter_dirs[0]
-    iter_path = os.path.join(seed_path, iter_dir)
-    iter_save_path = os.path.join(SAVE_PATH, domain_name, curiosity_name, seed, iter_dir)
-
     # Create `succ`, an array of success rates for each iter_dir logged
     success_increases = np.loadtxt(os.path.join(SOURCE_PATH, domain_name, curiosity_name, seed, 'success_increases.txt'))
     success_itrs = success_increases[:, 0].tolist()
-    successes = success_increases[:, 1].tolist()
-    successes.insert(0,0)
-    succ = []
-    i = 0 
-    for j, iterdir in enumerate(iter_dirs):
-        if iterdir == 'success_increases.txt': continue
-        if int(iterdir[5:]) in success_itrs:
-            i+=1
-        succ.append(successes[i])
+
+    results_path = os.path.join(RESULTS_PATH, domain_name, learning_name, curiosity_name, f'{domain_name}_{learning_name}_{curiosity_name}_{seed}.pkl')
+    with open(results_path, 'rb') as f:
+        results = np.array(pickle.load(f))
+        succ = results[:, 1]
+
+    episode_start_iters = np.loadtxt(os.path.join(path, 'episode_start_iters.txt'))
+
+    with open(os.path.join(path, 'skill_sequence.pkl'), 'rb') as f:
+        skill_seq = pickle.load(f)
+    
+    if "GLIB" in curiosity_name:
+        with open(os.path.join(BABBLING_SOURCE_PATH, domain_name, learning_name, curiosity_name, f'{seed}_babbling_stats.pkl'), 'rb') as f:
+            babbling_seq = pickle.load(f)
+
 
     def key_event(e):
         global curr_pos_view_2
+        nonlocal iter_dirs
 
         if e.key == "right":
             curr_pos_view_2 = curr_pos_view_2 + 1
@@ -461,25 +458,98 @@ def interactive_view2(domain_name, curiosity_name, seed):
                 curr_pos_view_2 -= 1
                 curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
                 curr_itr = int(iter_dirs[curr_pos_view_2][5:])
+        elif e.key == 'o':
+            # next episode start
+            curr_pos_view_2 += 1
+            curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
+            curr_itr = int(iter_dirs[curr_pos_view_2][5:])
+            while curr_itr not in episode_start_iters:
+                curr_pos_view_2 -= 1
+                curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
+                curr_itr = int(iter_dirs[curr_pos_view_2][5:])
+        elif e.key == 'i':
+             # prev episode start
+            curr_pos_view_2 -= 1
+            curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
+            curr_itr = int(iter_dirs[curr_pos_view_2][5:])
+            while curr_itr not in episode_start_iters:
+                curr_pos_view_2 -= 1
+                curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
+                curr_itr = int(iter_dirs[curr_pos_view_2][5:])           
+        elif e.key == 'h':
+            # prev iteration
+            itr = int(iter_dirs[curr_pos_view_2][5:])
+            if itr > 0:
+                iter_dir = f'iter_{itr - 1}'
+                if iter_dir not in iter_dirs:
+                    iter_dirs.append(iter_dir)
+                    iter_dirs = sorted(iter_dirs, key = lambda x: int(x[5:]))
+            else:
+                return
+        elif e.key == 'j':
+            # next iteration
+            itr = int(iter_dirs[curr_pos_view_2][5:])
+            if itr < int(iter_dirs[-1][5:]):
+                iter_dir = f'iter_{itr + 1}'
+                if iter_dir not in iter_dirs:
+                    iter_dirs.append(iter_dir)
+                    iter_dirs = sorted(iter_dirs, key = lambda x: int(x[5:]))
+                curr_pos_view_2 += 1
+            else:
+                return
         else:
             return
+
         curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
         iter_dir = iter_dirs[curr_pos_view_2]
-        iter_path = os.path.join(seed_path, iter_dir)
+        iter_num = int(iter_dir[5:])
         iter_save_path = os.path.join(SAVE_PATH, domain_name, curiosity_name, seed, iter_dir)
  
-        create = False
-        with open(os.path.join(iter_path, 'transition_data.pkl'), 'rb') as f:
+        curr = curr_pos_view_2
+        transition_data_itr = None
+        while curr < len(iter_dirs):
+            if os.path.exists(os.path.join(path, iter_dirs[curr], 'transition_data.pkl')):
+                transition_data_itr = curr
+                break
+            curr += 1
+        if transition_data_itr is None:
+            return
+        curr = curr_pos_view_2
+        ops_itr = None
+        while curr >= 0:
+            if os.path.exists(os.path.join(path, iter_dirs[curr], 'operators.pkl')) :
+                ops_itr = curr
+                break
+            curr -= 1
+        if ops_itr is None:
+            return
+
+        with open(os.path.join(path, iter_dirs[transition_data_itr], 'transition_data.pkl'), 'rb') as f:
             transition_data = pickle.load(f)
-        
+
+        # use skill sequence to create the right dataset
+        action_end = int(iter_dirs[transition_data_itr][5:])
+        action_start = iter_num
+        for action in skill_seq[action_start + 1 : action_end + 1][::-1]:
+            # LIFO
+            transition_data[action.predicate].pop()
+            if len(transition_data[action.predicate]) == 0:
+                del transition_data[action.predicate]
+ 
         actions_to_plot = []
+        create = False
         for action in transition_data:
             filepath = os.path.join(iter_save_path, f'{action.name}.png')
             if not os.path.exists(filepath):
                 create = True
             actions_to_plot.append(action.name)
+
         if create:
-            view2(iter_path, iter_save_path)
+            with open(os.path.join(path, iter_dirs[ops_itr], 'operators.pkl'), 'rb') as f:
+                ops = pickle.load(f)
+            with open(os.path.join(path, iter_dirs[ops_itr], 'ndrs.pkl'), 'rb') as f:
+                ndrs = pickle.load(f)
+            view2(iter_save_path, ops, transition_data, ndrs)
 
         for act, figax in figs.items():
             fig, ax = figax
@@ -488,13 +558,27 @@ def interactive_view2(domain_name, curiosity_name, seed):
                 filepath = os.path.join(iter_save_path, f'{act}.png')
                 print(filepath)
                 img = mpimg.imread(filepath)
-                ax.set_title(f"{iter_dir} : success rate {succ[curr_pos_view_2]}")
+                ax.set_title(f"{iter_dir} : success rate {succ[iter_num]}")
+                if "GLIB" in curiosity_name:
+                    if babbling_seq[iter_num]:
+                        goal, plan = babbling_seq[iter_num]
+                        ax.set_xlabel(f'goal: {goal}\nplan: {plan}\naction: {skill_seq[iter_num]}')
+                else:
+                    ax.set_xlabel(f'action: {skill_seq[iter_num]}')
+        
                 ax.imshow(img)
                 fig.canvas.draw()
 
     # Initialize the plots for each skill
-    with open(os.path.join(seed_path, iter_dirs[0], 'transition_data.pkl'),'rb')  as f:
+    iter_dir = iter_dirs[0]
+    iter_save_path = os.path.join(SAVE_PATH, domain_name, curiosity_name, seed, iter_dir)
+
+    with open(os.path.join(path, iter_dirs[0], 'transition_data.pkl'),'rb')  as f:
         transition_data = pickle.load(f)
+    with open(os.path.join(path, iter_dirs[0], 'operators.pkl'),'rb')  as f:
+        ops = pickle.load(f)
+    with open(os.path.join(path, iter_dirs[0], 'ndrs.pkl'),'rb')  as f:
+        ndrs = pickle.load(f)
 
     create = False
     init_actions = []
@@ -504,7 +588,7 @@ def interactive_view2(domain_name, curiosity_name, seed):
         if not os.path.exists(filepath):
             create = True
     if create:
-        view2(iter_path, iter_save_path)
+        view2(iter_save_path, ops, transition_data, ndrs)
 
     for act, figax in figs.items():
         fig, ax = figax
@@ -516,7 +600,7 @@ def interactive_view2(domain_name, curiosity_name, seed):
             ax.imshow(img)
     plt.show()
 
-def interactive_view_123(domain_name, curiosity_name, seed):
+def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
     """Interactive View 1, 2, and 3.
 
     use right/left arrow keys to toggle between iterations.
@@ -525,14 +609,18 @@ def interactive_view_123(domain_name, curiosity_name, seed):
     The view1 plot is independent of the view2 plots, which all change from one keystroke.
     """
 
-    path = os.path.join(SOURCE_PATH, domain_name, curiosity_name)
-    seed_path = os.path.join(path, seed)
-    iter_dirs = os.listdir(seed_path)
-    iter_dirs.remove('success_increases.txt')
+    path = os.path.join(SOURCE_PATH, domain_name, curiosity_name, seed)
+    iter_dirs = []
+    for dir in os.listdir(path):
+        if '.txt' in dir or '.pkl' in dir: continue
+        iter_dirs.append(dir)
     iter_dirs = sorted(iter_dirs, key=lambda x: int(x[5:]))
 
     #spin up a figure for each skill eventually seen
-    with open(os.path.join(seed_path, iter_dirs[-1], 'transition_data.pkl'),'rb')  as f:
+    idx = len(iter_dirs) - 1
+    while not os.path.exists(os.path.join(path, iter_dirs[idx], 'transition_data.pkl')):
+        idx -= 1
+    with open(os.path.join(path, iter_dirs[idx], 'transition_data.pkl'),'rb')  as f:
         transition_data = pickle.load(f)
     actions = []
     figs = {}
@@ -545,27 +633,38 @@ def interactive_view_123(domain_name, curiosity_name, seed):
 
     # Initialize the plot at iter=0
     iter_dir = iter_dirs[0]
-    iter_path = os.path.join(seed_path, iter_dir)
+    iter_path = os.path.join(path, iter_dir)
     iter_save_path = os.path.join(SAVE_PATH, domain_name, curiosity_name, seed, iter_dir)
+    filepath = os.path.join(iter_save_path, 'nops_plot.png')
+    with open(os.path.join(iter_path, 'transition_data.pkl'), 'rb') as f:
+        transition_data = pickle.load(f)
+    if not os.path.exists(filepath):
+        view1(iter_save_path, [], transition_data)
 
-    # Create `succ`, an array of success rates for each iter_dir logged
     success_increases = np.loadtxt(os.path.join(SOURCE_PATH, domain_name, curiosity_name, seed, 'success_increases.txt'))
     if len(success_increases.shape) == 1:
         success_increases = success_increases[np.newaxis, :]
     success_itrs = success_increases[:, 0].tolist()
-    successes = success_increases[:, 1].tolist()
-    successes.insert(0,0)
-    succ = []
-    i = 0 
-    for j, iterdir in enumerate(iter_dirs):
-        if iterdir == 'success_increases.txt': continue
-        if int(iterdir[5:]) in success_itrs:
-            i+=1
-        succ.append(successes[i])
+
+
+    results_path = os.path.join(RESULTS_PATH, domain_name, learning_name, curiosity_name, f'{domain_name}_{learning_name}_{curiosity_name}_{seed}.pkl')
+    with open(results_path, 'rb') as f:
+        results = np.array(pickle.load(f))
+        succ = results[:, 1]
+
+    episode_start_iters = np.loadtxt(os.path.join(path, 'episode_start_iters.txt'))
+
+    with open(os.path.join(path, 'skill_sequence.pkl'), 'rb') as f:
+        skill_seq = pickle.load(f)
+    
+    if "GLIB" in curiosity_name:
+        with open(os.path.join(BABBLING_SOURCE_PATH, domain_name, learning_name, curiosity_name, f'{seed}_babbling_stats.pkl'), 'rb') as f:
+            babbling_seq = pickle.load(f)
+
 
     def key_event_view_2(e):
         global curr_pos_view_2
-        global nops_view
+        nonlocal iter_dirs
 
         if e.key == "right":
             curr_pos_view_2 = curr_pos_view_2 + 1
@@ -587,63 +686,140 @@ def interactive_view_123(domain_name, curiosity_name, seed):
                 curr_pos_view_2 -= 1
                 curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
                 curr_itr = int(iter_dirs[curr_pos_view_2][5:])
-        elif e.key == 'r':
-            nops_view = 1 - nops_view
+        elif e.key == 'o':
+            # next episode start
+            curr_pos_view_2 += 1
+            curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
+            curr_itr = int(iter_dirs[curr_pos_view_2][5:])
+            while curr_itr not in episode_start_iters:
+                curr_pos_view_2 -= 1
+                curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
+                curr_itr = int(iter_dirs[curr_pos_view_2][5:])
+        elif e.key == 'i':
+             # prev episode start
+            curr_pos_view_2 -= 1
+            curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
+            curr_itr = int(iter_dirs[curr_pos_view_2][5:])
+            while curr_itr not in episode_start_iters:
+                curr_pos_view_2 -= 1
+                curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
+                curr_itr = int(iter_dirs[curr_pos_view_2][5:])           
+        elif e.key == 'h':
+            # prev iteration
+            itr = int(iter_dirs[curr_pos_view_2][5:])
+            if itr > 0:
+                iter_dir = f'iter_{itr - 1}'
+                if iter_dir not in iter_dirs:
+                    iter_dirs.append(iter_dir)
+                    iter_dirs = sorted(iter_dirs, key = lambda x: int(x[5:]))
+            else:
+                return
+        elif e.key == 'j':
+            # next iteration
+            itr = int(iter_dirs[curr_pos_view_2][5:])
+            if itr < int(iter_dirs[-1][5:]):
+                iter_dir = f'iter_{itr + 1}'
+                if iter_dir not in iter_dirs:
+                    iter_dirs.append(iter_dir)
+                    iter_dirs = sorted(iter_dirs, key = lambda x: int(x[5:]))
+                curr_pos_view_2 += 1
+            else:
+                return
         else:
             return
+
         curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
         iter_dir = iter_dirs[curr_pos_view_2]
-        iter_path = os.path.join(seed_path, iter_dir)
+        iter_num = int(iter_dir[5:])
         iter_save_path = os.path.join(SAVE_PATH, domain_name, curiosity_name, seed, iter_dir)
  
-        create_view2 = False
-        create_view3 = False
-        with open(os.path.join(iter_path, 'transition_data.pkl'), 'rb') as f:
+        curr = curr_pos_view_2
+        transition_data_itr = None
+        while curr < len(iter_dirs):
+            if os.path.exists(os.path.join(path, iter_dirs[curr], 'transition_data.pkl')):
+                transition_data_itr = curr
+                break
+            curr += 1
+        if transition_data_itr is None:
+            return
+        curr = curr_pos_view_2
+        ops_itr = None
+        while curr >= 0:
+            if os.path.exists(os.path.join(path, iter_dirs[curr], 'operators.pkl')) :
+                ops_itr = curr
+                break
+            curr -= 1
+        if ops_itr is None:
+            return
+
+        with open(os.path.join(path, iter_dirs[transition_data_itr], 'transition_data.pkl'), 'rb') as f:
             transition_data = pickle.load(f)
-        
+
+        # use skill sequence to create the right dataset
+        action_end = int(iter_dirs[transition_data_itr][5:])
+        action_start = iter_num
+        for action in skill_seq[action_start + 1 : action_end + 1][::-1]:
+            # LIFO
+            transition_data[action.predicate].pop()
+            if len(transition_data[action.predicate]) == 0:
+                del transition_data[action.predicate]
+ 
         actions_to_plot = []
+        create = False
         for action in transition_data:
             filepath = os.path.join(iter_save_path, f'{action.name}.png')
-            view3_filepath = os.path.join(iter_save_path, f'{action.name}-NOPs.png')
             if not os.path.exists(filepath):
-                create_view2 = True
-            if not os.path.exists(view3_filepath):
-                create_view3 = True
+                create = True
             actions_to_plot.append(action.name)
-        if create_view2:
-            view2(iter_path, iter_save_path)
-        if create_view3:
-            view3(iter_path, iter_save_path)
+
+        if create:
+            with open(os.path.join(path, iter_dirs[ops_itr], 'operators.pkl'), 'rb') as f:
+                ops = pickle.load(f)
+            with open(os.path.join(path, iter_dirs[ops_itr], 'ndrs.pkl'), 'rb') as f:
+                ndrs = pickle.load(f)
+            view2(iter_save_path, ops, transition_data, ndrs)
 
         for act, figax in figs.items():
             fig, ax = figax
             ax.cla()
             if act in actions_to_plot:
-                if nops_view:
-                    filepath = os.path.join(iter_save_path, f'{act}-NOPs.png')
-                else:
-                    filepath = os.path.join(iter_save_path, f'{act}.png')
+                filepath = os.path.join(iter_save_path, f'{act}.png')
                 print(filepath)
                 img = mpimg.imread(filepath)
-                ax.set_title(f"{iter_dir} : success rate {succ[curr_pos_view_2]}")
+                ax.set_title(f"{iter_dir} : success rate {succ[iter_num]}")
+                if "GLIB" in curiosity_name:
+                    if babbling_seq[iter_num]:
+                        goal, plan = babbling_seq[iter_num]
+                        ax.set_xlabel(f'goal: {goal}\nplan: {plan}\naction: {skill_seq[iter_num]}')
+                else:
+                    ax.set_xlabel(f'action: {skill_seq[iter_num]}')
+        
                 ax.imshow(img)
                 fig.canvas.draw()
 
+
+
+
     # Initialize the plots for each skill
-    with open(os.path.join(seed_path, iter_dirs[0], 'transition_data.pkl'),'rb')  as f:
+    iter_dir = iter_dirs[0]
+    iter_save_path = os.path.join(SAVE_PATH, domain_name, curiosity_name, seed, iter_dir)
+
+    with open(os.path.join(path, iter_dirs[0], 'transition_data.pkl'),'rb')  as f:
         transition_data = pickle.load(f)
+    with open(os.path.join(path, iter_dirs[0], 'operators.pkl'),'rb')  as f:
+        ops = pickle.load(f)
+    with open(os.path.join(path, iter_dirs[0], 'ndrs.pkl'),'rb')  as f:
+        ndrs = pickle.load(f)
 
     create = False
     init_actions = []
     for act in transition_data:
         filepath = os.path.join(iter_save_path, f'{act.name}.png')
-        view3_filepath = os.path.join(iter_save_path, f'{act.name}-NOPs.png')
         init_actions.append(act.name)
-        if not os.path.exists(filepath) or not os.path.exists(view3_filepath):
+        if not os.path.exists(filepath):
             create = True
     if create:
-        view2(iter_path, iter_save_path)
-        view3(iter_path, iter_save_path)
+        view2(iter_save_path, ops, transition_data, ndrs)
 
     for act, figax in figs.items():
         fig, ax = figax
@@ -656,12 +832,14 @@ def interactive_view_123(domain_name, curiosity_name, seed):
 
     def key_event_view_1(e):
         global curr_pos_view_1
+        nonlocal iter_dirs
 
         if e.key == "right":
             curr_pos_view_1 = curr_pos_view_1 + 1
         elif e.key == "left":
             curr_pos_view_1 = curr_pos_view_1 - 1
         elif e.key == 'up':
+            # next success increase
             curr_pos_view_1 += 1
             curr_pos_view_1 = curr_pos_view_1 % len(iter_dirs)
             curr_itr = int(iter_dirs[curr_pos_view_1][5:])
@@ -670,6 +848,7 @@ def interactive_view_123(domain_name, curiosity_name, seed):
                 curr_pos_view_1 = curr_pos_view_1 % len(iter_dirs)
                 curr_itr = int(iter_dirs[curr_pos_view_1][5:])
         elif e.key == 'down':
+            # prev success increase
             curr_pos_view_1 -= 1
             curr_pos_view_1 = curr_pos_view_1 % len(iter_dirs)
             curr_itr = int(iter_dirs[curr_pos_view_1][5:])
@@ -677,29 +856,100 @@ def interactive_view_123(domain_name, curiosity_name, seed):
                 curr_pos_view_1 -= 1
                 curr_pos_view_1 = curr_pos_view_1 % len(iter_dirs)
                 curr_itr = int(iter_dirs[curr_pos_view_1][5:])
+        elif e.key == 'o':
+            # next episode start
+            curr_pos_view_1 += 1
+            curr_pos_view_1 = curr_pos_view_1 % len(iter_dirs)
+            curr_itr = int(iter_dirs[curr_pos_view_1][5:])
+            while curr_itr not in episode_start_iters:
+                curr_pos_view_1 -= 1
+                curr_pos_view_1 = curr_pos_view_1 % len(iter_dirs)
+                curr_itr = int(iter_dirs[curr_pos_view_1][5:])
+        elif e.key == 'i':
+             # prev episode start
+            curr_pos_view_1 -= 1
+            curr_pos_view_1 = curr_pos_view_1 % len(iter_dirs)
+            curr_itr = int(iter_dirs[curr_pos_view_1][5:])
+            while curr_itr not in episode_start_iters:
+                curr_pos_view_1 -= 1
+                curr_pos_view_1 = curr_pos_view_1 % len(iter_dirs)
+                curr_itr = int(iter_dirs[curr_pos_view_1][5:])           
+        elif e.key == 'h':
+            # prev iteration
+            itr = int(iter_dirs[curr_pos_view_1][5:])
+            if itr > 0:
+                iter_dir = f'iter_{itr - 1}'
+                if iter_dir not in iter_dirs:
+                    iter_dirs.append(iter_dir)
+                    iter_dirs = sorted(iter_dirs, key = lambda x: int(x[5:]))
+            else:
+                return
+        elif e.key == 'j':
+            # next iteration
+            itr = int(iter_dirs[curr_pos_view_1][5:])
+            if itr < int(iter_dirs[-1][5:]):
+                iter_dir = f'iter_{itr + 1}'
+                if iter_dir not in iter_dirs:
+                    iter_dirs.append(iter_dir)
+                    iter_dirs = sorted(iter_dirs, key = lambda x: int(x[5:]))
+                curr_pos_view_1 += 1
+            else:
+                return
+
         else:
             return
         curr_pos_view_1 = curr_pos_view_1 % len(iter_dirs)
 
         ax.cla()
         iter_dir = iter_dirs[curr_pos_view_1]
-        iter_path = os.path.join(seed_path, iter_dir)
+        itr_num = int(iter_dir[5:])
         iter_save_path = os.path.join(SAVE_PATH, domain_name, curiosity_name, seed, iter_dir)
         filepath = os.path.join(iter_save_path, 'nops_plot.png')
         if not os.path.exists(filepath):
-            view1(iter_path, iter_save_path)
+            # Look ahead for the transition data, and look behind for operators and NDRs.
+            curr = curr_pos_view_1
+            transition_data_itr = None
+            while curr < len(iter_dirs):
+                if os.path.exists(os.path.join(path, iter_dirs[curr], 'transition_data.pkl')):
+                    transition_data_itr = curr
+                    break
+                curr += 1
+            if transition_data_itr is None:
+                return
+            curr = curr_pos_view_1
+            ops_itr = None
+            while curr >= 0:
+                if os.path.exists(os.path.join(path, iter_dirs[curr], 'operators.pkl')) :
+                    ops_itr = curr
+                    break
+                curr -= 1
+            if ops_itr is None:
+                return
+
+            with open(os.path.join(path, iter_dirs[transition_data_itr], 'transition_data.pkl'), 'rb') as f:
+                transition_data = pickle.load(f)
+            with open(os.path.join(path, iter_dirs[ops_itr], 'operators.pkl'), 'rb') as f:
+                ops = pickle.load(f)
+            # use skill sequence to create the right dataset
+            action_end = int(iter_dirs[transition_data_itr][5:])
+            action_start = int(iter_dir[5:])
+            for action in skill_seq[action_start + 1 : action_end + 1][::-1]:
+                # LIFO
+                transition_data[action.predicate].pop()
+            
+            view1(iter_save_path, ops, transition_data)
+
         img = mpimg.imread(filepath)
-        ax.set_title(f"{iter_dir} : success rate {succ[curr_pos_view_1]}")
+        ax.set_title(f"{iter_dir} : success rate {succ[int(iter_dir[5:])]}")
+        if "GLIB" in curiosity_name:
+            if babbling_seq[itr_num]:
+                goal, plan = babbling_seq[itr_num]
+                ax.set_xlabel(f'goal: {goal}\nplan: {plan}\naction: {skill_seq[itr_num]}')
+        else:
+            ax.set_xlabel(f'action: {skill_seq[itr_num]}')
         ax.imshow(img)
         fig.canvas.draw()
 
-    # Initialize the view1 at iter=0
-    iter_dir = iter_dirs[0]
-    iter_path = os.path.join(seed_path, iter_dir)
-    iter_save_path = os.path.join(SAVE_PATH, domain_name, curiosity_name, seed, iter_dir)
-    filepath = os.path.join(iter_save_path, 'nops_plot.png')
-    if not os.path.exists(filepath):
-        view1(iter_path, iter_save_path)
 
     fig = plt.figure()
     fig.canvas.mpl_connect('key_press_event', key_event_view_1)
@@ -721,7 +971,7 @@ if __name__ == "__main__":
     seed = '405'
     # interactive_view_123(domain_name, curiosity_name, seed)
     # interactive_view2(domain_name, curiosity_name, seed)
-    interactive_view1(domain_name, curiosity_name, learning_name, seed)
+    interactive_view_123(domain_name, curiosity_name, learning_name, seed)
 
     # with open(os.path.join(BABBLING_SOURCE_PATH, domain_name, learning_name, curiosity_name, f'{seed}_babbling_stats.pkl'), 'rb') as f:
         # stats = pickle.load(f)
