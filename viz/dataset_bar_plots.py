@@ -59,6 +59,8 @@ def view1(save_path, operators, transition_data):
         bar_ax.set_xlabel("Frequency")
         bar_ax.invert_yaxis()  # labels read top-to-bottom
 
+        if total == 0:
+            continue
         pie_ax.pie(ys, labels=labels, autopct='%1.3f%%')
         
         ops = []
@@ -325,6 +327,8 @@ def interactive_view1(domain_name, curiosity_name, learning_name, seed):
                 if iter_dir not in iter_dirs:
                     iter_dirs.append(iter_dir)
                     iter_dirs = sorted(iter_dirs, key = lambda x: int(x[5:]))
+                else:
+                    curr_pos_view_1 -= 1
             else:
                 return
         elif e.key == 'j':
@@ -519,6 +523,8 @@ def interactive_view2(domain_name, curiosity_name, learning_name, seed):
                     if iter_dir not in iter_dirs:
                         iter_dirs.append(iter_dir)
                         iter_dirs = sorted(iter_dirs, key = lambda x: int(x[5:]))
+                    else:                    
+                        curr_pos_view_2 -= 1
                 else:
                     return
             elif e.key == 'j':
@@ -755,6 +761,8 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
                     if iter_dir not in iter_dirs:
                         iter_dirs.append(iter_dir)
                         iter_dirs = sorted(iter_dirs, key = lambda x: int(x[5:]))
+                    else:
+                        curr_pos_view_2 -= 1
                 else:
                     return
             elif e.key == 'j':
@@ -941,6 +949,8 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
                 if iter_dir not in iter_dirs:
                     iter_dirs.append(iter_dir)
                     iter_dirs = sorted(iter_dirs, key = lambda x: int(x[5:]))
+                else:
+                    curr_pos_view_1 -= 1
             else:
                 return
         elif e.key == 'j':
@@ -964,6 +974,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
         itr_num = int(iter_dir[5:])
         iter_save_path = os.path.join(SAVE_PATH, domain_name, curiosity_name, seed, iter_dir)
         filepath = os.path.join(iter_save_path, 'nops_plot.png')
+        print(filepath)
         if not os.path.exists(filepath):
             # Look ahead for the transition data, and look behind for operators and NDRs.
             curr = curr_pos_view_1
@@ -1038,7 +1049,7 @@ if __name__ == "__main__":
     curiosity_name = 'GLIB_L2'
 
     # seed = '405'
-    seeds = [str(s) for s in range(405, 410)]
+    seeds = [str(s) for s in range(406, 410)]
 
     for seed in seeds:
         interactive_view_123(domain_name, curiosity_name, learning_name, seed)
