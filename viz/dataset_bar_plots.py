@@ -4,12 +4,14 @@ import matplotlib as mpl
 import matplotlib.image  as mpimg
 import os, pickle
 import numpy as np
+from pddlgym.parser import PDDLDomainParser
 from collections import defaultdict
 
 SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results/LNDR'
 RESULTS_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results'
 SAVE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/dataset_visualizations'
 BABBLING_SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results/GLIB'
+PDDLGYM_PATH = '/home/catalan/.virtualenvs/meng/lib/python3.10/site-packages/pddlgym/pddl'
 
 curr_pos_view_1 = 0
 curr_pos_view_2 = 0
@@ -76,15 +78,23 @@ def view1(save_path, operators, transition_data):
     plt.savefig(os.path.join(save_path, 'nops_plot.png'), dpi=300)
     plt.close()
 
-def view2(save_path, operators, transition_data, ndrs):
+def view2(save_path, operators, transition_data, ndrs, domain_name):
     """Create a plot for each skill (view2), and save to `save_path` folder with each skill labeled by `{skill_name}.png`.
 
     Args:
         base_path (str): iteration folder with the operators, transition data, and NDRs.
         save_path (str): folder where the plots are saved.
     """
+    # Get ground truth ops / literals
+    parser = PDDLDomainParser(os.path.join(PDDLGYM_PATH, f'{domain_name.lower()}.pddl'))
+    gt_op_preconds = defaultdict(set)
+    for op in parser.operators.values():
+        action = [l for l in op.preconds.literals if l.predicate.name in parser.actions][0]
+        for lit in op.preconds.literals:
+            if lit != action:
+                pred_name = lit.predicate.name
+                gt_op_preconds[action.predicate.name].add(pred_name)
 
-   
     # alternate color of different predicates to see better
     colors = '#1f77b4', '#ff7f0e'
     for action_pred in transition_data:
@@ -101,7 +111,7 @@ def view2(save_path, operators, transition_data, ndrs):
         fig.suptitle(action_pred)
         axs[1].set_title('Operators')
         axs[2].set_title('NDRs')
-        axs[0].set_title("Literals present in the precondition of non-NOPs")
+        axs[0].set_title("Literals present in the initial state of non-NOPs")
         
         lit_counts = defaultdict(lambda: 0)
         for t in transition_data[action_pred]:
@@ -126,6 +136,13 @@ def view2(save_path, operators, transition_data, ndrs):
         axs[0].set_yticks(y_pos, labels=labels)
         axs[0].set_xlabel("Frequency")
         axs[0].invert_yaxis()
+
+        # Bold predicates in the preconditions of ground truth operators
+        for label in axs[0].get_yticklabels():
+            literal_str = label.get_text()
+            pred_name = literal_str.split('(')[0]
+            if pred_name in gt_op_preconds[action_pred.name]:
+                label.set_fontweight("bold")
         
         os.makedirs(save_path, exist_ok=True)
         plt.gcf().set_size_inches(18, 14)
@@ -133,7 +150,7 @@ def view2(save_path, operators, transition_data, ndrs):
         plt.close()
 
 
-def view3(base_path, save_path):
+def view3(base_path, save_path, domain_name):
     """Create a plot for each skill (view2), and save to `save_path` folder with each skill labeled by `{skill_name}.png`.
 
     Args:
@@ -149,7 +166,18 @@ def view3(base_path, save_path):
 
     with open(os.path.join(base_path, 'ndrs.pkl'), 'rb') as f:
         ndrs = pickle.load(f)
-    
+
+    # Get ground truth ops / literals
+    parser = PDDLDomainParser(os.path.join(PDDLGYM_PATH, f'{domain_name.lower()}.pddl'))
+    gt_op_preconds = defaultdict(set)
+    for op in parser.operators.values():
+        action = [l for l in op.preconds.literals if l.predicate.name in parser.actions][0]
+        for lit in op.preconds.literals:
+            if lit != action:
+                pred_name = lit.predicate.name
+                gt_op_preconds[action.predicate.name].add(pred_name)
+
+
     # alternate color of different predicates to see better
     colors = '#1f77b4', '#ff7f0e'
     for action_pred in transition_data:
@@ -166,7 +194,7 @@ def view3(base_path, save_path):
         fig.suptitle(action_pred)
         axs[1].set_title('Operators')
         axs[2].set_title('NDRs')
-        axs[0].set_title("Literals present in the precondition of NOPs")
+        axs[0].set_title("Literals present in the initial state of NOPs")
         
         lit_counts = defaultdict(lambda: 0)
         for t in transition_data[action_pred]:
@@ -190,7 +218,14 @@ def view3(base_path, save_path):
         axs[0].set_yticks(y_pos, labels=labels)
         axs[0].set_xlabel("Frequency")
         axs[0].invert_yaxis()
-        
+
+        # Bold predicates in the preconditions of ground truth operators
+        for label in axs[0].get_yticklabels():
+            literal_str = label.get_text()
+            pred_name = literal_str.split('(')[0]
+            if pred_name in gt_op_preconds[action_pred.name]:
+                label.set_fontweight("bold")
+               
         os.makedirs(save_path, exist_ok=True)
         plt.gcf().set_size_inches(18, 14)
         plt.savefig(os.path.join(save_path, f'{action_pred.name}-NOPs.png'), dpi=300)
@@ -549,7 +584,7 @@ def interactive_view2(domain_name, curiosity_name, learning_name, seed):
                 ops = pickle.load(f)
             with open(os.path.join(path, iter_dirs[ops_itr], 'ndrs.pkl'), 'rb') as f:
                 ndrs = pickle.load(f)
-            view2(iter_save_path, ops, transition_data, ndrs)
+            view2(iter_save_path, ops, transition_data, ndrs, domain_name)
 
         for act, figax in figs.items():
             fig, ax = figax
@@ -588,7 +623,7 @@ def interactive_view2(domain_name, curiosity_name, learning_name, seed):
         if not os.path.exists(filepath):
             create = True
     if create:
-        view2(iter_save_path, ops, transition_data, ndrs)
+        view2(iter_save_path, ops, transition_data, ndrs, domain_name)
 
     for act, figax in figs.items():
         fig, ax = figax
@@ -777,7 +812,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
                 ops = pickle.load(f)
             with open(os.path.join(path, iter_dirs[ops_itr], 'ndrs.pkl'), 'rb') as f:
                 ndrs = pickle.load(f)
-            view2(iter_save_path, ops, transition_data, ndrs)
+            view2(iter_save_path, ops, transition_data, ndrs, domain_name)
 
         for act, figax in figs.items():
             fig, ax = figax
@@ -796,9 +831,6 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
         
                 ax.imshow(img)
                 fig.canvas.draw()
-
-
-
 
     # Initialize the plots for each skill
     iter_dir = iter_dirs[0]
@@ -819,7 +851,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
         if not os.path.exists(filepath):
             create = True
     if create:
-        view2(iter_save_path, ops, transition_data, ndrs)
+        view2(iter_save_path, ops, transition_data, ndrs, domain_name)
 
     for act, figax in figs.items():
         fig, ax = figax
@@ -971,7 +1003,7 @@ if __name__ == "__main__":
     seed = '405'
     # interactive_view_123(domain_name, curiosity_name, seed)
     # interactive_view2(domain_name, curiosity_name, seed)
-    interactive_view_123(domain_name, curiosity_name, learning_name, seed)
+    interactive_view2(domain_name, curiosity_name, learning_name, seed)
 
     # with open(os.path.join(BABBLING_SOURCE_PATH, domain_name, learning_name, curiosity_name, f'{seed}_babbling_stats.pkl'), 'rb') as f:
         # stats = pickle.load(f)
