@@ -147,12 +147,13 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
     def _get_action(self, state):
         # First check whether we just finished a plan and now must take the final action
         if (not (self._current_goal_action is None)) and (len(self._plan) == 0):
+            goal = self._current_goal_action[0]
             action = self._get_ground_action_to_execute(state)
             # GLIB_L_LOGGER.debug("*** Finished the plan")
             if action != None:
                 # GLIB_L_LOGGER.debug("*** Finished the plan, now executing the action")
                 # Execute the action
-                self.line_stats.append(1)
+                self.line_stats.append((goal, copy.deepcopy(self._plan)))
                 return action
         # Either continue executing a plan or make a new one (or fall back to random)
         return super()._get_action(state)

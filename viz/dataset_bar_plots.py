@@ -305,7 +305,7 @@ def interactive_view1(domain_name, curiosity_name, learning_name, seed):
             curr_pos_view_1 = curr_pos_view_1 % len(iter_dirs)
             curr_itr = int(iter_dirs[curr_pos_view_1][5:])
             while curr_itr not in episode_start_iters:
-                curr_pos_view_1 -= 1
+                curr_pos_view_1 += 1
                 curr_pos_view_1 = curr_pos_view_1 % len(iter_dirs)
                 curr_itr = int(iter_dirs[curr_pos_view_1][5:])
         elif e.key == 'i':
@@ -499,7 +499,7 @@ def interactive_view2(domain_name, curiosity_name, learning_name, seed):
                 curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
                 curr_itr = int(iter_dirs[curr_pos_view_2][5:])
                 while curr_itr not in episode_start_iters:
-                    curr_pos_view_2 -= 1
+                    curr_pos_view_2 += 1
                     curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
                     curr_itr = int(iter_dirs[curr_pos_view_2][5:])
             elif e.key == 'i':
@@ -641,10 +641,14 @@ def interactive_view2(domain_name, curiosity_name, learning_name, seed):
 def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
     """Interactive View 1, 2, and 3.
 
-    use right/left arrow keys to toggle between iterations.
     use up/down arrow keys to toggle between success increase/decrease iterations.
-    
-    The view1 plot is independent of the view2 plots, which all change from one keystroke.
+    use h/j to toggle iterations.
+    use left/right to scroll.
+    use 'n' to change between NOPs and nonNOPs views.
+    use 'r' to render the screen.
+    use 'i/o' to jump between episode starts.
+     
+    The view1 plot is independent of the view2 plots, which all change from one keystroke (but only rendered when press 'r').
     """
 
     path = os.path.join(SOURCE_PATH, domain_name, curiosity_name, seed)
@@ -667,17 +671,6 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
         fig = plt.figure()
         ax = fig.add_subplot(111)
         figs[action_pred.name] = (fig, ax)
-
-
-    # Initialize the plot at iter=0
-    iter_dir = iter_dirs[0]
-    iter_path = os.path.join(path, iter_dir)
-    iter_save_path = os.path.join(SAVE_PATH, domain_name, curiosity_name, seed, iter_dir)
-    filepath = os.path.join(iter_save_path, 'nops_plot.png')
-    with open(os.path.join(iter_path, 'transition_data.pkl'), 'rb') as f:
-        transition_data = pickle.load(f)
-    if not os.path.exists(filepath):
-        view1(iter_save_path, [], transition_data)
 
     success_increases = np.loadtxt(os.path.join(SOURCE_PATH, domain_name, curiosity_name, seed, 'success_increases.txt'))
     if len(success_increases.shape) == 1:
@@ -742,7 +735,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
                 curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
                 curr_itr = int(iter_dirs[curr_pos_view_2][5:])
                 while curr_itr not in episode_start_iters:
-                    curr_pos_view_2 -= 1
+                    curr_pos_view_2 += 1
                     curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
                     curr_itr = int(iter_dirs[curr_pos_view_2][5:])
             elif e.key == 'i':
@@ -928,7 +921,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
             curr_pos_view_1 = curr_pos_view_1 % len(iter_dirs)
             curr_itr = int(iter_dirs[curr_pos_view_1][5:])
             while curr_itr not in episode_start_iters:
-                curr_pos_view_1 -= 1
+                curr_pos_view_1 += 1
                 curr_pos_view_1 = curr_pos_view_1 % len(iter_dirs)
                 curr_itr = int(iter_dirs[curr_pos_view_1][5:])
         elif e.key == 'i':
@@ -1016,6 +1009,16 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
         ax.imshow(img)
         fig.canvas.draw()
 
+    # Initialize the plot at iter=0
+    iter_dir = iter_dirs[0]
+    iter_path = os.path.join(path, iter_dir)
+    iter_save_path = os.path.join(SAVE_PATH, domain_name, curiosity_name, seed, iter_dir)
+    filepath = os.path.join(iter_save_path, 'nops_plot.png')
+    with open(os.path.join(iter_path, 'transition_data.pkl'), 'rb') as f:
+        transition_data = pickle.load(f)
+    if not os.path.exists(filepath):
+        view1(iter_save_path, [], transition_data)
+
 
     fig = plt.figure()
     fig.canvas.mpl_connect('key_press_event', key_event_view_1)
@@ -1026,19 +1029,16 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
     plt.show()
 
 
-
 if __name__ == "__main__":
         
     domain_name = 'Blocks'
+    learning_name = 'LNDR'
+
     # curiosity_name = 'random'
     curiosity_name = 'GLIB_L2'
-    learning_name = 'LNDR'
-    # seeds = [str(s) for s in range(400, 405)]
-    seed = '405'
-    # interactive_view_123(domain_name, curiosity_name, seed)
-    # interactive_view2(domain_name, curiosity_name, seed)
-    interactive_view_123(domain_name, curiosity_name, learning_name, seed)
 
-    # with open(os.path.join(BABBLING_SOURCE_PATH, domain_name, learning_name, curiosity_name, f'{seed}_babbling_stats.pkl'), 'rb') as f:
-        # stats = pickle.load(f)
-    # print(stats[80:90])
+    # seed = '405'
+    seeds = [str(s) for s in range(405, 410)]
+
+    for seed in seeds:
+        interactive_view_123(domain_name, curiosity_name, learning_name, seed)
