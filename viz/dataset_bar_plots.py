@@ -150,23 +150,13 @@ def view2(save_path, operators, transition_data, ndrs, domain_name):
         plt.close()
 
 
-def view3(base_path, save_path, domain_name):
+def view3(save_path, operators, transition_data, ndrs, domain_name):
     """Create a plot for each skill (view2), and save to `save_path` folder with each skill labeled by `{skill_name}.png`.
 
     Args:
         base_path (str): iteration folder with the operators, transition data, and NDRs.
         save_path (str): folder where the plots are saved.
     """
-
-    with open(os.path.join(base_path, 'operators.pkl'), 'rb') as f:
-        operators = pickle.load(f)
-
-    with open(os.path.join(base_path, 'transition_data.pkl'), 'rb') as f:
-        transition_data = pickle.load(f)
-
-    with open(os.path.join(base_path, 'ndrs.pkl'), 'rb') as f:
-        ndrs = pickle.load(f)
-
     # Get ground truth ops / literals
     parser = PDDLDomainParser(os.path.join(PDDLGYM_PATH, f'{domain_name.lower()}.pddl'))
     gt_op_preconds = defaultdict(set)
@@ -699,6 +689,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
 
     def key_event_view_2(e):
         global curr_pos_view_2
+        global nops_view
         nonlocal iter_dirs
 
         if e.key == "right":
@@ -721,6 +712,8 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
                 curr_pos_view_2 -= 1
                 curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
                 curr_itr = int(iter_dirs[curr_pos_view_2][5:])
+        elif e.key == 'r':
+            nops_view = 1 - nops_view
         elif e.key == 'o':
             # next episode start
             curr_pos_view_2 += 1
@@ -800,25 +793,35 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
                 del transition_data[action.predicate]
  
         actions_to_plot = []
-        create = False
+        create_view2 = False
+        create_view3 = False
         for action in transition_data:
             filepath = os.path.join(iter_save_path, f'{action.name}.png')
+            view3_filepath = os.path.join(iter_save_path, f'{action.name}-NOPs.png')
             if not os.path.exists(filepath):
-                create = True
+                create_view2 = True
+            if not os.path.exists(view3_filepath):
+                create_view3 = True
             actions_to_plot.append(action.name)
 
-        if create:
+        if create_view3 or create_view2:
             with open(os.path.join(path, iter_dirs[ops_itr], 'operators.pkl'), 'rb') as f:
                 ops = pickle.load(f)
             with open(os.path.join(path, iter_dirs[ops_itr], 'ndrs.pkl'), 'rb') as f:
                 ndrs = pickle.load(f)
+        if create_view2:
             view2(iter_save_path, ops, transition_data, ndrs, domain_name)
+        if create_view3:
+            view3(iter_save_path, ops, transition_data, ndrs, domain_name)
 
         for act, figax in figs.items():
             fig, ax = figax
             ax.cla()
             if act in actions_to_plot:
-                filepath = os.path.join(iter_save_path, f'{act}.png')
+                if nops_view:
+                    filepath = os.path.join(iter_save_path, f'{act}-NOPs.png')
+                else:
+                    filepath = os.path.join(iter_save_path, f'{act}.png')
                 print(filepath)
                 img = mpimg.imread(filepath)
                 ax.set_title(f"{iter_dir} : success rate {succ[iter_num]}")
@@ -843,15 +846,21 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
     with open(os.path.join(path, iter_dirs[0], 'ndrs.pkl'),'rb')  as f:
         ndrs = pickle.load(f)
 
-    create = False
+    create_view2 = False
+    create_view3 = False
     init_actions = []
     for act in transition_data:
         filepath = os.path.join(iter_save_path, f'{act.name}.png')
+        view3_filepath = os.path.join(iter_save_path, f'{act.name}-NOPs.png')
         init_actions.append(act.name)
         if not os.path.exists(filepath):
-            create = True
-    if create:
+            create_view2 = True
+        if not os.path.exists(view3_filepath):
+            create_view3 = True
+    if create_view2:
         view2(iter_save_path, ops, transition_data, ndrs, domain_name)
+    if create_view3:
+        view3(iter_save_path, ops, transition_data, ndrs, domain_name)
 
     for act, figax in figs.items():
         fig, ax = figax
@@ -1003,7 +1012,7 @@ if __name__ == "__main__":
     seed = '405'
     # interactive_view_123(domain_name, curiosity_name, seed)
     # interactive_view2(domain_name, curiosity_name, seed)
-    interactive_view2(domain_name, curiosity_name, learning_name, seed)
+    interactive_view_123(domain_name, curiosity_name, learning_name, seed)
 
     # with open(os.path.join(BABBLING_SOURCE_PATH, domain_name, learning_name, curiosity_name, f'{seed}_babbling_stats.pkl'), 'rb') as f:
         # stats = pickle.load(f)
