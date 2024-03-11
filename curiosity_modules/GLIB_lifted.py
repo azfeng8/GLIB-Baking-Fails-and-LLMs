@@ -153,7 +153,7 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
             if action != None:
                 # GLIB_L_LOGGER.debug("*** Finished the plan, now executing the action")
                 # Execute the action
-                self.line_stats.append((goal, copy.deepcopy(self._plan)))
+                self.line_stats.append('babbled')
                 return action
         # Either continue executing a plan or make a new one (or fall back to random)
         return super()._get_action(state)
@@ -231,8 +231,6 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
         # Otherwise, we'll take the last action once we finish the plan
         # print("Setting a plan:", plan)
         return plan
-        # lifted_goal, lifted_action = self._current_goal_action
-        # return plan + [LiftedAction(lifted_action, lifted_goal)]
 
     def _goal_is_valid(self, goal):
         return not (goal is None)
@@ -263,7 +261,8 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
             # print("Removing goal-action:", new_goal_action)
             self._unseen_goal_actions.remove(new_goal_action)
 
-
+class GLIBL1CuriosityModule(GLIBLCuriosityModule):
+    _k = 1
 class GLIBL2CuriosityModule(GLIBLCuriosityModule):
     _k = 2
 

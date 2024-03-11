@@ -222,6 +222,7 @@ def view3(save_path, operators, transition_data, ndrs, domain_name):
 
 
 def interactive_view1(domain_name, curiosity_name, learning_name, seed):
+    #FIXME: not updated to show babbling/fallback/in plan actions
     """Interactive view of the NOPs / operators plot.
     
     use right / left arrows to scroll the iteration numbers loaded.
@@ -406,6 +407,7 @@ def interactive_view1(domain_name, curiosity_name, learning_name, seed):
     plt.show()
 
 def interactive_view2(domain_name, curiosity_name, learning_name, seed):
+    #FIXME: not updated to show babbling/fallback/in plan actions
     """Interactive plots for view2.
     
     right/left arrow keys to toggle between iterations, in order.
@@ -639,6 +641,7 @@ def interactive_view2(domain_name, curiosity_name, learning_name, seed):
             filepath = os.path.join(iter_save_path, f'{act}.png')
             img = mpimg.imread(filepath)
             ax.set_title(f'{iter_dirs[0]} : success rate {succ[0]}')
+            ax.set_xlabel(f'action: {skill_seq[0]}')
             ax.imshow(img)
         else:
             ax.set_title(act)
@@ -847,12 +850,11 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
                 print(filepath)
                 img = mpimg.imread(filepath)
                 ax.set_title(f"{iter_dir} : success rate {succ[iter_num]}")
-                if "GLIB" in curiosity_name:
-                    if babbling_seq[iter_num]:
-                        goal, plan = babbling_seq[iter_num]
-                        ax.set_xlabel(f'goal: {goal}\nplan: {plan}\naction: {skill_seq[iter_num]}')
+                if "GLIB" in curiosity_name and (babbling_seq[iter_num] not in ('babbled', 'fallback')):
+                    goal, plan = babbling_seq[iter_num]
+                    ax.set_xlabel(f'goal: {goal}\nplan: {plan}\naction: {skill_seq[iter_num]}')
                 else:
-                    ax.set_xlabel(f'action: {skill_seq[iter_num]}')
+                    ax.set_xlabel(f'{babbling_seq[iter_num]} action: {skill_seq[iter_num]}')
         
                 ax.imshow(img)
                 fig.canvas.draw()
@@ -894,6 +896,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
             img = mpimg.imread(filepath)
             ax.set_title(f'{iter_dirs[0]} : success rate {succ[0]}')
             ax.imshow(img)
+            ax.set_xlabel(f'{babbling_seq[0]} action: {skill_seq[0]}')
         else:
             ax.set_title(act)
  
@@ -985,6 +988,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
                     break
                 curr += 1
             if transition_data_itr is None:
+                print("No transition data available")
                 return
             curr = curr_pos_view_1
             ops_itr = None
@@ -994,6 +998,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
                     break
                 curr -= 1
             if ops_itr is None:
+                print("No operators available")
                 return
 
             with open(os.path.join(path, iter_dirs[transition_data_itr], 'transition_data.pkl'), 'rb') as f:
@@ -1011,12 +1016,11 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
 
         img = mpimg.imread(filepath)
         ax.set_title(f"{iter_dir} : success rate {succ[int(iter_dir[5:])]}")
-        if "GLIB" in curiosity_name:
-            if babbling_seq[itr_num]:
-                goal, plan = babbling_seq[itr_num]
-                ax.set_xlabel(f'goal: {goal}\nplan: {plan}\naction: {skill_seq[itr_num]}')
+        if "GLIB" in curiosity_name and (babbling_seq[itr_num] not in ('babbled', 'fallback')):
+            goal, plan = babbling_seq[itr_num]
+            ax.set_xlabel(f'goal: {goal}\nplan: {plan}\naction: {skill_seq[itr_num]}')
         else:
-            ax.set_xlabel(f'action: {skill_seq[itr_num]}')
+            ax.set_xlabel(f'{babbling_seq[itr_num]} action: {skill_seq[itr_num]}')
         ax.imshow(img)
         fig.canvas.draw()
 
@@ -1036,6 +1040,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
     ax = fig.add_subplot(111)
     img = mpimg.imread(filepath)
     ax.set_title(f'{iter_dirs[0]} : success rate {succ[0]}')
+    ax.set_xlabel(f'{babbling_seq[0]} action: {skill_seq[0]}')
     plt.imshow(img)
     plt.show()
 
@@ -1049,7 +1054,7 @@ if __name__ == "__main__":
     curiosity_name = 'GLIB_L2'
 
     # seed = '405'
-    seeds = [str(s) for s in range(406, 410)]
+    seeds = [str(s) for s in range(415, 420)]
 
     for seed in seeds:
         interactive_view_123(domain_name, curiosity_name, learning_name, seed)

@@ -54,7 +54,15 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
 
         # Continue executing plan?
         if self._plan and (last_state != state):
-            self.line_stats.append((self._goal, deepcopy(self._plan)))
+            if 'glibg' in self._name:
+                # in GLIB-G, the last item in the plan is the babbled action
+                if len(self._plan) == 1:
+                    self.line_stats.append('babbled')
+                else:
+                    self.line_stats.append((self._goal, deepcopy(self._plan[:-1])))
+            else:
+                # in GLIB-lifted, the last item in the plan is not the babbled action
+                self.line_stats.append((self._goal, deepcopy(self._plan)))
             if self._goal_from_llm:
                 self.llm_line_stats.append(1)
             else:
@@ -97,7 +105,7 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
 
             if self._plan_is_good():
                 if len(self._plan) == 0:
-                    self.line_stats.append(0)
+                    self.line_stats.append('babbled')
                 else:
                     self.line_stats.append((goal, deepcopy(self._plan)))
                     if self._goal_from_llm:
@@ -119,7 +127,7 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
         return self._get_fallback_action(state)
 
     def _get_fallback_action(self, state):
-        self.line_stats.append(0)
+        self.line_stats.append('fallback')
         self.llm_line_stats.append(0)
         return self._action_space.sample(state)
 

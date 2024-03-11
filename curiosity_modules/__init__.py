@@ -17,6 +17,8 @@ def create_curiosity_module(curiosity_module_name, action_space,
         module = GLIBG1CuriosityModule
     elif curiosity_module_name == "GLIB_L2":
         module = GLIBL2CuriosityModule
+    elif curiosity_module_name == "GLIB_L1":
+        module = GLIBL1CuriosityModule
     elif curiosity_module_name == "LLM+GLIB_G1":
         module = GLIBG1LLMCuriosityModule
     elif curiosity_module_name == "LLM+GLIB_L2":
