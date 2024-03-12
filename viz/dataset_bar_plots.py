@@ -6,14 +6,15 @@ import numpy as np
 from pddlgym.parser import PDDLDomainParser
 from collections import defaultdict
 
-SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results/LNDR'
-RESULTS_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results'
+SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results_openstack/results/LNDR'
+RESULTS_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results_openstack/results'
 SAVE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/dataset_visualizations'
-BABBLING_SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results/GLIB'
+BABBLING_SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results_openstack/results/GLIB'
 PDDLGYM_PATH = '/home/catalan/.virtualenvs/meng/lib/python3.10/site-packages/pddlgym/pddl'
 
 curr_pos_view_1 = 0
 curr_pos_view_2 = 0
+curr_pos_views = 0
 nops_view = 0
 
 def view1(save_path, operators, transition_data):
@@ -72,7 +73,7 @@ def view1(save_path, operators, transition_data):
         props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
         ops_ax.text(0,1, '\n'.join(ops),  fontsize=8, verticalalignment='top', bbox=props, wrap=True)
 
-    plt.gcf().set_size_inches(18, 14)
+    plt.gcf().set_size_inches(28, 14)
     os.makedirs(save_path, exist_ok=True)
     plt.savefig(os.path.join(save_path, 'nops_plot.png'), dpi=300)
     plt.close()
@@ -92,7 +93,7 @@ def view2(save_path, operators, transition_data, ndrs, domain_name):
         for lit in op.preconds.literals:
             if lit != action:
                 pred_name = lit.predicate.name
-                gt_op_preconds[action.predicate.name].add(pred_name)
+                gt_op_preconds[action.predicate.name].add((pred_name, lit.is_negative))
 
     # alternate color of different predicates to see better
     colors = '#1f77b4', '#ff7f0e'
@@ -113,9 +114,11 @@ def view2(save_path, operators, transition_data, ndrs, domain_name):
         axs[0].set_title("Literals present in the initial state of non-NOPs")
         
         lit_counts = defaultdict(lambda: 0)
+        total = 0
         for t in transition_data[action_pred]:
             if len(t[2]) == 0:
                 continue
+            total += 1
             for lit in t[0]:
                 lit_counts[lit] += 1
         ys = []
@@ -134,17 +137,21 @@ def view2(save_path, operators, transition_data, ndrs, domain_name):
         axs[0].barh(y_pos, ys, color=plot_color)
         axs[0].set_yticks(y_pos, labels=labels)
         axs[0].set_xlabel("Frequency")
+        axs[0].axvline(x=total)
         axs[0].invert_yaxis()
 
         # Bold predicates in the preconditions of ground truth operators
         for label in axs[0].get_yticklabels():
             literal_str = label.get_text()
             pred_name = literal_str.split('(')[0]
-            if pred_name in gt_op_preconds[action_pred.name]:
+            if (pred_name, True) in gt_op_preconds[action_pred.name]:
                 label.set_fontweight("bold")
-        
+                label.set_color("red")
+            elif (pred_name, False) in gt_op_preconds[action_pred.name]:
+                label.set_fontweight("bold")
+
         os.makedirs(save_path, exist_ok=True)
-        plt.gcf().set_size_inches(18, 14)
+        plt.gcf().set_size_inches(28, 14)
         plt.savefig(os.path.join(save_path, f'{action_pred.name}.png'), dpi=300)
         plt.close()
 
@@ -164,7 +171,7 @@ def view3(save_path, operators, transition_data, ndrs, domain_name):
         for lit in op.preconds.literals:
             if lit != action:
                 pred_name = lit.predicate.name
-                gt_op_preconds[action.predicate.name].add(pred_name)
+                gt_op_preconds[action.predicate.name].add((pred_name, lit.is_negative))
 
 
     # alternate color of different predicates to see better
@@ -186,8 +193,10 @@ def view3(save_path, operators, transition_data, ndrs, domain_name):
         axs[0].set_title("Literals present in the initial state of NOPs")
         
         lit_counts = defaultdict(lambda: 0)
+        total = 0
         for t in transition_data[action_pred]:
             if len(t[2]) == 0:
+                total += 1
                 for lit in t[0]:
                     lit_counts[lit] += 1
         ys = []
@@ -206,17 +215,22 @@ def view3(save_path, operators, transition_data, ndrs, domain_name):
         axs[0].barh(y_pos, ys, color=plot_color)
         axs[0].set_yticks(y_pos, labels=labels)
         axs[0].set_xlabel("Frequency")
+        axs[0].axvline(x=total)
         axs[0].invert_yaxis()
 
         # Bold predicates in the preconditions of ground truth operators
+        # Red is for negative
         for label in axs[0].get_yticklabels():
             literal_str = label.get_text()
             pred_name = literal_str.split('(')[0]
-            if pred_name in gt_op_preconds[action_pred.name]:
+            if (pred_name, True) in gt_op_preconds[action_pred.name]:
+                label.set_fontweight("bold")
+                label.set_color("red")
+            elif (pred_name, False)  in gt_op_preconds[action_pred.name]:
                 label.set_fontweight("bold")
                
         os.makedirs(save_path, exist_ok=True)
-        plt.gcf().set_size_inches(18, 14)
+        plt.gcf().set_size_inches(28, 14)
         plt.savefig(os.path.join(save_path, f'{action_pred.name}-NOPs.png'), dpi=300)
         plt.close()
 
@@ -556,6 +570,7 @@ def interactive_view2(domain_name, curiosity_name, learning_name, seed):
                     break
                 curr += 1
             if transition_data_itr is None:
+                print("No transition data available")
                 return
             curr = curr_pos_view_2
             ops_itr = None
@@ -565,6 +580,7 @@ def interactive_view2(domain_name, curiosity_name, learning_name, seed):
                     break
                 curr -= 1
             if ops_itr is None:
+                print("No operators data available")
                 return
 
             with open(os.path.join(path, iter_dirs[transition_data_itr], 'transition_data.pkl'), 'rb') as f:
@@ -709,30 +725,30 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
             figax (tuple): (figure, ax)
         """
         def key_event(e):
-            global curr_pos_view_2
+            global curr_pos_views
             global nops_view
             nonlocal iter_dirs
 
             if e.key == "right":
-                curr_pos_view_2 = curr_pos_view_2 + 1
+                curr_pos_views = curr_pos_views + 1
             elif e.key == "left":
-                curr_pos_view_2 = curr_pos_view_2 - 1
+                curr_pos_views = curr_pos_views - 1
             elif e.key == 'up':
-                curr_pos_view_2 += 1
-                curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
-                curr_itr = int(iter_dirs[curr_pos_view_2][5:])
+                curr_pos_views += 1
+                curr_pos_views = curr_pos_views % len(iter_dirs)
+                curr_itr = int(iter_dirs[curr_pos_views][5:])
                 while curr_itr not in success_itrs:
-                    curr_pos_view_2 += 1
-                    curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
-                    curr_itr = int(iter_dirs[curr_pos_view_2][5:])
+                    curr_pos_views += 1
+                    curr_pos_views = curr_pos_views % len(iter_dirs)
+                    curr_itr = int(iter_dirs[curr_pos_views][5:])
             elif e.key == 'down':
-                curr_pos_view_2 -= 1
-                curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
-                curr_itr = int(iter_dirs[curr_pos_view_2][5:])
+                curr_pos_views -= 1
+                curr_pos_views = curr_pos_views % len(iter_dirs)
+                curr_itr = int(iter_dirs[curr_pos_views][5:])
                 while curr_itr not in success_itrs:
-                    curr_pos_view_2 -= 1
-                    curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
-                    curr_itr = int(iter_dirs[curr_pos_view_2][5:])
+                    curr_pos_views -= 1
+                    curr_pos_views = curr_pos_views % len(iter_dirs)
+                    curr_itr = int(iter_dirs[curr_pos_views][5:])
             elif e.key == 'r':
                 # Refresh
                 pass
@@ -740,54 +756,54 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
                 nops_view = 1 - nops_view
             elif e.key == 'o':
                 # next episode start
-                curr_pos_view_2 += 1
-                curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
-                curr_itr = int(iter_dirs[curr_pos_view_2][5:])
+                curr_pos_views += 1
+                curr_pos_views = curr_pos_views % len(iter_dirs)
+                curr_itr = int(iter_dirs[curr_pos_views][5:])
                 while curr_itr not in episode_start_iters:
-                    curr_pos_view_2 += 1
-                    curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
-                    curr_itr = int(iter_dirs[curr_pos_view_2][5:])
+                    curr_pos_views += 1
+                    curr_pos_views = curr_pos_views % len(iter_dirs)
+                    curr_itr = int(iter_dirs[curr_pos_views][5:])
             elif e.key == 'i':
                 # prev episode start
-                curr_pos_view_2 -= 1
-                curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
-                curr_itr = int(iter_dirs[curr_pos_view_2][5:])
+                curr_pos_views -= 1
+                curr_pos_views = curr_pos_views % len(iter_dirs)
+                curr_itr = int(iter_dirs[curr_pos_views][5:])
                 while curr_itr not in episode_start_iters:
-                    curr_pos_view_2 -= 1
-                    curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
-                    curr_itr = int(iter_dirs[curr_pos_view_2][5:])           
+                    curr_pos_views -= 1
+                    curr_pos_views = curr_pos_views % len(iter_dirs)
+                    curr_itr = int(iter_dirs[curr_pos_views][5:])           
             elif e.key == 'h':
                 # prev iteration
-                itr = int(iter_dirs[curr_pos_view_2][5:])
+                itr = int(iter_dirs[curr_pos_views][5:])
                 if itr > 0:
                     iter_dir = f'iter_{itr - 1}'
                     if iter_dir not in iter_dirs:
                         iter_dirs.append(iter_dir)
                         iter_dirs = sorted(iter_dirs, key = lambda x: int(x[5:]))
                     else:
-                        curr_pos_view_2 -= 1
+                        curr_pos_views -= 1
                 else:
                     return
             elif e.key == 'j':
                 # next iteration
-                itr = int(iter_dirs[curr_pos_view_2][5:])
+                itr = int(iter_dirs[curr_pos_views][5:])
                 if itr < int(iter_dirs[-1][5:]):
                     iter_dir = f'iter_{itr + 1}'
                     if iter_dir not in iter_dirs:
                         iter_dirs.append(iter_dir)
                         iter_dirs = sorted(iter_dirs, key = lambda x: int(x[5:]))
-                    curr_pos_view_2 += 1
+                    curr_pos_views += 1
                 else:
                     return
             else:
                 return
 
-            curr_pos_view_2 = curr_pos_view_2 % len(iter_dirs)
-            iter_dir = iter_dirs[curr_pos_view_2]
+            curr_pos_views = curr_pos_views % len(iter_dirs)
+            iter_dir = iter_dirs[curr_pos_views]
             iter_num = int(iter_dir[5:])
             iter_save_path = os.path.join(SAVE_PATH, domain_name, curiosity_name, seed, iter_dir)
     
-            curr = curr_pos_view_2
+            curr = curr_pos_views
             transition_data_itr = None
             while curr < len(iter_dirs):
                 if os.path.exists(os.path.join(path, iter_dirs[curr], 'transition_data.pkl')):
@@ -796,7 +812,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
                 curr += 1
             if transition_data_itr is None:
                 return
-            curr = curr_pos_view_2
+            curr = curr_pos_views
             ops_itr = None
             while curr >= 0:
                 if os.path.exists(os.path.join(path, iter_dirs[curr], 'operators.pkl')) :
@@ -850,11 +866,14 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
                 print(filepath)
                 img = mpimg.imread(filepath)
                 ax.set_title(f"{iter_dir} : success rate {succ[iter_num]}")
-                if "GLIB" in curiosity_name and (babbling_seq[iter_num] not in ('babbled', 'fallback')):
-                    goal, plan = babbling_seq[iter_num]
-                    ax.set_xlabel(f'goal: {goal}\nplan: {plan}\naction: {skill_seq[iter_num]}')
+                if "GLIB" in curiosity_name:
+                    if (babbling_seq[iter_num] not in ('babbled', 'fallback')):
+                        goal, plan = babbling_seq[iter_num]
+                        ax.set_xlabel(f'goal: {goal}\nplan: {plan}\naction: {skill_seq[iter_num]}')
+                    else:
+                        ax.set_xlabel(f'{babbling_seq[iter_num]} action: {skill_seq[iter_num]}')
                 else:
-                    ax.set_xlabel(f'{babbling_seq[iter_num]} action: {skill_seq[iter_num]}')
+                    ax.set_xlabel(f'action: {skill_seq[iter_num]}')
         
                 ax.imshow(img)
                 fig.canvas.draw()
@@ -896,91 +915,97 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
             img = mpimg.imread(filepath)
             ax.set_title(f'{iter_dirs[0]} : success rate {succ[0]}')
             ax.imshow(img)
-            ax.set_xlabel(f'{babbling_seq[0]} action: {skill_seq[0]}')
+            if 'GLIB' in curiosity_name:
+                ax.set_xlabel(f'{babbling_seq[0]} action: {skill_seq[0]}')
+            else:
+                ax.set_xlabel(f'action: {skill_seq[0]}')
         else:
             ax.set_title(act)
  
     def key_event_view_1(e):
-        global curr_pos_view_1
+        global curr_pos_views
         nonlocal iter_dirs
 
         if e.key == "right":
-            curr_pos_view_1 = curr_pos_view_1 + 1
+            curr_pos_views = curr_pos_views + 1
         elif e.key == "left":
-            curr_pos_view_1 = curr_pos_view_1 - 1
+            curr_pos_views = curr_pos_views - 1
         elif e.key == 'up':
             # next success increase
-            curr_pos_view_1 += 1
-            curr_pos_view_1 = curr_pos_view_1 % len(iter_dirs)
-            curr_itr = int(iter_dirs[curr_pos_view_1][5:])
+            curr_pos_views += 1
+            curr_pos_views = curr_pos_views % len(iter_dirs)
+            curr_itr = int(iter_dirs[curr_pos_views][5:])
             while curr_itr not in success_itrs:
-                curr_pos_view_1 += 1
-                curr_pos_view_1 = curr_pos_view_1 % len(iter_dirs)
-                curr_itr = int(iter_dirs[curr_pos_view_1][5:])
+                curr_pos_views += 1
+                curr_pos_views = curr_pos_views % len(iter_dirs)
+                curr_itr = int(iter_dirs[curr_pos_views][5:])
         elif e.key == 'down':
             # prev success increase
-            curr_pos_view_1 -= 1
-            curr_pos_view_1 = curr_pos_view_1 % len(iter_dirs)
-            curr_itr = int(iter_dirs[curr_pos_view_1][5:])
+            curr_pos_views -= 1
+            curr_pos_views = curr_pos_views % len(iter_dirs)
+            curr_itr = int(iter_dirs[curr_pos_views][5:])
             while curr_itr not in success_itrs:
-                curr_pos_view_1 -= 1
-                curr_pos_view_1 = curr_pos_view_1 % len(iter_dirs)
-                curr_itr = int(iter_dirs[curr_pos_view_1][5:])
+                curr_pos_views -= 1
+                curr_pos_views = curr_pos_views % len(iter_dirs)
+                curr_itr = int(iter_dirs[curr_pos_views][5:])
+        elif e.key == 'r':
+            # refresh
+            pass
         elif e.key == 'o':
             # next episode start
-            curr_pos_view_1 += 1
-            curr_pos_view_1 = curr_pos_view_1 % len(iter_dirs)
-            curr_itr = int(iter_dirs[curr_pos_view_1][5:])
+            curr_pos_views += 1
+            curr_pos_views = curr_pos_views % len(iter_dirs)
+            curr_itr = int(iter_dirs[curr_pos_views][5:])
             while curr_itr not in episode_start_iters:
-                curr_pos_view_1 += 1
-                curr_pos_view_1 = curr_pos_view_1 % len(iter_dirs)
-                curr_itr = int(iter_dirs[curr_pos_view_1][5:])
+                curr_pos_views += 1
+                curr_pos_views = curr_pos_views % len(iter_dirs)
+                curr_itr = int(iter_dirs[curr_pos_views][5:])
         elif e.key == 'i':
              # prev episode start
-            curr_pos_view_1 -= 1
-            curr_pos_view_1 = curr_pos_view_1 % len(iter_dirs)
-            curr_itr = int(iter_dirs[curr_pos_view_1][5:])
+            curr_pos_views -= 1
+            curr_pos_views = curr_pos_views % len(iter_dirs)
+            curr_itr = int(iter_dirs[curr_pos_views][5:])
             while curr_itr not in episode_start_iters:
-                curr_pos_view_1 -= 1
-                curr_pos_view_1 = curr_pos_view_1 % len(iter_dirs)
-                curr_itr = int(iter_dirs[curr_pos_view_1][5:])           
+                curr_pos_views -= 1
+                curr_pos_views = curr_pos_views % len(iter_dirs)
+                curr_itr = int(iter_dirs[curr_pos_views][5:])           
         elif e.key == 'h':
             # prev iteration
-            itr = int(iter_dirs[curr_pos_view_1][5:])
+            itr = int(iter_dirs[curr_pos_views][5:])
             if itr > 0:
                 iter_dir = f'iter_{itr - 1}'
                 if iter_dir not in iter_dirs:
                     iter_dirs.append(iter_dir)
                     iter_dirs = sorted(iter_dirs, key = lambda x: int(x[5:]))
                 else:
-                    curr_pos_view_1 -= 1
+                    curr_pos_views -= 1
             else:
                 return
         elif e.key == 'j':
             # next iteration
-            itr = int(iter_dirs[curr_pos_view_1][5:])
+            itr = int(iter_dirs[curr_pos_views][5:])
             if itr < int(iter_dirs[-1][5:]):
                 iter_dir = f'iter_{itr + 1}'
                 if iter_dir not in iter_dirs:
                     iter_dirs.append(iter_dir)
                     iter_dirs = sorted(iter_dirs, key = lambda x: int(x[5:]))
-                curr_pos_view_1 += 1
+                curr_pos_views += 1
             else:
                 return
 
         else:
             return
-        curr_pos_view_1 = curr_pos_view_1 % len(iter_dirs)
+        curr_pos_views = curr_pos_views % len(iter_dirs)
 
         ax.cla()
-        iter_dir = iter_dirs[curr_pos_view_1]
+        iter_dir = iter_dirs[curr_pos_views]
         itr_num = int(iter_dir[5:])
         iter_save_path = os.path.join(SAVE_PATH, domain_name, curiosity_name, seed, iter_dir)
         filepath = os.path.join(iter_save_path, 'nops_plot.png')
         print(filepath)
         if not os.path.exists(filepath):
             # Look ahead for the transition data, and look behind for operators and NDRs.
-            curr = curr_pos_view_1
+            curr = curr_pos_views
             transition_data_itr = None
             while curr < len(iter_dirs):
                 if os.path.exists(os.path.join(path, iter_dirs[curr], 'transition_data.pkl')):
@@ -990,7 +1015,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
             if transition_data_itr is None:
                 print("No transition data available")
                 return
-            curr = curr_pos_view_1
+            curr = curr_pos_views
             ops_itr = None
             while curr >= 0:
                 if os.path.exists(os.path.join(path, iter_dirs[curr], 'operators.pkl')) :
@@ -1016,11 +1041,15 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
 
         img = mpimg.imread(filepath)
         ax.set_title(f"{iter_dir} : success rate {succ[int(iter_dir[5:])]}")
-        if "GLIB" in curiosity_name and (babbling_seq[itr_num] not in ('babbled', 'fallback')):
-            goal, plan = babbling_seq[itr_num]
-            ax.set_xlabel(f'goal: {goal}\nplan: {plan}\naction: {skill_seq[itr_num]}')
+        if "GLIB" in curiosity_name:
+            if (babbling_seq[itr_num] not in ('babbled', 'fallback')):
+                goal, plan = babbling_seq[itr_num]
+                ax.set_xlabel(f'goal: {goal}\nplan: {plan}\naction: {skill_seq[itr_num]}')
+            else:
+                ax.set_xlabel(f'{babbling_seq[itr_num]} action: {skill_seq[itr_num]}')
         else:
-            ax.set_xlabel(f'{babbling_seq[itr_num]} action: {skill_seq[itr_num]}')
+            ax.set_xlabel(f'action: {skill_seq[itr_num]}')
+
         ax.imshow(img)
         fig.canvas.draw()
 
@@ -1040,21 +1069,24 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
     ax = fig.add_subplot(111)
     img = mpimg.imread(filepath)
     ax.set_title(f'{iter_dirs[0]} : success rate {succ[0]}')
-    ax.set_xlabel(f'{babbling_seq[0]} action: {skill_seq[0]}')
+    if 'GLIB' in curiosity_name:
+        ax.set_xlabel(f'{babbling_seq[0]} action: {skill_seq[0]}')
+    else:
+        ax.set_xlabel(f'action: {skill_seq[0]}')
     plt.imshow(img)
     plt.show()
 
 
 if __name__ == "__main__":
         
-    domain_name = 'Blocks'
+    domain_name = 'Baking'
     learning_name = 'LNDR'
 
     # curiosity_name = 'random'
     curiosity_name = 'GLIB_L2'
 
     # seed = '405'
-    seeds = [str(s) for s in range(415, 420)]
+    seeds = [str(s) for s in range(100, 110)]
 
     for seed in seeds:
         interactive_view_123(domain_name, curiosity_name, learning_name, seed)
