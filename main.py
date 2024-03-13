@@ -88,6 +88,7 @@ class Runner:
         prev_test_solve_rate = 0
         success_rates = []
         episode_start_itrs = []
+        ops_changed_itrs = []
         for itr in range(self.num_train_iters):
             logging.info("\nIteration {} of {}".format(itr, self.num_train_iters))
 
@@ -145,6 +146,7 @@ class Runner:
                             itrs_on = itr
 
                     # Logging
+                    ops_changed_itrs.append(itr)
                     log_ops = True
                     if (test_solve_rate > prev_test_solve_rate) and ('LNDR' in self.agent.operator_learning_name):
                         log_data = True
@@ -182,6 +184,7 @@ class Runner:
             os.makedirs(path, exist_ok=True)
             np.savetxt(os.path.join(path, 'success_increases.txt'), np.array(success_rates), fmt='%1.3f')
             np.savetxt(os.path.join(path, 'episode_start_iters.txt'), np.array(episode_start_itrs), fmt="%d")
+            np.savetxt(os.path.join(path, 'ops_change_iters.txt'), np.array(ops_changed_itrs), fmt='%d')
 
             with open(os.path.join(path, 'skill_sequence.pkl'), 'wb') as f:
                 pickle.dump(self.agent._operator_learning_module._actions, f)

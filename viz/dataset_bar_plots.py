@@ -235,6 +235,13 @@ def view3(save_path, operators, transition_data, ndrs, domain_name):
         plt.close()
 
 
+def view4(domain_name, curiosity_name, learning_name, seed):
+    """Visualize the babbled / fallback / actions in plan with operator changes and success increases."""
+    # Plot the success rate curve in black
+    # Plot vertical orange line where operator changes
+    # Plot green dot when following plan
+    
+    # Log when operators change
 def interactive_view1(domain_name, curiosity_name, learning_name, seed):
     #FIXME: not updated to show babbling/fallback/in plan actions
     """Interactive view of the NOPs / operators plot.
