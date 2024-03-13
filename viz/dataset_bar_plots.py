@@ -236,7 +236,12 @@ def view3(save_path, operators, transition_data, ndrs, domain_name):
 
 
 def view4(save_path, domain_name, curiosity_name, learning_name, seed):
-    """Visualize the babbled / fallback / actions in plan with operator changes and success increases."""
+    """Visualize the babbled / fallback / actions in plan with operator changes and success increases.
+    plots:
+    - vertical orange lines for operators changed.
+    - green dots when plan is followed
+    - success rate curve in black.
+    """
     # Plot the success rate curve in black
     with open(os.path.join(RESULTS_PATH, domain_name, learning_name, curiosity_name, f'{domain_name}_{learning_name}_{curiosity_name}_{seed}.pkl'), 'rb') as f:
         results = pickle.load(f)
@@ -699,10 +704,12 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
 
     use up/down arrow keys to toggle between success increase/decrease iterations.
     use h/j to toggle iterations.
+    use 'i/o' to jump between episode starts.
+    use 'w/e' to jump between operator changes.
+    use 'x/c' to jump between plan-following actions.
     use left/right to scroll.
     use 'n' to change between NOPs and nonNOPs views.
     use 'r' to render the screen.
-    use 'i/o' to jump between episode starts.
      
     The view1 plot is independent of the view2 plots, which all change from one keystroke (but only rendered when press 'r').
     """
@@ -998,6 +1005,44 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
                 curr_pos_views -= 1
                 curr_pos_views = curr_pos_views % len(iter_dirs)
                 curr_itr = int(iter_dirs[curr_pos_views][5:])
+        elif e.key == 'x':
+            # prev plan-following action
+            if 'GLIB' not in curiosity_name:
+                return
+            itr = int(iter_dirs[curr_pos_views][5:]) - 1
+            while (babbling_seq[itr] in ('fallback', 'babbled')) and (itr >= 0):
+                itr -= 1
+
+            if itr < 0:
+                return
+
+            iter_dir = f'iter_{itr}'
+            print(iter_dir)
+            if iter_dir in iter_dirs:
+                curr_pos_views = iter_dirs.index(iter_dir)
+            else:
+                iter_dirs.append(iter_dir)
+                iter_dirs = sorted(iter_dirs, key = lambda x: int(x[5:]))
+                curr_pos_views = iter_dirs.index(iter_dir)
+        elif e.key == 'c':
+            # next plan-following action
+            if 'GLIB' not in curiosity_name:
+                return
+            itr = int(iter_dirs[curr_pos_views][5:]) + 1
+            while (babbling_seq[itr] in ('fallback', 'babbled')) and itr <= int(iter_dirs[-1][5:]):
+                itr += 1
+
+            if itr > int(iter_dirs[-1][5:]):
+                return
+
+            iter_dir = f'iter_{itr}'
+            if iter_dir in iter_dirs:
+                curr_pos_views = iter_dirs.index(iter_dir)
+            else:
+                iter_dirs.append(iter_dir)
+                iter_dirs = sorted(iter_dirs, key = lambda x: int(x[5:]))
+                curr_pos_views = iter_dirs.index(iter_dir)                   
+            
         elif e.key == 'w':
             # prev op change
             curr_pos_views -= 1
@@ -1143,14 +1188,13 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
         ax.set_xlabel(f'action: {skill_seq[0]}')
     plt.imshow(img)
 
-    if 'GLIB' in curiosity_name:
-        save_path = os.path.join(SAVE_PATH, domain_name, curiosity_name, seed)
-        filepath = os.path.join(save_path, 'GLIB_success_plot.png')
-        if not os.path.exists(filepath):
-            view4(save_path, domain_name, curiosity_name, learning_name, seed)
-        plt.figure()
-        img = mpimg.imread(filepath)
-        plt.imshow(img)
+    save_path = os.path.join(SAVE_PATH, domain_name, curiosity_name, seed)
+    filepath = os.path.join(save_path, 'GLIB_success_plot.png')
+    if not os.path.exists(filepath):
+        view4(save_path, domain_name, curiosity_name, learning_name, seed)
+    plt.figure()
+    img = mpimg.imread(filepath)
+    plt.imshow(img)
     plt.show()
 
 
@@ -1159,11 +1203,11 @@ if __name__ == "__main__":
     domain_name = 'Baking'
     learning_name = 'LNDR'
 
-    curiosity_name = 'random'
-    # curiosity_name = 'GLIB_L2'
-
-    # seed = '405'
-    seeds = [str(s) for s in range(100, 110)]
+    # curiosity_name = 'random'
+    # seeds = [str(s) for s in range(110, 120)]
+    
+    curiosity_name = 'GLIB_L1'
+    seeds = [str(s) for s in range(104, 110)]
 
     for seed in seeds:
         interactive_view_123(domain_name, curiosity_name, learning_name, seed)
