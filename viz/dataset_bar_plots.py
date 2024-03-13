@@ -246,18 +246,18 @@ def view4(save_path, domain_name, curiosity_name, learning_name, seed):
     plt.figure()
     plt.plot(xs, ys, color='#000000')
     # Plot green dot when following plan
-    with open(os.path.join(BABBLING_SOURCE_PATH, domain_name, learning_name, curiosity_name, f'{seed}_babbling_stats.pkl'), 'rb') as f:
-        babbling_seq = pickle.load(f)
-    following_plan_itrs = []
-    following_plan_ys = []
-    print(len(babbling_seq))
-    for itr,b in enumerate(babbling_seq):
-        if b not in ('babbled', 'fallback'):
-            following_plan_itrs.append(itr)
-            following_plan_ys.append(ys[itr])
-    plt.scatter(following_plan_itrs, following_plan_ys, color='#008000')
+    if "GLIB" in curiosity_name:
+        with open(os.path.join(BABBLING_SOURCE_PATH, domain_name, learning_name, curiosity_name, f'{seed}_babbling_stats.pkl'), 'rb') as f:
+            babbling_seq = pickle.load(f)
+        following_plan_itrs = []
+        following_plan_ys = []
+        for itr,b in enumerate(babbling_seq):
+            if b not in ('babbled', 'fallback'):
+                following_plan_itrs.append(itr)
+                following_plan_ys.append(ys[itr])
+        plt.scatter(following_plan_itrs, following_plan_ys, color='#008000')
     # Plot vertical orange line where operator changes
-    ops_change_itrs = np.loadtxt(os.path.join(SOURCE_PATH, domain_name, curiosity_name, seed), 'ops_change_iters.txt')
+    ops_change_itrs = np.loadtxt(os.path.join(SOURCE_PATH, domain_name, curiosity_name, seed, 'ops_change_iters.txt'))
     for itr in ops_change_itrs:
         plt.axvline(x=itr, color='#FFA500')
     
@@ -733,6 +733,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
         success_increases = success_increases[np.newaxis, :]
     success_itrs = success_increases[:, 0].tolist()
 
+    ops_change_itrs = np.loadtxt(os.path.join(SOURCE_PATH, domain_name, curiosity_name, seed, 'ops_change_iters.txt'))
 
     results_path = os.path.join(RESULTS_PATH, domain_name, learning_name, curiosity_name, f'{domain_name}_{learning_name}_{curiosity_name}_{seed}.pkl')
     with open(results_path, 'rb') as f:
@@ -778,6 +779,24 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
                 curr_itr = int(iter_dirs[curr_pos_views][5:])
                 while curr_itr not in success_itrs:
                     curr_pos_views -= 1
+                    curr_pos_views = curr_pos_views % len(iter_dirs)
+                    curr_itr = int(iter_dirs[curr_pos_views][5:])
+            elif e.key == 'w':
+                # prev op change
+                curr_pos_views -= 1
+                curr_pos_views = curr_pos_views % len(iter_dirs)
+                curr_itr = int(iter_dirs[curr_pos_views][5:])
+                while curr_itr not in ops_change_itrs:
+                    curr_pos_views -= 1
+                    curr_pos_views = curr_pos_views % len(iter_dirs)
+                    curr_itr = int(iter_dirs[curr_pos_views][5:])
+            elif e.key == 'e':
+                # next op change
+                curr_pos_views += 1
+                curr_pos_views = curr_pos_views % len(iter_dirs)
+                curr_itr = int(iter_dirs[curr_pos_views][5:])
+                while curr_itr not in ops_change_itrs:
+                    curr_pos_views += 1
                     curr_pos_views = curr_pos_views % len(iter_dirs)
                     curr_itr = int(iter_dirs[curr_pos_views][5:])
             elif e.key == 'r':
@@ -979,6 +998,24 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
                 curr_pos_views -= 1
                 curr_pos_views = curr_pos_views % len(iter_dirs)
                 curr_itr = int(iter_dirs[curr_pos_views][5:])
+        elif e.key == 'w':
+            # prev op change
+            curr_pos_views -= 1
+            curr_pos_views = curr_pos_views % len(iter_dirs)
+            curr_itr = int(iter_dirs[curr_pos_views][5:])
+            while curr_itr not in ops_change_itrs:
+                curr_pos_views -= 1
+                curr_pos_views = curr_pos_views % len(iter_dirs)
+                curr_itr = int(iter_dirs[curr_pos_views][5:])
+        elif e.key == 'e':
+            # next op change
+            curr_pos_views += 1
+            curr_pos_views = curr_pos_views % len(iter_dirs)
+            curr_itr = int(iter_dirs[curr_pos_views][5:])
+            while curr_itr not in ops_change_itrs:
+                curr_pos_views += 1
+                curr_pos_views = curr_pos_views % len(iter_dirs)
+                curr_itr = int(iter_dirs[curr_pos_views][5:])
         elif e.key == 'r':
             # refresh
             pass
@@ -1108,9 +1145,10 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
 
     if 'GLIB' in curiosity_name:
         save_path = os.path.join(SAVE_PATH, domain_name, curiosity_name, seed)
-        view4(save_path, domain_name, curiosity_name, learning_name, seed)
-        plt.figure()
         filepath = os.path.join(save_path, 'GLIB_success_plot.png')
+        if not os.path.exists(filepath):
+            view4(save_path, domain_name, curiosity_name, learning_name, seed)
+        plt.figure()
         img = mpimg.imread(filepath)
         plt.imshow(img)
     plt.show()
@@ -1121,8 +1159,8 @@ if __name__ == "__main__":
     domain_name = 'Baking'
     learning_name = 'LNDR'
 
-    # curiosity_name = 'random'
-    curiosity_name = 'GLIB_L2'
+    curiosity_name = 'random'
+    # curiosity_name = 'GLIB_L2'
 
     # seed = '405'
     seeds = [str(s) for s in range(100, 110)]
