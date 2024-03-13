@@ -104,9 +104,7 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
             planning_attempts += 1
 
             if self._plan_is_good():
-                if len(self._plan) == 0:
-                    self.line_stats.append('babbled')
-                else:
+                if len(self._plan) != 0:
                     self.line_stats.append((goal, deepcopy(self._plan)))
                     if self._goal_from_llm:
                         self.llm_line_stats.append(1)

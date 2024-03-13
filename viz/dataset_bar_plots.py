@@ -235,13 +235,37 @@ def view3(save_path, operators, transition_data, ndrs, domain_name):
         plt.close()
 
 
-def view4(domain_name, curiosity_name, learning_name, seed):
+def view4(save_path, domain_name, curiosity_name, learning_name, seed):
     """Visualize the babbled / fallback / actions in plan with operator changes and success increases."""
     # Plot the success rate curve in black
-    # Plot vertical orange line where operator changes
+    with open(os.path.join(RESULTS_PATH, domain_name, learning_name, curiosity_name, f'{domain_name}_{learning_name}_{curiosity_name}_{seed}.pkl'), 'rb') as f:
+        results = pickle.load(f)
+    results = np.array(results)
+    xs = results[:, 0]
+    ys = results[:, 1]
+    plt.figure()
+    plt.plot(xs, ys, color='#000000')
     # Plot green dot when following plan
+    with open(os.path.join(BABBLING_SOURCE_PATH, domain_name, learning_name, curiosity_name, f'{seed}_babbling_stats.pkl'), 'rb') as f:
+        babbling_seq = pickle.load(f)
+    following_plan_itrs = []
+    following_plan_ys = []
+    print(len(babbling_seq))
+    for itr,b in enumerate(babbling_seq):
+        if b not in ('babbled', 'fallback'):
+            following_plan_itrs.append(itr)
+            following_plan_ys.append(ys[itr])
+    plt.scatter(following_plan_itrs, following_plan_ys, color='#008000')
+    # Plot vertical orange line where operator changes
+    ops_change_itrs = np.loadtxt(os.path.join(SOURCE_PATH, domain_name, curiosity_name, seed), 'ops_change_iters.txt')
+    for itr in ops_change_itrs:
+        plt.axvline(x=itr, color='#FFA500')
     
-    # Log when operators change
+    plt.gcf().set_size_inches(22, 14)
+    plt.savefig(os.path.join(save_path, 'GLIB_success_plot.png'), dpi=300)
+    plt.close()
+
+
 def interactive_view1(domain_name, curiosity_name, learning_name, seed):
     #FIXME: not updated to show babbling/fallback/in plan actions
     """Interactive view of the NOPs / operators plot.
@@ -1081,6 +1105,14 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
     else:
         ax.set_xlabel(f'action: {skill_seq[0]}')
     plt.imshow(img)
+
+    if 'GLIB' in curiosity_name:
+        save_path = os.path.join(SAVE_PATH, domain_name, curiosity_name, seed)
+        view4(save_path, domain_name, curiosity_name, learning_name, seed)
+        plt.figure()
+        filepath = os.path.join(save_path, 'GLIB_success_plot.png')
+        img = mpimg.imread(filepath)
+        plt.imshow(img)
     plt.show()
 
 

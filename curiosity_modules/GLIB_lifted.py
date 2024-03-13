@@ -227,6 +227,8 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
             if action is None:
                 # There was no way to bind the lifted action. Fallback
                 action = self._get_fallback_action(self._last_state)
+            else:
+                self.line_stats.append('babbled')
             return [action]
         # Otherwise, we'll take the last action once we finish the plan
         # print("Setting a plan:", plan)
