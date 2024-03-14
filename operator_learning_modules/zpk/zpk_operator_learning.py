@@ -15,6 +15,7 @@ from typing import Dict
 import pddlgym
 import logging
 import os
+from copy import deepcopy
 
 
 class ZPKOperatorLearningModule:
@@ -28,6 +29,8 @@ class ZPKOperatorLearningModule:
         self._learning_on = True
         self._ndrs:Dict[pddlgym.structs.Predicate,NDRSet] = {}
         self._fits_all_data = defaultdict(bool)
+        # Logging
+        self._actions = []
 
     def observe(self, state, action, effects, **kwargs):
         if not self._learning_on:
@@ -39,6 +42,9 @@ class ZPKOperatorLearningModule:
             ndr = self._ndrs[action.predicate]
             if not self._ndr_fits_data(ndr, state, action, effects):
                 self._fits_all_data[action.predicate] = False
+
+        # Logging
+        self._actions.append(action)
 
     def learn(self, iter=-1):
 

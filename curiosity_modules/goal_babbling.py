@@ -12,6 +12,7 @@ from pddlgym.parser import Operator
 from pddlgym.structs import Type, TypedEntity, Literal, LiteralConjunction
 from itertools import combinations
 from pddlgym.parser import PDDLDomainParser
+from copy import deepcopy
 
 GOAL_BABBLING_LOGGER = logging.getLogger("GOAL_BABBLING")
 
@@ -53,7 +54,15 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
 
         # Continue executing plan?
         if self._plan and (last_state != state):
-            self.line_stats.append(1)
+            if 'glibg' in self._name:
+                # in GLIB-G, the last item in the plan is the babbled action
+                if len(self._plan) == 1:
+                    self.line_stats.append('babbled')
+                else:
+                    self.line_stats.append((self._goal, deepcopy(self._plan[:-1])))
+            else:
+                # in GLIB-lifted, the last item in the plan is not the babbled action
+                self.line_stats.append((self._goal, deepcopy(self._plan)))
             if self._goal_from_llm:
                 self.llm_line_stats.append(1)
             else:
@@ -95,16 +104,19 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
             planning_attempts += 1
 
             if self._plan_is_good():
+                if len(self._plan) != 0:
+                    self.line_stats.append((goal, deepcopy(self._plan)))
+                    if self._goal_from_llm:
+                        self.llm_line_stats.append(1)
+                    else:
+                        self.llm_line_stats.append(0)
+    
                 self._plan = self._finish_plan(self._plan)
+                self._goal = goal
                 GOAL_BABBLING_LOGGER.debug(f"\tGOAL: {goal}")
                 GOAL_BABBLING_LOGGER.debug(f"\tPLAN: {self._plan}")
                 # import ipdb; ipdb.set_trace()
                 # Take the first step in the plan
-                self.line_stats.append(1)
-                if self._goal_from_llm:
-                    self.llm_line_stats.append(1)
-                else:
-                    self.llm_line_stats.append(0)
                 return self._plan.pop(0)
             self._plan = []
 
@@ -113,7 +125,7 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
         return self._get_fallback_action(state)
 
     def _get_fallback_action(self, state):
-        self.line_stats.append(0)
+        self.line_stats.append('fallback')
         self.llm_line_stats.append(0)
         return self._action_space.sample(state)
 

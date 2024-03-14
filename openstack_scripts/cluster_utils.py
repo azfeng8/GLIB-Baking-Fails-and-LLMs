@@ -131,15 +131,7 @@ def get_cmds_to_prep_repo(branch: str) -> List[str]:
         # Remove old results.
         f"rm -rf {old_dir_pattern}",
         "mkdir -p logs",
-        
-        # Find cause of bug
-        'cd ..',
-        "git clone https://github.com/azfeng8/pddlgym.git",
-        'cd pddlgym',
-        'git checkout remove-passive-warnings',
-        'pip install -e .',
-        'cd ../GLIB-Baking-Fails-and-LLMs'
-    ]
+   ]
 
 
 def run_cmds_on_machine(
