@@ -163,30 +163,32 @@ class Runner:
 
                 results.append((itr, test_solve_rate, variational_dist))
 
-                if log_ops:
-                    path = os.path.join('results', 'LNDR', self.domain_name, self.agent.curiosity_module_name, str(ec.seed), f'iter_{itr}' )
-                    os.makedirs(path, exist_ok=True)
-                    with open(os.path.join(path, 'operators.pkl'), 'wb') as f:
-                        pickle.dump(list(self.agent._operator_learning_module._learned_operators), f)
-                    with open(os.path.join(path, 'ndrs.pkl'), 'wb') as f:
-                        pickle.dump(self.agent._operator_learning_module._ndrs, f)
-                if log_data:
-                    path = os.path.join('results', 'LNDR', self.domain_name, self.agent.curiosity_module_name, str(ec.seed), f'iter_{itr}' )
-                    os.makedirs(path, exist_ok=True)
-                    with open(os.path.join(path, 'transition_data.pkl'), 'wb') as f:
-                        pickle.dump(self.agent._operator_learning_module._transitions, f)
-                    np.savetxt(os.path.join(path, 'test_cases.txt'), np.array(successes), fmt='%1.3f')
+                if gc.dataset_logging:
+                    if log_ops:
+                        path = os.path.join('results', 'LNDR', self.domain_name, self.agent.curiosity_module_name, str(ec.seed), f'iter_{itr}' )
+                        os.makedirs(path, exist_ok=True)
+                        with open(os.path.join(path, 'operators.pkl'), 'wb') as f:
+                            pickle.dump(list(self.agent._operator_learning_module._learned_operators), f)
+                        with open(os.path.join(path, 'ndrs.pkl'), 'wb') as f:
+                            pickle.dump(self.agent._operator_learning_module._ndrs, f)
+                    if log_data:
+                        path = os.path.join('results', 'LNDR', self.domain_name, self.agent.curiosity_module_name, str(ec.seed), f'iter_{itr}' )
+                        os.makedirs(path, exist_ok=True)
+                        with open(os.path.join(path, 'transition_data.pkl'), 'wb') as f:
+                            pickle.dump(self.agent._operator_learning_module._transitions, f)
+                        np.savetxt(os.path.join(path, 'test_cases.txt'), np.array(successes), fmt='%1.3f')
 
 
-        if ('LNDR' in self.agent.operator_learning_name):
-            path = os.path.join('results', 'LNDR', self.domain_name, self.agent.curiosity_module_name, str(ec.seed))
-            os.makedirs(path, exist_ok=True)
-            np.savetxt(os.path.join(path, 'success_increases.txt'), np.array(success_rates), fmt='%1.3f')
-            np.savetxt(os.path.join(path, 'episode_start_iters.txt'), np.array(episode_start_itrs), fmt="%d")
-            np.savetxt(os.path.join(path, 'ops_change_iters.txt'), np.array(ops_changed_itrs), fmt='%d')
+        if gc.dataset_logging:
+            if ('LNDR' in self.agent.operator_learning_name):
+                path = os.path.join('results', 'LNDR', self.domain_name, self.agent.curiosity_module_name, str(ec.seed))
+                os.makedirs(path, exist_ok=True)
+                np.savetxt(os.path.join(path, 'success_increases.txt'), np.array(success_rates), fmt='%1.3f')
+                np.savetxt(os.path.join(path, 'episode_start_iters.txt'), np.array(episode_start_itrs), fmt="%d")
+                np.savetxt(os.path.join(path, 'ops_change_iters.txt'), np.array(ops_changed_itrs), fmt='%d')
 
-            with open(os.path.join(path, 'skill_sequence.pkl'), 'wb') as f:
-                pickle.dump(self.agent._operator_learning_module._actions, f)
+                with open(os.path.join(path, 'skill_sequence.pkl'), 'wb') as f:
+                    pickle.dump(self.agent._operator_learning_module._actions, f)
 
 
         if itrs_on is None:
@@ -279,16 +281,17 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_
         pickle.dump(results, f)
         logging.info("Dumped results to {}".format(cache_file))
 
-    if "GLIB" in curiosity_name:
-        path = os.path.join(f'results', 'GLIB', domain_name, learning_name, curiosity_name)
-        os.makedirs(path, exist_ok=True)
-        with open(os.path.join(path, f'{seed}_babbling_stats.pkl'), 'wb') as f:
-            pickle.dump(agent._curiosity_module.line_stats, f)
-        if "LLM" in curiosity_name:
-            with open(os.path.join(path, f'{seed}_llm_babbling_stats.pkl') ,'wb') as f:
-                pickle.dump(agent._curiosity_module.llm_line_stats, f)
+    if gc.dataset_logging:
+        if "GLIB" in curiosity_name:
+            path = os.path.join(f'results', 'GLIB', domain_name, learning_name, curiosity_name)
+            os.makedirs(path, exist_ok=True)
+            with open(os.path.join(path, f'{seed}_babbling_stats.pkl'), 'wb') as f:
+                pickle.dump(agent._curiosity_module.line_stats, f)
+            if "LLM" in curiosity_name:
+                with open(os.path.join(path, f'{seed}_llm_babbling_stats.pkl') ,'wb') as f:
+                    pickle.dump(agent._curiosity_module.llm_line_stats, f)
 
-       
+        
     logging.info("\n\n\nFinished single seed in {} seconds".format(time.time()-start))
     return {curiosity_name: results}
 

@@ -29,6 +29,7 @@ def parse_flags() -> None:
     gc.results_dir = args.results_dir
     gc.timings_dir = args.timings_dir
     gc.planning_results_dir = args.planning_results_dir
+    gc.dataset_logging = args.dataset_logging
 
     ac.curiosity_methods_to_run = args.curiosity_methods
     ac.learning_name = args.learning_name
@@ -50,6 +51,7 @@ def parse_llm_config(parser:argparse.ArgumentParser):
 def parse_general_config(parser:argparse.ArgumentParser):
     parser.add_argument('--start_seed', type=int, required=True)
     parser.add_argument('--num_seeds', type=int, required=True)
+    parser.add_argument('--dataset_logging', action="store_true", default=False)
 
     parser.add_argument("--debug", action="store_const", dest="loglevel", const=logging.DEBUG, default=logging.INFO)
     parser.add_argument('--data_dir', type=str, default='data', help="Path to variational distance transition pickles")
