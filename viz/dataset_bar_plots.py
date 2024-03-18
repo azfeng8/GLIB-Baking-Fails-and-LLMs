@@ -1201,13 +1201,13 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
 if __name__ == "__main__":
         
     domain_name = 'Baking'
-    learning_name = 'LNDR'
+    learning_name = 'LLMWarmStart+LNDR'
 
     # curiosity_name = 'random'
     # seeds = [str(s) for s in range(110, 120)]
     
-    curiosity_name = 'GLIB_L1'
-    seeds = [str(s) for s in range(104, 110)]
+    curiosity_name = 'GLIB_G1'
+    seeds = [str(s) for s in range(123, 124)]
 
     for seed in seeds:
         interactive_view_123(domain_name, curiosity_name, learning_name, seed)
