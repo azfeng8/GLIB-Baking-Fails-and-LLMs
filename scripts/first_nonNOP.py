@@ -10,6 +10,7 @@ LLMWarmStart+LNDR // GLIB_G1  327.8889 (std=515.3412)  900.5714 (std=511.3235)  
 LNDR // GLIB_G1               830.8333 (std=638.1942)  508.8889 (std=439.2361)  391.6667 (std=491.1381)  722.8571 (std=680.6624)  125.4444 (std=318.9779)  431.6667 (std=501.375)  20.3333 (std=21.6795)  36.1111 (std=23.5723)
 LLMWarmStart+LNDR // GLIB_L2  312.4444 (std=375.1406)  490.5 (std=413.192)      389.5 (std=459.8539)     95.7 (std=279.1057)      1.7 (std=4.776)          1.4 (std=1.1136)        6.0 (std=6.3561)       17.8 (std=13.4447)
 LNDR // GLIB_L2               377.625 (std=336.5163)   548.875 (std=372.4475)   168.875 (std=396.9548)   268.875 (std=334.5151)   25.0 (std=19.666)        35.75 (std=34.2409)     20.625 (std=12.7469)   59.5 (std=32.2219)
+LNDR // random                594.75 (std=660.9222)    340.4 (std=293.3906)     58.2 (std=58.2869)       181.6 (std=204.5674)     18.4 (std=18.178)        24.8 (std=32.0961)      19.1 (std=19.4702)     113.3 (std=105.0743)
 
 LLMWarmStart+LNDR // GLIB_G1
 _  babbled:                   1                        5                        9                        2                        1                        0                       2                      1
@@ -27,6 +28,11 @@ LNDR // GLIB_L2
 _  babbled:                   1                        1                        0                        6                        0                        3                       0                      5
 _  fallback:                  7                        7                        8                        2                        8                        5                       8                      3
 _  inplan:                    0                        0                        0                        0                        0                        0                       0                      0
+LNDR // random
+_  babbled:                   0                        0                        0                        0                        0                        0                       0                      0
+_  fallback:                  4                        10                       10                       10                       10                       10                      10                     10
+_  inplan:                    0                        0                        0                        0                        0                        0                       0                      0
+
 """
 
 import os
@@ -71,8 +77,9 @@ def get_data(domain_name, curiosity, learning_name, seeds):
         with open(os.path.join(path, 'skill_sequence.pkl'), 'rb') as f:
             skill_seq = pickle.load(f)
 
-        with open(os.path.join(GLIB_PATH, domain_name, learning_name, curiosity, f'{seed}_babbling_stats.pkl'), 'rb') as f:
-            babbling_stats = pickle.load(f)
+        if "GLIB" in curiosity:
+            with open(os.path.join(GLIB_PATH, domain_name, learning_name, curiosity, f'{seed}_babbling_stats.pkl'), 'rb') as f:
+                babbling_stats = pickle.load(f)
 
         # first_nonNOP = defaultdict(lambda : 0)
         for skill in t_data:
@@ -84,12 +91,15 @@ def get_data(domain_name, curiosity, learning_name, seeds):
                 s,a,e = t_data[skill][j]
                 if act == a:
                     if len(e) != 0:
-                        if babbling_stats[iter_num] == 'fallback':
-                            fallback_nonNOP_action[skill] += 1
-                        elif babbling_stats[iter_num] == 'babbled':
-                            babbled_nonNOP_action[skill] += 1
+                        if "GLIB" in curiosity:
+                            if babbling_stats[iter_num] == 'fallback':
+                                fallback_nonNOP_action[skill] += 1
+                            elif babbling_stats[iter_num] == 'babbled':
+                                babbled_nonNOP_action[skill] += 1
+                            else:
+                                inplan_nonNOP_action[skill] += 1
                         else:
-                            inplan_nonNOP_action[skill] += 1
+                            fallback_nonNOP_action[skill] += 1
                         first_nonNOP_iter[skill].append(iter_num)
                         # first_nonNOP[skill] = (iter_num, 'in plan')
                         # first_nonNOP[skill] = (iter_num, babbling_stats[iter_num])
@@ -102,7 +112,7 @@ domain_name = 'Baking'
 env = pddlgym.make(f'PDDLEnv{domain_name}-v0')
 skills = [p.name for p in env.action_space.predicates]
 
-datasets = [('LLMWarmStart+LNDR',"GLIB_G1", [str(s) for s in range(120, 130) if s != 125]) , ("LNDR", "GLIB_G1", [str(s) for s in range(100, 110) if s != 106]), ("LLMWarmStart+LNDR", "GLIB_L2", [str(s) for s in range(120, 130)]), ("LNDR", "GLIB_L2", [str(s) for s in range(100, 110) if s not in (108, 107)])]
+datasets = [('LLMWarmStart+LNDR',"GLIB_G1", [str(s) for s in range(120, 130) if s != 125]) , ("LNDR", "GLIB_G1", [str(s) for s in range(100, 110) if s != 106]), ("LLMWarmStart+LNDR", "GLIB_L2", [str(s) for s in range(120, 130)]), ("LNDR", "GLIB_L2", [str(s) for s in range(100, 110) if s not in (108, 107)]), ("LNDR", "random", [str(s) for s in range(120, 130)])]
                    
 
 nonNOP_iter_table = []
