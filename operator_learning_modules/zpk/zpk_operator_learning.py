@@ -145,8 +145,10 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         prompt = self._create_todo_prompt()
         llm_output = self._query_llm(prompt)
         operators = self._llm_output_to_operators(llm_output)
+        self._initialized_ops = operators
         self._learned_operators.update(operators)
         # Also need to initialize ndrs!
+        self._initialized_ndrs = {}
         for op in operators:
             # In initializing the learner from previous, we assume a
             # standard variable naming scheme.
@@ -167,6 +169,43 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
             ndr = NDR(action, preconditions, np.array([1.0, 0.0]), [effects, [NOISE_OUTCOME]])
             ndrs = NDRSet(action, [ndr])
             self._ndrs[action.predicate] = ndrs
+            self._initialized_ndrs[action.predicate] = ndrs
+
+        self._skills_w_NOPs_only:set[str] = set([p.name for p in ac.train_env.action_space.predicates])
+
+    def observe(self, state, action, effects, **kwargs):
+        if not self._learning_on:
+            return
+        self._transitions[action.predicate].append((state.literals, action, effects))
+
+        if len(effects) != 0 and action.predicate.name in self._skills_w_NOPs_only:
+            self._skills_w_NOPs_only.remove(action.predicate.name)
+
+        # Check whether we'll need to relearn
+        if self._fits_all_data[action.predicate]:
+            ndr = self._ndrs[action.predicate]
+            if not self._ndr_fits_data(ndr, state, action, effects):
+                self._fits_all_data[action.predicate] = False
+
+        # Logging
+        self._actions.append(action)
+
+    def edit_learned_rep(self):
+        """For skills that have only NOPs, use the warmstart operators."""
+        ops_to_add = set()
+        for op in self._initialized_ops:
+            action = [p for p in op.preconds.literals
+                if p.predicate in ac.train_env.action_space.predicates][0]
+            if action.predicate.name in self._skills_w_NOPs_only:
+                ops_to_add.add(op)
+                self._ndrs[action.predicate] = self._initialized_ndrs[action.predicate]
+        self._learned_operators.update(ops_to_add)
+        logging.info(f"Edited learned operators and NDRs. Total ops added: {len(ops_to_add)}")
+            
+    def learn(self, itr=-1):
+        is_updated = super().learn(itr)
+        self.edit_learned_rep()
+        return is_updated
 
     def _create_todo_prompt(self):
         """Generate the prompt using operator names, the action parameters (a subset of operator parameters), object types, and the observation predicates with types.
