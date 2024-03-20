@@ -203,6 +203,16 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         logging.info(f"Edited learned operators and NDRs. Total ops added: {len(ops_to_add)}")
             
     def learn(self, itr=-1):
+        """Only call LNDR on skills that have a nonNOP.
+        This is justified since if the NDR has no effects, no operator is conceived. Thus, until a nonNOP is received, no operator is conceived.
+
+        So, the LLM operator (if it exists) will be used in substitution.
+        """
+        # Don't call LNDR on skills with only NOPs.
+        for skill_name in self._skills_w_NOPs_only:
+            action_pred = [p for p in ac.train_env.action_space.predicates if p.name == skill_name][0]
+            self._fits_all_data[action_pred] = True
+
         is_updated = super().learn(itr)
         self.edit_learned_rep()
         return is_updated
