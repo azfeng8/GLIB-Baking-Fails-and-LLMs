@@ -38,6 +38,7 @@ class ZPKOperatorLearningModule:
         self._transitions[action.predicate].append((state.literals, action, effects))
 
         # Check whether we'll need to relearn
+        logging.info(self._fits_all_data)
         if self._fits_all_data[action.predicate]:
             ndr = self._ndrs[action.predicate]
             if not self._ndr_fits_data(ndr, state, action, effects):
@@ -176,17 +177,18 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
     def observe(self, state, action, effects, **kwargs):
         if not self._learning_on:
             return
+
         self._transitions[action.predicate].append((state.literals, action, effects))
 
         if len(effects) != 0 and action.predicate.name in self._skills_w_NOPs_only:
             self._skills_w_NOPs_only.remove(action.predicate.name)
 
         # Check whether we'll need to relearn
-        if self._fits_all_data[action.predicate]:
+            # self._fits_all_data[action.predicate] is True once learned an initial NDR
+        if self._fits_all_data[action.predicate] and action.predicate.name not in self._skills_w_NOPs_only:
             ndr = self._ndrs[action.predicate]
             if not self._ndr_fits_data(ndr, state, action, effects):
                 self._fits_all_data[action.predicate] = False
-
         # Logging
         self._actions.append(action)
 
@@ -199,8 +201,13 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
             if action.predicate.name in self._skills_w_NOPs_only:
                 ops_to_add.add(op)
                 self._ndrs[action.predicate] = self._initialized_ndrs[action.predicate]
+        if self._learned_operators == (self._learned_operators | ops_to_add):
+            is_updated = False
+        else:
+            is_updated = True
         self._learned_operators.update(ops_to_add)
         logging.info(f"Edited learned operators and NDRs. Total ops added: {len(ops_to_add)}")
+        return is_updated
             
     def learn(self, itr=-1):
         """Only call LNDR on skills that have a nonNOP.
@@ -208,13 +215,11 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
 
         So, the LLM operator (if it exists) will be used in substitution.
         """
-        # Don't call LNDR on skills with only NOPs.
-        for skill_name in self._skills_w_NOPs_only:
-            action_pred = [p for p in ac.train_env.action_space.predicates if p.name == skill_name][0]
-            self._fits_all_data[action_pred] = True
 
-        is_updated = super().learn(itr)
-        self.edit_learned_rep()
+        lndr_updated = super().learn(itr)
+        is_updated = lndr_updated or (self.edit_learned_rep())
+
+
         return is_updated
 
     def _create_todo_prompt(self):
@@ -244,10 +249,81 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         return prompt
 
     def _query_llm(self, prompt):
-        response, path = self._llm.sample_completions([{"role": "user", "content": prompt}], temperature=0, seed=self._seed, num_completions=1)
-        response = response[0]
+        # response, path = self._llm.sample_completions([{"role": "user", "content": prompt}], temperature=0, seed=self._seed, num_completions=1)
+        # response = response[0]
+        response = """(define (domain minecraft)
+	(:types static moveable agent)
+	(:predicates
+		(agentat ?v0 - static)
+		(at ?v0 - moveable ?v1 - static)
+		(equipped ?v0 - moveable ?v1 - agent)
+		(handsfree ?v0 - agent)
+		(hypothetical ?v0 - moveable)
+		(inventory ?v0 - moveable)
+		(isgrass ?v0 - moveable)
+		(islog ?v0 - moveable)
+		(isplanks ?v0 - moveable)
+	)
+
+	(:action craftplank
+		:parameters (?v0 - moveable ?v1 - moveable ?v2 - agent)
+		:precondition (and
+				(islog ?v0)
+				(equipped ?v0 ?v2)
+		)
+		:effect (and
+				(not (islog ?v0))
+				(isplanks ?v1)
+				(equipped ?v1 ?v2)
+		)
+	)
+	(:action equip
+		:parameters (?v0 - moveable ?v1 - agent)
+		:precondition (and
+				(handsfree ?v1)
+				(inventory ?v0)
+		)
+		:effect (and
+				(not (handsfree ?v1))
+				(equipped ?v0 ?v1)
+		)
+	)
+	(:action move
+		:parameters (?v0 - static ?v1 - agent)
+		:precondition (and
+				(agentat ?v1)
+		)
+		:effect (and
+				(not (agentat ?v1))
+				(agentat ?v0)
+		)
+	)
+	(:action pick
+		:parameters (?v0 - moveable ?v1 - agent)
+		:precondition (and
+				(at ?v0 ?v1)
+				(handsfree ?v1)
+		)
+		:effect (and
+				(not (at ?v0 ?v1))
+				(inventory ?v0)
+		)
+	)
+	(:action recall
+		:parameters (?v0 - moveable ?v1 - agent)
+		:precondition (and
+				(equipped ?v0 ?v1)
+		)
+		:effect (and
+				(not (equipped ?v0 ?v1))
+				(handsfree ?v1)
+				(inventory ?v0)
+		)
+	)
+)
+"""
         logging.info(f"Got response {response}")
-        logging.debug(f"Saved response at path: {path}")
+        # logging.debug(f"Saved response at path: {path}")
         return response
 
 
