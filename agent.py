@@ -50,11 +50,12 @@ class Agent:
 
         self.llm = OpenAI_Model()
         self.llm_precondition_goals = dict() # Op from LLM: Op from Learner with the same action predicate (random)
+        self.skills_to_overwrite_with_LLMinit_ops = set([p.name for p in ac.train_env.action_space.predicates])
 
         # The operator learning module learns operators. It should update the
         # agent's learned operators set
         self._operator_learning_module = create_operator_learning_module(
-            operator_learning_name, self.learned_operators, self.domain_name, self.llm, self.llm_precondition_goals, log_llm_path)
+            operator_learning_name, self.learned_operators, self.domain_name, self.llm, self.llm_precondition_goals, self.skills_to_overwrite_with_LLMinit_ops, log_llm_path)
         # The planning module uses the learned operators to plan at test time.
         self._planning_module = create_planning_module(
             planning_module_name, self.learned_operators, domain_name,
@@ -75,8 +76,13 @@ class Agent:
         """Get an exploratory action to collect more training data.
            Not used for testing. Planner is used for testing."""
         start_time = time.time()
-        action = self._curiosity_module.get_action(state)
+        in_plan, action = self._curiosity_module.get_action(state)
         self.curiosity_time += time.time()-start_time
+
+        if in_plan:
+            self._action_in_plan = True
+        else:
+            self._action_in_plan = False
         return action
 
     def observe(self, state, action, next_state, itr):
@@ -89,6 +95,10 @@ class Agent:
         self._curiosity_module.observe(state, action, effects)
         self.curiosity_time += time.time()-start_time
         self.episode_start = False
+
+        if (len(effects) == 0 and self._action_in_plan) or (len(effects) != 0):
+            if action.predicate.name in self.skills_to_overwrite_with_LLMinit_ops:
+                self.skills_to_overwrite_with_LLMinit_ops.remove(action.predicate.name)
 
     def learn(self, itr):
         # Learn (probably less frequently than observing)

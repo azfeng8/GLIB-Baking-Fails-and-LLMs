@@ -129,7 +129,7 @@ class ZPKOperatorLearningModule:
 class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
     """The ZPK operator learner but initialized with operators output by an LLM."""
 
-    def __init__(self, learned_operators, domain_name, llm):
+    def __init__(self, learned_operators, domain_name, llm, skills_to_overwrite_with_LLMinit_op):
         super().__init__(learned_operators, domain_name)
 
         self._llm:OpenAI_Model = llm
@@ -172,7 +172,7 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
             self._ndrs[action.predicate] = ndrs
             self._initialized_ndrs[action.predicate] = ndrs
 
-        self._skills_w_NOPs_only:set[str] = set([p.name for p in ac.train_env.action_space.predicates])
+        self._skills_to_replace:set[str] = skills_to_overwrite_with_LLMinit_op
 
     def observe(self, state, action, effects, **kwargs):
         if not self._learning_on:
@@ -180,12 +180,9 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
 
         self._transitions[action.predicate].append((state.literals, action, effects))
 
-        if len(effects) != 0 and action.predicate.name in self._skills_w_NOPs_only:
-            self._skills_w_NOPs_only.remove(action.predicate.name)
-
         # Check whether we'll need to relearn
             # self._fits_all_data[action.predicate] is True once learned an initial NDR
-        if self._fits_all_data[action.predicate] and action.predicate.name not in self._skills_w_NOPs_only:
+        if self._fits_all_data[action.predicate] and action.predicate.name not in self._skills_to_replace:
             ndr = self._ndrs[action.predicate]
             if not self._ndr_fits_data(ndr, state, action, effects):
                 self._fits_all_data[action.predicate] = False
@@ -198,7 +195,7 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         for op in self._initialized_ops:
             action = [p for p in op.preconds.literals
                 if p.predicate in ac.train_env.action_space.predicates][0]
-            if action.predicate.name in self._skills_w_NOPs_only:
+            if action.predicate.name in self._skills_to_replace:
                 ops_to_add.add(op)
                 self._ndrs[action.predicate] = self._initialized_ndrs[action.predicate]
         if self._learned_operators == (self._learned_operators | ops_to_add):
@@ -218,7 +215,6 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
 
         lndr_updated = super().learn(itr)
         is_updated = lndr_updated or (self.edit_learned_rep())
-
 
         return is_updated
 
@@ -252,7 +248,7 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         response, path = self._llm.sample_completions([{"role": "user", "content": prompt}], temperature=0, seed=self._seed, num_completions=1)
         response = response[0]
         logging.info(f"Got response {response}")
-        logging.debug(f"Saved response at path: {path}")
+        # logging.debug(f"Saved response at path: {path}")
         return response
 
 
