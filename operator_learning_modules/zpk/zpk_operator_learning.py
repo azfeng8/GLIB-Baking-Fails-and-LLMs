@@ -249,81 +249,10 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         return prompt
 
     def _query_llm(self, prompt):
-        # response, path = self._llm.sample_completions([{"role": "user", "content": prompt}], temperature=0, seed=self._seed, num_completions=1)
-        # response = response[0]
-        response = """(define (domain minecraft)
-	(:types static moveable agent)
-	(:predicates
-		(agentat ?v0 - static)
-		(at ?v0 - moveable ?v1 - static)
-		(equipped ?v0 - moveable ?v1 - agent)
-		(handsfree ?v0 - agent)
-		(hypothetical ?v0 - moveable)
-		(inventory ?v0 - moveable)
-		(isgrass ?v0 - moveable)
-		(islog ?v0 - moveable)
-		(isplanks ?v0 - moveable)
-	)
-
-	(:action craftplank
-		:parameters (?v0 - moveable ?v1 - moveable ?v2 - agent)
-		:precondition (and
-				(islog ?v0)
-				(equipped ?v0 ?v2)
-		)
-		:effect (and
-				(not (islog ?v0))
-				(isplanks ?v1)
-				(equipped ?v1 ?v2)
-		)
-	)
-	(:action equip
-		:parameters (?v0 - moveable ?v1 - agent)
-		:precondition (and
-				(handsfree ?v1)
-				(inventory ?v0)
-		)
-		:effect (and
-				(not (handsfree ?v1))
-				(equipped ?v0 ?v1)
-		)
-	)
-	(:action move
-		:parameters (?v0 - static ?v1 - agent)
-		:precondition (and
-				(agentat ?v1)
-		)
-		:effect (and
-				(not (agentat ?v1))
-				(agentat ?v0)
-		)
-	)
-	(:action pick
-		:parameters (?v0 - moveable ?v1 - agent)
-		:precondition (and
-				(at ?v0 ?v1)
-				(handsfree ?v1)
-		)
-		:effect (and
-				(not (at ?v0 ?v1))
-				(inventory ?v0)
-		)
-	)
-	(:action recall
-		:parameters (?v0 - moveable ?v1 - agent)
-		:precondition (and
-				(equipped ?v0 ?v1)
-		)
-		:effect (and
-				(not (equipped ?v0 ?v1))
-				(handsfree ?v1)
-				(inventory ?v0)
-		)
-	)
-)
-"""
+        response, path = self._llm.sample_completions([{"role": "user", "content": prompt}], temperature=0, seed=self._seed, num_completions=1)
+        response = response[0]
         logging.info(f"Got response {response}")
-        # logging.debug(f"Saved response at path: {path}")
+        logging.debug(f"Saved response at path: {path}")
         return response
 
 
