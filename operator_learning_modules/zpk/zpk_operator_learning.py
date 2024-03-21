@@ -31,10 +31,15 @@ class ZPKOperatorLearningModule:
         self._fits_all_data = defaultdict(bool)
         # Logging
         self._actions = []
+        self._first_nonNOP_itrs = []
 
-    def observe(self, state, action, effects, **kwargs):
+    def observe(self, state, action, effects, itr, **kwargs):
         if not self._learning_on:
             return
+
+        if len(self._transitions[action.predicate]) == 0 and len(effects) != 0:
+            self._first_nonNOP_itrs.append(itr)
+
         self._transitions[action.predicate].append((state.literals, action, effects))
 
         # Check whether we'll need to relearn

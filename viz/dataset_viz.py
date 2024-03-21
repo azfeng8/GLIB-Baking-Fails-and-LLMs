@@ -306,21 +306,31 @@ def view4(save_path, domain_name, curiosity_name, learning_name, seed):
     plt.figure()
     plt.plot(xs, ys, color='#000000')
     # Plot green dot when following plan
+    num_fallback = 0
+    num_babbled = 0
+    num_inplan = 0
     if "GLIB" in curiosity_name:
         with open(os.path.join(BABBLING_SOURCE_PATH, domain_name, learning_name, curiosity_name, f'{seed}_babbling_stats.pkl'), 'rb') as f:
             babbling_seq = pickle.load(f)
         following_plan_itrs = []
         following_plan_ys = []
         for itr,b in enumerate(babbling_seq):
-            if b not in ('babbled', 'fallback'):
+            if not (('babbled' in b) or ('fallback' in b)):
                 following_plan_itrs.append(itr)
                 following_plan_ys.append(ys[itr])
+                num_inplan += 1
+            elif 'babbled' in b:
+                num_babbled += 1
+            elif 'fallback' in b:
+                num_fallback += 1
         plt.scatter(following_plan_itrs, following_plan_ys, color='#008000')
     # Plot vertical orange line where operator changes
     ops_change_itrs = np.loadtxt(os.path.join(SOURCE_PATH, domain_name, curiosity_name, seed, 'ops_change_iters.txt'))
     for itr in ops_change_itrs:
         plt.axvline(x=itr, color='#FFA500')
     
+    total = num_fallback + num_babbled + num_inplan
+    plt.xlabel(f'Babbled: {num_babbled / total* 100}%\nFallback: {num_fallback / total* 100}%\nIn-plan: {num_inplan / total* 100}%')
     plt.gcf().set_size_inches(22, 14)
     plt.savefig(os.path.join(save_path, 'GLIB_success_plot.png'), dpi=300)
     plt.close()
@@ -413,7 +423,7 @@ def interactive_view1(domain_name, curiosity_name, learning_name, seed):
             if 'GLIB' not in curiosity_name:
                 return
             itr = int(iter_dirs[curr_pos_views][5:]) - 1
-            while (babbling_seq[itr] in ('fallback', 'babbled')) and (itr >= 0):
+            while (('babbled' in babbling_seq[itr]) or ('fallback' in babbling_seq[itr])) and (itr >= 0):
                 itr -= 1
 
             if itr < 0:
@@ -432,7 +442,7 @@ def interactive_view1(domain_name, curiosity_name, learning_name, seed):
             if 'GLIB' not in curiosity_name:
                 return
             itr = int(iter_dirs[curr_pos_views][5:]) + 1
-            while (babbling_seq[itr] in ('fallback', 'babbled')) and itr <= int(iter_dirs[-1][5:]):
+            while (('babbled' in babbling_seq[itr]) or ('fallback' in babbling_seq[itr])) and itr <= int(iter_dirs[-1][5:]):
                 itr += 1
 
             if itr > int(iter_dirs[-1][5:]):
@@ -558,7 +568,7 @@ def interactive_view1(domain_name, curiosity_name, learning_name, seed):
         img = mpimg.imread(filepath)
         ax.set_title(f"{iter_dir} : success rate {succ[int(iter_dir[5:])]}")
         if "GLIB" in curiosity_name:
-            if (babbling_seq[itr_num] not in ('babbled', 'fallback')):
+            if not (('babbled' in babbling_seq[itr]) or ('fallback' in babbling_seq[itr])):
                 goal, plan = babbling_seq[itr_num]
                 ax.set_xlabel(f'goal: {goal}\nplan: {plan}\naction: {skill_seq[itr_num]}')
             else:
@@ -807,7 +817,7 @@ def interactive_view2(domain_name, curiosity_name, learning_name, seed):
                 img = mpimg.imread(filepath)
                 ax.set_title(f"{iter_dir} : success rate {succ[iter_num]}")
                 if "GLIB" in curiosity_name:
-                    if (babbling_seq[iter_num] not in ('babbled', 'fallback')):
+                    if not (('babbled' in babbling_seq[iter_num]) or ('fallback' in babbling_seq[iter_num])):
                         goal, plan = babbling_seq[iter_num]
                         ax.set_xlabel(f'goal: {goal}\nplan: {plan}\naction: {skill_seq[iter_num]}')
                     else:
@@ -1087,7 +1097,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
                 img = mpimg.imread(filepath)
                 ax.set_title(f"{iter_dir} : success rate {succ[iter_num]}")
                 if "GLIB" in curiosity_name:
-                    if (babbling_seq[iter_num] not in ('babbled', 'fallback')):
+                    if not (('babbled' in babbling_seq[iter_num]) or ('fallback' in babbling_seq[iter_num])):
                         goal, plan = babbling_seq[iter_num]
                         ax.set_xlabel(f'goal: {goal}\nplan: {plan}\naction: {skill_seq[iter_num]}')
                     else:
@@ -1173,7 +1183,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
             if 'GLIB' not in curiosity_name:
                 return
             itr = int(iter_dirs[curr_pos_views][5:]) - 1
-            while (babbling_seq[itr] in ('fallback', 'babbled')) and (itr >= 0):
+            while (('babbled' in babbling_seq[itr]) or ('fallback' in babbling_seq[itr])) and (itr >= 0):
                 itr -= 1
 
             if itr < 0:
@@ -1192,7 +1202,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
             if 'GLIB' not in curiosity_name:
                 return
             itr = int(iter_dirs[curr_pos_views][5:]) + 1
-            while (babbling_seq[itr] in ('fallback', 'babbled')) and itr <= int(iter_dirs[-1][5:]):
+            while (('babbled' in babbling_seq[itr]) or ('fallback' in babbling_seq[itr])) and (itr >= 0) and itr <= int(iter_dirs[-1][5:]):
                 itr += 1
 
             if itr > int(iter_dirs[-1][5:]):
@@ -1272,6 +1282,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
         else:
             return
         curr_pos_views = curr_pos_views % len(iter_dirs)
+        # print(iter_dirs[curr_pos_views: curr_pos_views + 10], iter_dirs[curr_pos_views - 10: curr_pos_views])
 
         ax.cla()
         iter_dir = iter_dirs[curr_pos_views]
@@ -1318,7 +1329,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
         img = mpimg.imread(filepath)
         ax.set_title(f"{iter_dir} : success rate {succ[int(iter_dir[5:])]}")
         if "GLIB" in curiosity_name:
-            if (babbling_seq[itr_num] not in ('babbled', 'fallback')):
+            if not (('babbled' in babbling_seq[itr_num]) or ('fallback' in babbling_seq[itr_num])):
                 goal, plan = babbling_seq[itr_num]
                 ax.set_xlabel(f'goal: {goal}\nplan: {plan}\naction: {skill_seq[itr_num]}')
             else:
@@ -1348,7 +1359,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
     img = mpimg.imread(filepath)
     ax.set_title(f'{iter_dirs[0]} : success rate {succ[0]}')
     if 'GLIB' in curiosity_name:
-        if babbling_seq[0] not in ('babbled', 'fallback'):
+        if not (('babbled' in babbling_seq[0]) or ('fallback' in babbling_seq[0])):
             ax.set_xlabel(f'goal: {babbling_seq[0]}\naction: {skill_seq[0]}')
         else:
             ax.set_xlabel(f'{babbling_seq[0]} action: {skill_seq[0]}')
@@ -1368,14 +1379,18 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
 
 if __name__ == "__main__":
         
-    domain_name = 'Baking'
+    domain_name = 'Minecraft'
     learning_name = 'LLMWarmStart+LNDR'
 
     # curiosity_name = 'random'
     # seeds = [str(s) for s in range(110, 120)]
     
     curiosity_name = 'GLIB_G1'
-    seeds = [str(s) for s in range(123, 124)]
+    seeds = [str(s) for s in range(140, 150)]
 
+    # for seed in seeds:
+    #     interactive_view_123(domain_name, curiosity_name, learning_name, seed)
     for seed in seeds:
-        interactive_view_123(domain_name, curiosity_name, learning_name, seed)
+        d  = os.path.join(SAVE_PATH, domain_name, curiosity_name, seed)
+        os.makedirs(d, exist_ok=True)
+        view4(d, domain_name, curiosity_name, "LLMWarmStart+LNDR", seed)

@@ -75,7 +75,7 @@ class GLIBG1CuriosityModule(GoalBabblingCuriosityModule):
     def _finish_plan(self, plan):
         self._last_state = None
         if len(plan) == 0:
-            self.line_stats.append('babbled')
+            self.line_stats.append('EMPTY PLAN - babbled')
         return plan + [self._last_sampled_action]
 
 class GLIBG1LLMCuriosityModule(GoalBabblingCuriosityModule):

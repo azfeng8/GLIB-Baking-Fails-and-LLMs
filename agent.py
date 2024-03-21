@@ -83,7 +83,7 @@ class Agent:
         # Get effects
         effects = self._compute_effects(state, next_state)
         # Add data
-        self._operator_learning_module.observe(state, action, effects, start_episode=self.episode_start)
+        self._operator_learning_module.observe(state, action, effects, start_episode=self.episode_start, itr=itr)
         # Some curiosity modules might use transition data
         start_time = time.time()
         self._curiosity_module.observe(state, action, effects)
