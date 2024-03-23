@@ -7,10 +7,15 @@ from pddlgym.parser import PDDLDomainParser
 import gym, pddlgym
 from collections import defaultdict
 
-SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results_openstack/results/LNDR'
-RESULTS_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results_openstack/results'
-SAVE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/dataset_visualizations'
+# SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results_openstack/results/LNDR'
+# RESULTS_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results_openstack/results'
 BABBLING_SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results_openstack/results/GLIB'
+
+SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results/LNDR'
+RESULTS_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results'
+BABBLING_SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results/GLIB'
+
+SAVE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/dataset_visualizations'
 PDDLGYM_PATH = '/home/catalan/.virtualenvs/meng/lib/python3.10/site-packages/pddlgym/pddl'
 
 curr_pos_view_1 = 0
@@ -879,7 +884,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
     The view1 plot is independent of the view2 plots, which all change from one keystroke (but only rendered when press 'r').
     """
 
-    path = os.path.join(SOURCE_PATH, domain_name, curiosity_name, seed)
+    path = os.path.join(SOURCE_PATH, domain_name, learning_name, curiosity_name, seed)
     iter_dirs = []
     for dir in os.listdir(path):
         if '.txt' in dir or '.pkl' in dir: continue
@@ -1134,10 +1139,18 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
 
     with open(os.path.join(path, iter_dirs[0], 'transition_data.pkl'),'rb')  as f:
         transition_data = pickle.load(f)
-    with open(os.path.join(path, iter_dirs[0], 'operators.pkl'),'rb')  as f:
-        ops = pickle.load(f)
-    with open(os.path.join(path, iter_dirs[0], 'ndrs.pkl'),'rb')  as f:
-        ndrs = pickle.load(f)
+    ops_path_iter0 = os.path.join(path, iter_dirs[0], 'operators.pkl')
+    if os.path.exists(ops_path_iter0):
+        with open(ops_path_iter0,'rb')  as f:
+            ops = pickle.load(f)
+    else:
+        ops = []
+    ndrs_path_iter0 = os.path.join(path, iter_dirs[0], 'ndrs.pkl')
+    if os.path.exists(ndrs_path_iter0):
+        with open(os.path.join(path, iter_dirs[0], 'ndrs.pkl'),'rb')  as f:
+            ndrs = pickle.load(f)
+    else:
+        ndrs = {}
 
     create_view2 = False
     create_view3 = False
@@ -1381,8 +1394,6 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
     filepath = os.path.join(iter_save_path, 'nops_plot.png')
     with open(os.path.join(iter_path, 'transition_data.pkl'), 'rb') as f:
         transition_data = pickle.load(f)
-    with open(os.path.join(iter_path, 'operators.pkl'), 'rb') as f:
-        ops = pickle.load(f)
     if not os.path.exists(filepath):
         view1(iter_save_path, ops, transition_data, domain_name)
 
@@ -1414,17 +1425,13 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
 if __name__ == "__main__":
         
     domain_name = 'Minecraft'
-    learning_name = 'LLMWarmStart+LNDR'
+    learning_name = 'LNDR'
 
     # curiosity_name = 'random'
     # seeds = [str(s) for s in range(110, 120)]
     
     curiosity_name = 'GLIB_G1'
-    seeds = [str(s) for s in range(140, 150)]
+    seeds = [str(s) for s in range(1002, 1003)]
 
-    # for seed in seeds:
-    #     interactive_view_123(domain_name, curiosity_name, learning_name, seed)
     for seed in seeds:
-        d  = os.path.join(SAVE_PATH, domain_name, curiosity_name, seed)
-        os.makedirs(d, exist_ok=True)
-        view4(d, domain_name, curiosity_name, "LLMWarmStart+LNDR", seed)
+        interactive_view_123(domain_name, curiosity_name, learning_name, seed)

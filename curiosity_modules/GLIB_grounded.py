@@ -122,8 +122,9 @@ class GLIBG2CuriosityModule(GoalBabblingCuriosityModule):
         if self._unseen_lits_acts is None:
             self._recompute_unseen_lits_acts(state)
         action = super()._get_action(state)
-        for lit in state:  # update novelty
-            for lit2 in state:
+        state_lits = list(state)
+        for i, lit in enumerate(state_lits):  # update novelty
+            for lit2 in state_lits:
                 if lit == lit2: continue
                 if ((lit, lit2), action, False) in self._unseen_lits_acts:
                     self._unseen_lits_acts.remove(((lit, lit2), action, False))

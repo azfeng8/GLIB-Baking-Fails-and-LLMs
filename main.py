@@ -172,7 +172,7 @@ class Runner:
                         with open(os.path.join(path, 'ndrs.pkl'), 'wb') as f:
                             pickle.dump(self.agent._operator_learning_module._ndrs, f)
                     if log_data:
-                        path = os.path.join('results', 'LNDR', self.domain_name, self.agent.curiosity_module_name, str(ec.seed), f'iter_{itr}' )
+                        path = os.path.join('results', 'LNDR', self.domain_name, self.agent.operator_learning_name, self.agent.curiosity_module_name, str(ec.seed), f'iter_{itr}' )
                         os.makedirs(path, exist_ok=True)
                         with open(os.path.join(path, 'transition_data.pkl'), 'wb') as f:
                             pickle.dump(self.agent._operator_learning_module._transitions, f)
@@ -181,7 +181,7 @@ class Runner:
 
         if gc.dataset_logging:
             if ('LNDR' in self.agent.operator_learning_name):
-                path = os.path.join('results', 'LNDR', self.domain_name, self.agent.curiosity_module_name, str(ec.seed))
+                path = os.path.join('results', 'LNDR', self.domain_name, self.agent.operator_learning_name, self.agent.curiosity_module_name, str(ec.seed))
                 os.makedirs(path, exist_ok=True)
                 np.savetxt(os.path.join(path, 'success_increases.txt'), np.array(success_rates), fmt='%1.3f')
                 np.savetxt(os.path.join(path, 'episode_start_iters.txt'), np.array(episode_start_itrs), fmt="%d")
