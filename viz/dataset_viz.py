@@ -913,6 +913,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
         succ = results[:, 1]
 
     episode_start_iters = np.loadtxt(os.path.join(path, 'episode_start_iters.txt'))
+    first_nonNOP_iters = np.loadtxt(os.path.join(path, 'first_nonNOP_iters.txt'))
 
     with open(os.path.join(path, 'skill_sequence.pkl'), 'rb') as f:
         skill_seq = pickle.load(f)
@@ -1017,6 +1018,23 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
                     curr_pos_views += 1
                 else:
                     return
+            elif e.key == 't':
+                # prev first nonNOP iter
+                curr_pos_views -= 1
+                curr_pos_views = curr_pos_views % len(iter_dirs)
+                curr_itr = int(iter_dirs[curr_pos_views][5:])
+                while curr_itr not in first_nonNOP_iters:
+                    curr_pos_views -= 1
+                    curr_pos_views = curr_pos_views % len(iter_dirs)
+                    curr_itr = int(iter_dirs[curr_pos_views][5:])           
+            elif e.key == 'y':
+                curr_pos_views += 1
+                curr_pos_views = curr_pos_views % len(iter_dirs)
+                curr_itr = int(iter_dirs[curr_pos_views][5:])
+                while curr_itr not in first_nonNOP_iters:
+                    curr_pos_views += 1
+                    curr_pos_views = curr_pos_views % len(iter_dirs)
+                    curr_itr = int(iter_dirs[curr_pos_views][5:])
             else:
                 return
 
@@ -1278,7 +1296,23 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
                 curr_pos_views += 1
             else:
                 return
-
+        elif e.key == 't':
+            # prev first nonNOP iter
+            curr_pos_views -= 1
+            curr_pos_views = curr_pos_views % len(iter_dirs)
+            curr_itr = int(iter_dirs[curr_pos_views][5:])
+            while curr_itr not in first_nonNOP_iters:
+                curr_pos_views -= 1
+                curr_pos_views = curr_pos_views % len(iter_dirs)
+                curr_itr = int(iter_dirs[curr_pos_views][5:])           
+        elif e.key == 'y':
+            curr_pos_views += 1
+            curr_pos_views = curr_pos_views % len(iter_dirs)
+            curr_itr = int(iter_dirs[curr_pos_views][5:])
+            while curr_itr not in first_nonNOP_iters:
+                curr_pos_views += 1
+                curr_pos_views = curr_pos_views % len(iter_dirs)
+                curr_itr = int(iter_dirs[curr_pos_views][5:])
         else:
             return
         curr_pos_views = curr_pos_views % len(iter_dirs)
