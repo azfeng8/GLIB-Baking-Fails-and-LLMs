@@ -32,12 +32,14 @@ class ZPKOperatorLearningModule:
         # Logging
         self._actions = []
         self._first_nonNOP_itrs = []
+        self.skills_with_NOPS_only = set([p.name for p in ac.train_env.action_space.predicates])
 
     def observe(self, state, action, effects, itr, **kwargs):
         if not self._learning_on:
             return
 
-        if len(self._transitions[action.predicate]) == 0 and len(effects) != 0:
+        if (action.predicate.name in self.skills_with_NOPS_only) and len(effects) != 0:
+            self.skills_with_NOPS_only.remove(action.predicate.name)
             self._first_nonNOP_itrs.append(itr)
 
         self._transitions[action.predicate].append((state.literals, action, effects))
