@@ -176,7 +176,7 @@ class AgentConfig:
         "NDRBlocks" : 1501,
         "Baking": 1799,
         "Travel": 1501,
-        "Minecraft": 1799
+        "Minecraft": 199
     }
 
     ## Constants for curiosity modules. ##
@@ -335,11 +335,11 @@ class PlottingConfig:
     # seeds = [range(50,60), range(50,60)]
     # seeds = [range(60,70), range(60,70)]
     # seeds = [range(70,80), range(70,80)]
-    seeds = [range(130, 140)] + [range(100, 110)]
+    seeds = [range(150, 160)] + [range(100, 110)]
 
     # learner_explorer = [("LLM+LNDR", "LLM+GLIB_G1"), ("LLM+LNDR", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2"), ("LNDR", "GLIB_G1")]
     # seeds = [range(12, 22)] * 2 + [range(1, 11)]  * 2
 
     # domains = ["Baking",  "Minecraft", "Travel"]
     # domains = ["Baking", "Rearrangement", "Travel", "Minecraft", "Glibblocks", "Doors", "Easygripper"]
-    domains = ["Baking", "Minecraft", "Travel"]
+    domains = ["Baking", "Minecraft", "Travel", "Blocks"]

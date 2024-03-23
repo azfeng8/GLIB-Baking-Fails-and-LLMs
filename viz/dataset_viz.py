@@ -7,10 +7,15 @@ from pddlgym.parser import PDDLDomainParser
 import gym, pddlgym
 from collections import defaultdict
 
-SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results_openstack/results/LNDR'
-RESULTS_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results_openstack/results'
-SAVE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/dataset_visualizations'
+# SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results_openstack/results/LNDR'
+# RESULTS_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results_openstack/results'
 BABBLING_SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results_openstack/results/GLIB'
+
+SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results/LNDR'
+RESULTS_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results'
+BABBLING_SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results/GLIB'
+
+SAVE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/dataset_visualizations'
 PDDLGYM_PATH = '/home/catalan/.virtualenvs/meng/lib/python3.10/site-packages/pddlgym/pddl'
 
 curr_pos_view_1 = 0
@@ -306,21 +311,31 @@ def view4(save_path, domain_name, curiosity_name, learning_name, seed):
     plt.figure()
     plt.plot(xs, ys, color='#000000')
     # Plot green dot when following plan
+    num_fallback = 0
+    num_babbled = 0
+    num_inplan = 0
     if "GLIB" in curiosity_name:
         with open(os.path.join(BABBLING_SOURCE_PATH, domain_name, learning_name, curiosity_name, f'{seed}_babbling_stats.pkl'), 'rb') as f:
             babbling_seq = pickle.load(f)
         following_plan_itrs = []
         following_plan_ys = []
         for itr,b in enumerate(babbling_seq):
-            if b not in ('babbled', 'fallback'):
+            if not (('babbled' in b) or ('fallback' in b)):
                 following_plan_itrs.append(itr)
                 following_plan_ys.append(ys[itr])
+                num_inplan += 1
+            elif 'babbled' in b:
+                num_babbled += 1
+            elif 'fallback' in b:
+                num_fallback += 1
         plt.scatter(following_plan_itrs, following_plan_ys, color='#008000')
     # Plot vertical orange line where operator changes
     ops_change_itrs = np.loadtxt(os.path.join(SOURCE_PATH, domain_name, curiosity_name, seed, 'ops_change_iters.txt'))
     for itr in ops_change_itrs:
         plt.axvline(x=itr, color='#FFA500')
     
+    total = num_fallback + num_babbled + num_inplan
+    plt.xlabel(f'Babbled: {num_babbled / total* 100}%\nFallback: {num_fallback / total* 100}%\nIn-plan: {num_inplan / total* 100}%')
     plt.gcf().set_size_inches(22, 14)
     plt.savefig(os.path.join(save_path, 'GLIB_success_plot.png'), dpi=300)
     plt.close()
@@ -413,7 +428,7 @@ def interactive_view1(domain_name, curiosity_name, learning_name, seed):
             if 'GLIB' not in curiosity_name:
                 return
             itr = int(iter_dirs[curr_pos_views][5:]) - 1
-            while (babbling_seq[itr] in ('fallback', 'babbled')) and (itr >= 0):
+            while (('babbled' in babbling_seq[itr]) or ('fallback' in babbling_seq[itr])) and (itr >= 0):
                 itr -= 1
 
             if itr < 0:
@@ -432,7 +447,7 @@ def interactive_view1(domain_name, curiosity_name, learning_name, seed):
             if 'GLIB' not in curiosity_name:
                 return
             itr = int(iter_dirs[curr_pos_views][5:]) + 1
-            while (babbling_seq[itr] in ('fallback', 'babbled')) and itr <= int(iter_dirs[-1][5:]):
+            while (('babbled' in babbling_seq[itr]) or ('fallback' in babbling_seq[itr])) and itr <= int(iter_dirs[-1][5:]):
                 itr += 1
 
             if itr > int(iter_dirs[-1][5:]):
@@ -558,7 +573,7 @@ def interactive_view1(domain_name, curiosity_name, learning_name, seed):
         img = mpimg.imread(filepath)
         ax.set_title(f"{iter_dir} : success rate {succ[int(iter_dir[5:])]}")
         if "GLIB" in curiosity_name:
-            if (babbling_seq[itr_num] not in ('babbled', 'fallback')):
+            if not (('babbled' in babbling_seq[itr]) or ('fallback' in babbling_seq[itr])):
                 goal, plan = babbling_seq[itr_num]
                 ax.set_xlabel(f'goal: {goal}\nplan: {plan}\naction: {skill_seq[itr_num]}')
             else:
@@ -807,7 +822,7 @@ def interactive_view2(domain_name, curiosity_name, learning_name, seed):
                 img = mpimg.imread(filepath)
                 ax.set_title(f"{iter_dir} : success rate {succ[iter_num]}")
                 if "GLIB" in curiosity_name:
-                    if (babbling_seq[iter_num] not in ('babbled', 'fallback')):
+                    if not (('babbled' in babbling_seq[iter_num]) or ('fallback' in babbling_seq[iter_num])):
                         goal, plan = babbling_seq[iter_num]
                         ax.set_xlabel(f'goal: {goal}\nplan: {plan}\naction: {skill_seq[iter_num]}')
                     else:
@@ -869,7 +884,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
     The view1 plot is independent of the view2 plots, which all change from one keystroke (but only rendered when press 'r').
     """
 
-    path = os.path.join(SOURCE_PATH, domain_name, curiosity_name, seed)
+    path = os.path.join(SOURCE_PATH, domain_name, learning_name, curiosity_name, seed)
     iter_dirs = []
     for dir in os.listdir(path):
         if '.txt' in dir or '.pkl' in dir: continue
@@ -903,6 +918,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
         succ = results[:, 1]
 
     episode_start_iters = np.loadtxt(os.path.join(path, 'episode_start_iters.txt'))
+    first_nonNOP_iters = np.loadtxt(os.path.join(path, 'first_nonNOP_iters.txt'))
 
     with open(os.path.join(path, 'skill_sequence.pkl'), 'rb') as f:
         skill_seq = pickle.load(f)
@@ -1007,6 +1023,23 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
                     curr_pos_views += 1
                 else:
                     return
+            elif e.key == 't':
+                # prev first nonNOP iter
+                curr_pos_views -= 1
+                curr_pos_views = curr_pos_views % len(iter_dirs)
+                curr_itr = int(iter_dirs[curr_pos_views][5:])
+                while curr_itr not in first_nonNOP_iters:
+                    curr_pos_views -= 1
+                    curr_pos_views = curr_pos_views % len(iter_dirs)
+                    curr_itr = int(iter_dirs[curr_pos_views][5:])           
+            elif e.key == 'y':
+                curr_pos_views += 1
+                curr_pos_views = curr_pos_views % len(iter_dirs)
+                curr_itr = int(iter_dirs[curr_pos_views][5:])
+                while curr_itr not in first_nonNOP_iters:
+                    curr_pos_views += 1
+                    curr_pos_views = curr_pos_views % len(iter_dirs)
+                    curr_itr = int(iter_dirs[curr_pos_views][5:])
             else:
                 return
 
@@ -1087,7 +1120,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
                 img = mpimg.imread(filepath)
                 ax.set_title(f"{iter_dir} : success rate {succ[iter_num]}")
                 if "GLIB" in curiosity_name:
-                    if (babbling_seq[iter_num] not in ('babbled', 'fallback')):
+                    if not (('babbled' in babbling_seq[iter_num]) or ('fallback' in babbling_seq[iter_num])):
                         goal, plan = babbling_seq[iter_num]
                         ax.set_xlabel(f'goal: {goal}\nplan: {plan}\naction: {skill_seq[iter_num]}')
                     else:
@@ -1106,10 +1139,18 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
 
     with open(os.path.join(path, iter_dirs[0], 'transition_data.pkl'),'rb')  as f:
         transition_data = pickle.load(f)
-    with open(os.path.join(path, iter_dirs[0], 'operators.pkl'),'rb')  as f:
-        ops = pickle.load(f)
-    with open(os.path.join(path, iter_dirs[0], 'ndrs.pkl'),'rb')  as f:
-        ndrs = pickle.load(f)
+    ops_path_iter0 = os.path.join(path, iter_dirs[0], 'operators.pkl')
+    if os.path.exists(ops_path_iter0):
+        with open(ops_path_iter0,'rb')  as f:
+            ops = pickle.load(f)
+    else:
+        ops = []
+    ndrs_path_iter0 = os.path.join(path, iter_dirs[0], 'ndrs.pkl')
+    if os.path.exists(ndrs_path_iter0):
+        with open(os.path.join(path, iter_dirs[0], 'ndrs.pkl'),'rb')  as f:
+            ndrs = pickle.load(f)
+    else:
+        ndrs = {}
 
     create_view2 = False
     create_view3 = False
@@ -1173,7 +1214,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
             if 'GLIB' not in curiosity_name:
                 return
             itr = int(iter_dirs[curr_pos_views][5:]) - 1
-            while (babbling_seq[itr] in ('fallback', 'babbled')) and (itr >= 0):
+            while (('babbled' in babbling_seq[itr]) or ('fallback' in babbling_seq[itr])) and (itr >= 0):
                 itr -= 1
 
             if itr < 0:
@@ -1192,7 +1233,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
             if 'GLIB' not in curiosity_name:
                 return
             itr = int(iter_dirs[curr_pos_views][5:]) + 1
-            while (babbling_seq[itr] in ('fallback', 'babbled')) and itr <= int(iter_dirs[-1][5:]):
+            while (('babbled' in babbling_seq[itr]) or ('fallback' in babbling_seq[itr])) and (itr >= 0) and itr <= int(iter_dirs[-1][5:]):
                 itr += 1
 
             if itr > int(iter_dirs[-1][5:]):
@@ -1268,10 +1309,27 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
                 curr_pos_views += 1
             else:
                 return
-
+        elif e.key == 't':
+            # prev first nonNOP iter
+            curr_pos_views -= 1
+            curr_pos_views = curr_pos_views % len(iter_dirs)
+            curr_itr = int(iter_dirs[curr_pos_views][5:])
+            while curr_itr not in first_nonNOP_iters:
+                curr_pos_views -= 1
+                curr_pos_views = curr_pos_views % len(iter_dirs)
+                curr_itr = int(iter_dirs[curr_pos_views][5:])           
+        elif e.key == 'y':
+            curr_pos_views += 1
+            curr_pos_views = curr_pos_views % len(iter_dirs)
+            curr_itr = int(iter_dirs[curr_pos_views][5:])
+            while curr_itr not in first_nonNOP_iters:
+                curr_pos_views += 1
+                curr_pos_views = curr_pos_views % len(iter_dirs)
+                curr_itr = int(iter_dirs[curr_pos_views][5:])
         else:
             return
         curr_pos_views = curr_pos_views % len(iter_dirs)
+        # print(iter_dirs[curr_pos_views: curr_pos_views + 10], iter_dirs[curr_pos_views - 10: curr_pos_views])
 
         ax.cla()
         iter_dir = iter_dirs[curr_pos_views]
@@ -1318,7 +1376,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
         img = mpimg.imread(filepath)
         ax.set_title(f"{iter_dir} : success rate {succ[int(iter_dir[5:])]}")
         if "GLIB" in curiosity_name:
-            if (babbling_seq[itr_num] not in ('babbled', 'fallback')):
+            if not (('babbled' in babbling_seq[itr_num]) or ('fallback' in babbling_seq[itr_num])):
                 goal, plan = babbling_seq[itr_num]
                 ax.set_xlabel(f'goal: {goal}\nplan: {plan}\naction: {skill_seq[itr_num]}')
             else:
@@ -1336,8 +1394,6 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
     filepath = os.path.join(iter_save_path, 'nops_plot.png')
     with open(os.path.join(iter_path, 'transition_data.pkl'), 'rb') as f:
         transition_data = pickle.load(f)
-    with open(os.path.join(iter_path, 'operators.pkl'), 'rb') as f:
-        ops = pickle.load(f)
     if not os.path.exists(filepath):
         view1(iter_save_path, ops, transition_data, domain_name)
 
@@ -1348,7 +1404,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
     img = mpimg.imread(filepath)
     ax.set_title(f'{iter_dirs[0]} : success rate {succ[0]}')
     if 'GLIB' in curiosity_name:
-        if babbling_seq[0] not in ('babbled', 'fallback'):
+        if not (('babbled' in babbling_seq[0]) or ('fallback' in babbling_seq[0])):
             ax.set_xlabel(f'goal: {babbling_seq[0]}\naction: {skill_seq[0]}')
         else:
             ax.set_xlabel(f'{babbling_seq[0]} action: {skill_seq[0]}')
@@ -1368,14 +1424,14 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
 
 if __name__ == "__main__":
         
-    domain_name = 'Baking'
-    learning_name = 'LLMWarmStart+LNDR'
+    domain_name = 'Minecraft'
+    learning_name = 'LNDR'
 
     # curiosity_name = 'random'
     # seeds = [str(s) for s in range(110, 120)]
     
     curiosity_name = 'GLIB_G1'
-    seeds = [str(s) for s in range(123, 124)]
+    seeds = [str(s) for s in range(1002, 1003)]
 
     for seed in seeds:
         interactive_view_123(domain_name, curiosity_name, learning_name, seed)

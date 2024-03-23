@@ -57,7 +57,7 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
             if 'glibg' in self._name:
                 # in GLIB-G, the last item in the plan is the babbled action
                 if len(self._plan) == 1:
-                    self.line_stats.append('babbled')
+                    self.line_stats.append('FINISHED PLAN - babbled')
                 else:
                     self.line_stats.append((self._goal, deepcopy(self._plan[:-1])))
             else:

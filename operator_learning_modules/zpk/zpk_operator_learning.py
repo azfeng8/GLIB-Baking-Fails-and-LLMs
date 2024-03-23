@@ -31,10 +31,17 @@ class ZPKOperatorLearningModule:
         self._fits_all_data = defaultdict(bool)
         # Logging
         self._actions = []
+        self._first_nonNOP_itrs = []
+        self.skills_with_NOPS_only = set([p.name for p in ac.train_env.action_space.predicates])
 
-    def observe(self, state, action, effects, **kwargs):
+    def observe(self, state, action, effects, itr, **kwargs):
         if not self._learning_on:
             return
+
+        if (action.predicate.name in self.skills_with_NOPS_only) and len(effects) != 0:
+            self.skills_with_NOPS_only.remove(action.predicate.name)
+            self._first_nonNOP_itrs.append(itr)
+
         self._transitions[action.predicate].append((state.literals, action, effects))
 
         # Check whether we'll need to relearn
@@ -172,20 +179,19 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
             self._ndrs[action.predicate] = ndrs
             self._initialized_ndrs[action.predicate] = ndrs
 
-        self._skills_w_NOPs_only:set[str] = set([p.name for p in ac.train_env.action_space.predicates])
-
-    def observe(self, state, action, effects, **kwargs):
+    def observe(self, state, action, effects, itr, **kwargs):
         if not self._learning_on:
             return
 
         self._transitions[action.predicate].append((state.literals, action, effects))
 
-        if len(effects) != 0 and action.predicate.name in self._skills_w_NOPs_only:
-            self._skills_w_NOPs_only.remove(action.predicate.name)
+        if len(effects) != 0 and action.predicate.name in self._skills_with_NOPs_only:
+            self.skills_with_NOPS_only.remove(action.predicate.name)
+            self._first_nonNOP_itrs.append(itr)
 
         # Check whether we'll need to relearn
             # self._fits_all_data[action.predicate] is True once learned an initial NDR
-        if self._fits_all_data[action.predicate] and action.predicate.name not in self._skills_w_NOPs_only:
+        if self._fits_all_data[action.predicate] and action.predicate.name not in self.skills_with_NOPS_only:
             ndr = self._ndrs[action.predicate]
             if not self._ndr_fits_data(ndr, state, action, effects):
                 self._fits_all_data[action.predicate] = False
@@ -198,7 +204,7 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         for op in self._initialized_ops:
             action = [p for p in op.preconds.literals
                 if p.predicate in ac.train_env.action_space.predicates][0]
-            if action.predicate.name in self._skills_w_NOPs_only:
+            if action.predicate.name in self.skills_with_NOPS_only:
                 ops_to_add.add(op)
                 self._ndrs[action.predicate] = self._initialized_ndrs[action.predicate]
         if self._learned_operators == (self._learned_operators | ops_to_add):

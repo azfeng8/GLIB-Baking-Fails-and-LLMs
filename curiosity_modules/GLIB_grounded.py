@@ -75,7 +75,90 @@ class GLIBG1CuriosityModule(GoalBabblingCuriosityModule):
     def _finish_plan(self, plan):
         self._last_state = None
         if len(plan) == 0:
-            self.line_stats.append('babbled')
+            self.line_stats.append('EMPTY PLAN - babbled')
+        return plan + [self._last_sampled_action]
+
+class GLIBG2CuriosityModule(GoalBabblingCuriosityModule):
+    #TODO: mutex goals
+    _ignore_statics = True
+
+    def _initialize(self):
+        self._num_steps = 0
+        self._rand_state = np.random.RandomState(seed=ac.seed)
+        self._name = "glibg2"
+        self._static_preds = self._compute_static_preds()
+        # Keep track of the number of times that we follow a plan
+        self.line_stats = []
+        self.llm_line_stats = []
+
+    def reset_episode(self, state, ops=None):
+        """Recompute the set of ground literals to sample from.
+
+        Args:
+            state (pddlgym.structs.State): Starting state.
+            ops (set[Operator], optional): New ops from LLM-iterative method, if they exist. Defaults to None.
+        """
+        self._recompute_unseen_lits_acts(state)
+        self._last_state = set()
+        self._plan = []
+
+    def _recompute_unseen_lits_acts(self, state):
+        self._unseen_lits_acts = set()
+        obs_ground_lits = list(self._observation_space.all_ground_literals(state))
+        action_ground_lits = self._action_space.all_ground_literals(state)
+        for i, lit in enumerate(obs_ground_lits):
+            if self._ignore_statics and \
+            lit.predicate in self._static_preds:  # ignore static goals
+                continue
+            for lit2 in obs_ground_lits[i:]:
+                if self._ignore_statics and \
+                lit2.predicate in self._static_preds:  # ignore static goals
+                    continue
+                if lit == lit2: continue
+                for act in action_ground_lits:
+                        self._unseen_lits_acts.add(((lit, lit2), act, False))
+        self._unseen_lits_acts = sorted(self._unseen_lits_acts)
+
+    def _get_action(self, state):
+        if self._unseen_lits_acts is None:
+            self._recompute_unseen_lits_acts(state)
+        action = super()._get_action(state)
+        state_lits = list(state)
+        for i,lit in enumerate(state_lits):  # update novelty
+            for lit2 in state_lits[i:]:
+                if lit == lit2: continue
+                if ((lit, lit2), action, False) in self._unseen_lits_acts:
+                    self._unseen_lits_acts.remove(((lit, lit2), action, False))
+                if ((lit2, lit), action, False) in self._unseen_lits_acts:
+                    self._unseen_lits_acts.remove(((lit2, lit), action, False))
+        return action
+
+    def learning_callback(self):
+        super().learning_callback()
+        self._static_preds = self._compute_static_preds()
+        self._unseen_lits_acts = None
+
+    def _sample_goal(self, state):
+        """
+        Returns:
+            goal
+            from_llm (bool): False, the goal is not from the LLM
+        """
+        if not self._unseen_lits_acts:
+            return None, False
+        goal, act, _ = self._unseen_lits_acts[self._rand_state.choice(
+            len(self._unseen_lits_acts))]
+        goal = structs.LiteralConjunction(goal)
+        self._last_sampled_action = act
+        return goal, False
+
+    def _goal_is_valid(self, goal):
+        return not (goal is None)
+
+    def _finish_plan(self, plan):
+        self._last_state = None
+        if len(plan) == 0:
+            self.line_stats.append('EMPTY PLAN - babbled')
         return plan + [self._last_sampled_action]
 
 class GLIBG1LLMCuriosityModule(GoalBabblingCuriosityModule):
