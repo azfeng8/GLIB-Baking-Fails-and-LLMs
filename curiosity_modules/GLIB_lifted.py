@@ -106,6 +106,7 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
     ### Reset ###
 
     def _iw_reset(self):
+        logging.info("RESETTING EPISODE GOAL ACTIONS")
         # Want to retry goal-actions if a new episode or new operators learned
         self._untried_episode_goal_actions = copy.deepcopy(self._unseen_goal_actions)
         # Randomly shuffle within num_lits
