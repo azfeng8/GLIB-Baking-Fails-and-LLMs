@@ -185,7 +185,7 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
 
         self._transitions[action.predicate].append((state.literals, action, effects))
 
-        if len(effects) != 0 and action.predicate.name in self._skills_with_NOPs_only:
+        if len(effects) != 0 and action.predicate.name in self.skills_with_NOPS_only:
             self.skills_with_NOPS_only.remove(action.predicate.name)
             self._first_nonNOP_itrs.append(itr)
 
