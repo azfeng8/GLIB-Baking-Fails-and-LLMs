@@ -330,7 +330,7 @@ def view4(save_path, domain_name, curiosity_name, learning_name, seed):
                 num_fallback += 1
         plt.scatter(following_plan_itrs, following_plan_ys, color='#008000')
     # Plot vertical orange line where operator changes
-    ops_change_itrs = np.loadtxt(os.path.join(SOURCE_PATH, domain_name, curiosity_name, seed, 'ops_change_iters.txt'))
+    ops_change_itrs = np.loadtxt(os.path.join(SOURCE_PATH, domain_name, learning_name, curiosity_name, seed, 'ops_change_iters.txt'))
     for itr in ops_change_itrs:
         plt.axvline(x=itr, color='#FFA500')
     
@@ -1430,8 +1430,8 @@ if __name__ == "__main__":
     # curiosity_name = 'random'
     # seeds = [str(s) for s in range(110, 120)]
     
-    curiosity_name = 'GLIB_G1'
-    seeds = [str(s) for s in range(150, 151)]
+    curiosity_name = 'GLIB_L2'
+    seeds = [str(s) for s in range(160, 161)]
 
     for seed in seeds:
         interactive_view_123(domain_name, curiosity_name, learning_name, seed)
