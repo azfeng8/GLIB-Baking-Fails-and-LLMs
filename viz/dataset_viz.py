@@ -358,7 +358,7 @@ def interactive_view1(domain_name, curiosity_name, learning_name, seed):
         curiosity_name (str)
         seed (str)
     """
-    path = os.path.join(SOURCE_PATH, domain_name, curiosity_name, seed)
+    path = os.path.join(SOURCE_PATH, domain_name, learning_name, curiosity_name, seed)
     iter_dirs = []
     for dir in os.listdir(path):
         if '.txt' in dir or '.pkl' in dir: continue
@@ -378,7 +378,7 @@ def interactive_view1(domain_name, curiosity_name, learning_name, seed):
     if not os.path.exists(filepath):
         view1(iter_save_path, ops, transition_data, domain_name)
 
-    success_increases = np.loadtxt(os.path.join(SOURCE_PATH, domain_name, curiosity_name, seed, 'success_increases.txt'))
+    success_increases = np.loadtxt(os.path.join(SOURCE_PATH, domain_name, learning_name, curiosity_name, seed, 'success_increases.txt'))
     if len(success_increases.shape) == 1:
         success_increases = success_increases[np.newaxis, :]
     success_itrs = success_increases[:, 0].tolist()
@@ -572,6 +572,7 @@ def interactive_view1(domain_name, curiosity_name, learning_name, seed):
 
         img = mpimg.imread(filepath)
         ax.set_title(f"{iter_dir} : success rate {succ[int(iter_dir[5:])]}")
+        itr = int(iter_dir[5:])
         if "GLIB" in curiosity_name:
             if not (('babbled' in babbling_seq[itr]) or ('fallback' in babbling_seq[itr])):
                 goal, plan = babbling_seq[itr_num]
@@ -1431,7 +1432,7 @@ if __name__ == "__main__":
     # seeds = [str(s) for s in range(110, 120)]
     
     curiosity_name = 'GLIB_L2'
-    seeds = [str(s) for s in range(160, 161)]
+    seeds = [str(s) for s in range(170, 180)]
 
     for seed in seeds:
-        interactive_view_123(domain_name, curiosity_name, learning_name, seed)
+        interactive_view1(domain_name, curiosity_name, learning_name, seed)

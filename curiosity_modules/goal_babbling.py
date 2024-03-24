@@ -101,6 +101,7 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
                 os.remove(problem_fname)
                 break
             os.remove(problem_fname)
+            # logging.info(f'FF PROBLEM FILE: {problem_fname}')
             planning_attempts += 1
 
             if self._plan_is_good():

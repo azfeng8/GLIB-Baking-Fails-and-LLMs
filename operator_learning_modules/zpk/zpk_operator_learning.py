@@ -157,6 +157,7 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         self._learned_operators.update(operators)
         # Also need to initialize ndrs!
         self._initialized_ndrs = {}
+        self._evaluate_first_iteration = False
         for op in operators:
             # In initializing the learner from previous, we assume a
             # standard variable naming scheme.
@@ -178,6 +179,7 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
             ndrs = NDRSet(action, [ndr])
             self._ndrs[action.predicate] = ndrs
             self._initialized_ndrs[action.predicate] = ndrs
+            self._evaluate_first_iteration = True
 
     def observe(self, state, action, effects, itr, **kwargs):
         if not self._learning_on:
@@ -198,33 +200,74 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         # Logging
         self._actions.append(action)
 
-    def edit_learned_rep(self):
-        """For skills that have only NOPs, use the warmstart operators."""
-        ops_to_add = set()
-        for op in self._initialized_ops:
-            action = [p for p in op.preconds.literals
-                if p.predicate in ac.train_env.action_space.predicates][0]
-            if action.predicate.name in self.skills_with_NOPS_only:
-                ops_to_add.add(op)
-                self._ndrs[action.predicate] = self._initialized_ndrs[action.predicate]
-        if self._learned_operators == (self._learned_operators | ops_to_add):
-            is_updated = False
-        else:
-            is_updated = True
-        self._learned_operators.update(ops_to_add)
-        logging.info(f"Edited learned operators and NDRs. Total ops added: {len(ops_to_add)}")
-        return is_updated
-            
     def learn(self, itr=-1):
         """Only call LNDR on skills that have a nonNOP.
         This is justified since if the NDR has no effects, no operator is conceived. Thus, until a nonNOP is received, no operator is conceived.
 
         So, the LLM operator (if it exists) will be used in substitution.
         """
+        if not self._learning_on:
+            return False
 
-        lndr_updated = super().learn(itr)
-        is_updated = lndr_updated or (self.edit_learned_rep())
+        # Check whether we have NDRs that need to be relearned
+        is_updated = False
+        for action_predicate in self._fits_all_data:
+            if action_predicate.name in self.skills_with_NOPS_only:
+                continue
+            if not self._fits_all_data[action_predicate]:
+                transition_for_action = self._transitions[action_predicate]
+                
+                # This is used to prioritize samples in the learning batch
+                def get_batch_probs(data):
+                    assert False, "Assumed off"
+                    # Favor more recent data
+                    p = np.log(np.arange(1, len(data)+1)) + 1e-5
+                    # Downweight empty transitions
+                    for i in range(len(p)):
+                        if len(data[i][2]) == 0:
+                            p[i] /= 2.
+                    p = p / p.sum()
+                    return p
 
+                # Initialize from previous set?
+                if action_predicate in self._ndrs and \
+                    ac.zpk_initialize_from_previous_rule_set[self._domain_name]:
+                    init_rule_sets = {action_predicate : self._ndrs[action_predicate]}
+                else:
+                    init_rule_sets = None
+
+                # max explain_examples_transitions
+                max_ee_transitions = ac.max_zpk_explain_examples_transitions[self._domain_name]
+
+                learned_ndrs = learn_ndrs({action_predicate : transition_for_action},
+                    max_timeout=ac.max_zpk_learning_time,
+                    max_action_batch_size=ac.max_zpk_action_batch_size[self._domain_name],
+                    get_batch_probs=get_batch_probs,
+                    init_rule_sets=init_rule_sets,
+                    rng=self._rand_state,
+                    max_ee_transitions=max_ee_transitions,
+                )
+                ndrs_for_action = learned_ndrs[action_predicate]
+                self._ndrs[action_predicate] = ndrs_for_action
+
+                self._fits_all_data[action_predicate] = True
+                is_updated = True 
+
+        # Update all learned_operators
+        if is_updated:
+            self._learned_operators.clear()
+            for ndr_set in self._ndrs.values():
+                for i, ndr in enumerate(ndr_set):
+                    operator = ndr.determinize(name_suffix=i)
+                    # No point in adding an empty effect or noisy effect operator
+                    if len(operator.effects.literals) == 0 or NOISE_OUTCOME in operator.effects.literals:
+                        continue
+                    self._learned_operators.add(operator)
+
+            # print_rule_set(self._ndrs)
+
+        if self._evaluate_first_iteration and itr == 0:
+            return True
 
         return is_updated
 
@@ -257,7 +300,7 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
     def _query_llm(self, prompt):
         # response, path = self._llm.sample_completions([{"role": "user", "content": prompt}], temperature=0, seed=self._seed, num_completions=1)
         # response = response[0]
-        with open(f'minecraft_llm_responses/{(ac.seed - 10)}.pkl', 'rb') as f:
+        with open(f'minecraft_llm_responses/{(ac.seed - 20)}.pkl', 'rb') as f:
             response = pickle.load(f)[0]
         logging.info(f"Got response {response}")
         # logging.debug(f"Saved response at path: {path}")
@@ -283,6 +326,15 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
             end = match.start()
 
         return operators
+
+def ops_equal(op1:Operator, op2:Operator):
+    if op1.params != op2.params:
+        return False
+    if set(op1.preconds.literals) != set(op2.preconds.literals):
+        return False
+    if set(op1.effects.literals) != set(op2.effects.literals):
+        return False
+    return True
 
 # Debug code
 if __name__ == '__main__':
