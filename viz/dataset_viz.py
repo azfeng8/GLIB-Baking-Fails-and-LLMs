@@ -877,6 +877,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
     use 'i/o' to jump between episode starts.
     use 'w/e' to jump between operator changes.
     use 'x/c' to jump between plan-following actions.
+    use 't/y' to jump between first nonNOPs.
     use left/right to scroll.
     use 'n' to change between NOPs and nonNOPs views.
     use 'r' to render the screen.

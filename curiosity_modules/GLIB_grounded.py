@@ -79,7 +79,9 @@ class GLIBG1CuriosityModule(GoalBabblingCuriosityModule):
         return plan + [self._last_sampled_action]
 
 class GLIBG2CuriosityModule(GoalBabblingCuriosityModule):
+    #TODO: mutex goals
     _ignore_statics = True
+    _ignore_mutex = True
 
     def _initialize(self):
         self._num_steps = 0
@@ -100,6 +102,15 @@ class GLIBG2CuriosityModule(GoalBabblingCuriosityModule):
         self._recompute_unseen_lits_acts(state)
         self._last_state = set()
         self._plan = []
+        # if self._ignore_mutex:
+        #     mutex_pairs = self._compute_ground_mutex_pairs(state)
+        #     self._unseen_lits_acts = list(filter(
+        #             lambda ga: frozenset(ga[0]) not in mutex_pairs,
+        #             self._unseen_lits_acts))   
+
+
+    def _compute_ground_mutex_pairs(self, state):
+        raise NotImplementedError
 
     def _recompute_unseen_lits_acts(self, state):
         self._unseen_lits_acts = set()
@@ -123,8 +134,8 @@ class GLIBG2CuriosityModule(GoalBabblingCuriosityModule):
             self._recompute_unseen_lits_acts(state)
         action = super()._get_action(state)
         state_lits = list(state)
-        for i, lit in enumerate(state_lits):  # update novelty
-            for lit2 in state_lits:
+        for i,lit in enumerate(state_lits):  # update novelty
+            for lit2 in state_lits[i:]:
                 if lit == lit2: continue
                 if ((lit, lit2), action, False) in self._unseen_lits_acts:
                     self._unseen_lits_acts.remove(((lit, lit2), action, False))
