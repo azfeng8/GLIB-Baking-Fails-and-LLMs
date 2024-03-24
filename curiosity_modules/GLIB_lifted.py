@@ -112,6 +112,7 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
         # Randomly shuffle within num_lits
         self._untried_episode_goal_actions = sorted(self._untried_episode_goal_actions,
             key=self._get_goal_action_priority)
+        logging.debug(self._untried_episode_goal_actions[:20])
         if self._ignore_statics:  # ignore static goals
             static_preds = self._compute_static_preds()
             self._untried_episode_goal_actions = list(filter(
