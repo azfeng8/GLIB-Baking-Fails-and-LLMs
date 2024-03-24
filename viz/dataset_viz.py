@@ -7,13 +7,13 @@ from pddlgym.parser import PDDLDomainParser
 import gym, pddlgym
 from collections import defaultdict
 
-# SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results_openstack/results/LNDR'
-# RESULTS_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results_openstack/results'
+SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results_openstack/results/LNDR'
+RESULTS_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results_openstack/results'
 BABBLING_SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results_openstack/results/GLIB'
 
-SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results/LNDR'
-RESULTS_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results'
-BABBLING_SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results/GLIB'
+# SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results/LNDR'
+# RESULTS_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results'
+# BABBLING_SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results/GLIB'
 
 SAVE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/dataset_visualizations'
 PDDLGYM_PATH = '/home/catalan/.virtualenvs/meng/lib/python3.10/site-packages/pddlgym/pddl'
@@ -905,12 +905,12 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
         ax = fig.add_subplot(111)
         figs[action_pred.name] = (fig, ax)
 
-    success_increases = np.loadtxt(os.path.join(SOURCE_PATH, domain_name, curiosity_name, seed, 'success_increases.txt'))
+    success_increases = np.loadtxt(os.path.join(SOURCE_PATH, domain_name, learning_name, curiosity_name, seed, 'success_increases.txt'))
     if len(success_increases.shape) == 1:
         success_increases = success_increases[np.newaxis, :]
     success_itrs = success_increases[:, 0].tolist()
 
-    ops_change_itrs = np.loadtxt(os.path.join(SOURCE_PATH, domain_name, curiosity_name, seed, 'ops_change_iters.txt'))
+    ops_change_itrs = np.loadtxt(os.path.join(SOURCE_PATH, domain_name, learning_name, curiosity_name, seed, 'ops_change_iters.txt'))
 
     results_path = os.path.join(RESULTS_PATH, domain_name, learning_name, curiosity_name, f'{domain_name}_{learning_name}_{curiosity_name}_{seed}.pkl')
     with open(results_path, 'rb') as f:
@@ -1425,13 +1425,13 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
 if __name__ == "__main__":
         
     domain_name = 'Minecraft'
-    learning_name = 'LNDR'
+    learning_name = 'LLMWarmStart+LNDR'
 
     # curiosity_name = 'random'
     # seeds = [str(s) for s in range(110, 120)]
     
     curiosity_name = 'GLIB_G1'
-    seeds = [str(s) for s in range(1002, 1003)]
+    seeds = [str(s) for s in range(150, 151)]
 
     for seed in seeds:
         interactive_view_123(domain_name, curiosity_name, learning_name, seed)

@@ -176,7 +176,7 @@ class AgentConfig:
         "NDRBlocks" : 1501,
         "Baking": 1799,
         "Travel": 1501,
-        "Minecraft": 199
+        "Minecraft": 1799
     }
 
     ## Constants for curiosity modules. ##
