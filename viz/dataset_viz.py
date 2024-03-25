@@ -1427,12 +1427,13 @@ if __name__ == "__main__":
         
     domain_name = 'Minecraft'
     learning_name = 'LLMWarmStart+LNDR'
+    # learning_name = "LNDR"
 
     # curiosity_name = 'random'
-    # seeds = [str(s) for s in range(110, 120)]
+    seeds = [str(s) for s in range(160, 170)]
     
     curiosity_name = 'GLIB_L2'
-    seeds = [str(s) for s in range(170, 180)]
+    # seeds = [str(s) for s in range(184, 190)]
 
     for seed in seeds:
-        interactive_view1(domain_name, curiosity_name, learning_name, seed)
+        interactive_view_123(domain_name, curiosity_name, learning_name, seed)

@@ -326,8 +326,8 @@ class PlottingConfig:
     # learner_explorer = [("LLM+LNDR", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2")]
     # learner_explorer = [("LLM+LNDR", "LLM+GLIB_L2")]#, ("LNDR", "GLIB_G1")]
     learner_explorer = [("LLMWarmStart+LNDR", "GLIB_L2"),  ("LNDR", "GLIB_L2")]
-    learner_explorer = [("LLMWarmStart+LNDR", "GLIB_L1"),  ("LNDR", "GLIB_L1")]
-    # learner_explorer = [("LLMWarmStart+LNDR", "GLIB_G1"), ("LNDR", "GLIB_G1")]
+    # learner_explorer = [("LLMWarmStart+LNDR", "GLIB_L1"),  ("LNDR", "GLIB_L1")]
+    learner_explorer = [("LLMWarmStart+LNDR", "GLIB_G1"), ("LNDR", "GLIB_G1")]
     # seeds = [range(60, 70)]  + [range(1, 11)]
 
     # learner_explorer= [("LNDR", "GLIB_L2"), ("LNDR", "GLIB_G1"), ("LNDR", "random")]
@@ -336,7 +336,7 @@ class PlottingConfig:
     # seeds = [range(50,60), range(50,60)]
     # seeds = [range(60,70), range(60,70)]
     # seeds = [range(70,80), range(70,80)]
-    seeds = [range(170, 180)] + [range(100, 110)]
+    seeds = [range(180, 190)] + [range(100, 110)]
 
     # learner_explorer = [("LLM+LNDR", "LLM+GLIB_G1"), ("LLM+LNDR", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2"), ("LNDR", "GLIB_G1")]
     # seeds = [range(12, 22)] * 2 + [range(1, 11)]  * 2

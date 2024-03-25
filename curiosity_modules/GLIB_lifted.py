@@ -5,6 +5,7 @@ from pddlgym.inference import find_satisfying_assignments
 
 from collections import defaultdict
 import copy
+import pickle
 import itertools
 import numpy as np
 import logging
@@ -112,6 +113,9 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
         # Randomly shuffle within num_lits
         self._untried_episode_goal_actions = sorted(self._untried_episode_goal_actions,
             key=self._get_goal_action_priority)
+        with open('untried_ga.pkl', 'wb') as f:
+            pickle.dump(self._untried_episode_goal_actions, f)
+ 
         logging.debug(self._untried_episode_goal_actions[:20])
         if self._ignore_statics:  # ignore static goals
             static_preds = self._compute_static_preds()
@@ -124,7 +128,6 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
                 lambda ga: frozenset(ga[0]) not in mutex_pairs,
                 self._untried_episode_goal_actions))
         # Forget the goal-action that was going to be taken at the end of the plan in progress
-        # GLIB_L_LOGGER.debug("Resetting self._current_goal_action")
         self._current_goal_action = None
 
     def _get_goal_action_priority(self, goal_action):

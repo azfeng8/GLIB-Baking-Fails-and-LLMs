@@ -107,6 +107,8 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
             if self._plan_is_good():
                 if len(self._plan) != 0:
                     self.line_stats.append((goal, deepcopy(self._plan)))
+                    GOAL_BABBLING_LOGGER.debug(f"\tGOAL: {goal}")
+                    GOAL_BABBLING_LOGGER.debug(f"\tPLAN: {self._plan}")
                     if self._goal_from_llm:
                         self.llm_line_stats.append(1)
                     else:
@@ -114,8 +116,6 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
     
                 self._plan = self._finish_plan(self._plan)
                 self._goal = goal
-                GOAL_BABBLING_LOGGER.debug(f"\tGOAL: {goal}")
-                GOAL_BABBLING_LOGGER.debug(f"\tPLAN: {self._plan}")
                 # import ipdb; ipdb.set_trace()
                 # Take the first step in the plan
                 return self._plan.pop(0)
