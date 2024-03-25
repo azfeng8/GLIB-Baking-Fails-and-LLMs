@@ -108,11 +108,12 @@ def get_data(domain_name, curiosity, learning_name, seeds):
                 iter_num += 1
     return first_nonNOP_iter, fallback_nonNOP_action, babbled_nonNOP_action, inplan_nonNOP_action
 
-# domain_name = 'Baking'
+domain_name = 'Baking'
 # datasets = [('LLMWarmStart+LNDR',"GLIB_G1", [str(s) for s in range(120, 130) if s != 125]) , ("LNDR", "GLIB_G1", [str(s) for s in range(100, 110) if s != 106]), ("LLMWarmStart+LNDR", "GLIB_L2", [str(s) for s in range(120, 130)]), ("LNDR", "GLIB_L2", [str(s) for s in range(100, 110) if s not in (108, 107)]), ("LNDR", "random", [str(s) for s in range(120, 130)])]
-domain_name = 'Minecraft'
+datasets = [('LLMWarmStart+LNDR',"GLIB_L2", [str(s) for s in range(140, 150) ]), ('LLMWarmStart+LNDR',"GLIB_G1", [str(s) for s in range(140, 150) ])]#, ("LNDR", "GLIB_L2", [str(s) for s in range(100, 110)]) ]
+# domain_name = 'Minecraft'
 # datasets = [('LLMWarmStart+LNDR',"GLIB_G1", [str(s) for s in range(180, 190) ]),  ("LLMWarmStart+LNDR", "GLIB_L2", [str(s) for s in range(180, 190)])]
-datasets = [('LLMWarmStart+LNDR',"GLIB_L2", [str(s) for s in range(160, 170) ]), ('LLMWarmStart+LNDR',"GLIB_G1", [str(s) for s in range(160, 170) ])]#, ("LNDR", "GLIB_L2", [str(s) for s in range(100, 110)]) ]
+# datasets = [('LLMWarmStart+LNDR',"GLIB_L2", [str(s) for s in range(180, 190) ]), ('LLMWarmStart+LNDR',"GLIB_G1", [str(s) for s in range(180, 190) ])]#, ("LNDR", "GLIB_L2", [str(s) for s in range(100, 110)]) ]
 
 env = pddlgym.make(f'PDDLEnv{domain_name}-v0')
 skills = [p.name for p in env.action_space.predicates]

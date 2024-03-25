@@ -300,7 +300,7 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
     def _query_llm(self, prompt):
         # response, path = self._llm.sample_completions([{"role": "user", "content": prompt}], temperature=0, seed=self._seed, num_completions=1)
         # response = response[0]
-        with open(f'minecraft_llm_responses/{(ac.seed - 20)}.pkl', 'rb') as f:
+        with open(f'baking_llm_responses/{(ac.seed - 20)}.pkl', 'rb') as f:
             response = pickle.load(f)[0]
         logging.info(f"Got response {response}")
         # logging.debug(f"Saved response at path: {path}")

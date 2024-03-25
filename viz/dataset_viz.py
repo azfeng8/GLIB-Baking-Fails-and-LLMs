@@ -919,7 +919,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
         succ = results[:, 1]
 
     episode_start_iters = np.loadtxt(os.path.join(path, 'episode_start_iters.txt'))
-    first_nonNOP_iters = np.loadtxt(os.path.join(path, 'first_nonNOP_iters.txt'))
+    # first_nonNOP_iters = np.loadtxt(os.path.join(path, 'first_nonNOP_iters.txt'))
 
     with open(os.path.join(path, 'skill_sequence.pkl'), 'rb') as f:
         skill_seq = pickle.load(f)
@@ -1425,12 +1425,12 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
 
 if __name__ == "__main__":
         
-    domain_name = 'Minecraft'
+    domain_name = 'Baking'
     learning_name = 'LLMWarmStart+LNDR'
     # learning_name = "LNDR"
 
     # curiosity_name = 'random'
-    seeds = [str(s) for s in range(160, 170)]
+    seeds = [str(s) for s in range(145, 150)]
     
     curiosity_name = 'GLIB_L2'
     # seeds = [str(s) for s in range(184, 190)]
