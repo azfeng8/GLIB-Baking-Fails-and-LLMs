@@ -337,7 +337,7 @@ def view4(save_path, domain_name, curiosity_name, learning_name, seed):
     total = num_fallback + num_babbled + num_inplan
     plt.xlabel(f'Babbled: {num_babbled / total* 100}%\nFallback: {num_fallback / total* 100}%\nIn-plan: {num_inplan / total* 100}%')
     plt.gcf().set_size_inches(22, 14)
-    plt.savefig(os.path.join(save_path, 'GLIB_success_plot.png'), dpi=300)
+    plt.savefig(os.path.join(save_path, f'GLIB_success_plot.png'), dpi=300)
     plt.close()
 
 
@@ -919,7 +919,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
         succ = results[:, 1]
 
     episode_start_iters = np.loadtxt(os.path.join(path, 'episode_start_iters.txt'))
-    # first_nonNOP_iters = np.loadtxt(os.path.join(path, 'first_nonNOP_iters.txt'))
+    first_nonNOP_iters = np.loadtxt(os.path.join(path, 'first_nonNOP_iters.txt'))
 
     with open(os.path.join(path, 'skill_sequence.pkl'), 'rb') as f:
         skill_seq = pickle.load(f)
@@ -1430,10 +1430,11 @@ if __name__ == "__main__":
     # learning_name = "LNDR"
 
     # curiosity_name = 'random'
-    seeds = [str(s) for s in range(145, 150)]
+    seeds = [str(s) for s in range(162, 170)]
     
     curiosity_name = 'GLIB_L2'
     # seeds = [str(s) for s in range(184, 190)]
 
     for seed in seeds:
         interactive_view_123(domain_name, curiosity_name, learning_name, seed)
+        # view4(f'individual_plots/{domain_name}/{learning_name}/{curiosity_name}', domain_name, curiosity_name, learning_name, seed)
