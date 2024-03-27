@@ -1,6 +1,6 @@
 from settings import AgentConfig as ac
 from pddlgym.parser import PDDLDomainParser, Operator
-from pddlgym.structs import TypedEntity, ground_literal
+from pddlgym.structs import TypedEntity, ground_literal, LiteralConjunction
 from ndr.learn import run_main_search as learn_ndrs
 from ndr.learn import get_transition_likelihood, print_rule_set, iter_variable_names
 from ndr.ndrs import NOISE_OUTCOME, NDR, NDRSet
@@ -54,7 +54,7 @@ class ZPKOperatorLearningModule:
         # Logging
         self._actions.append(action)
 
-    def learn(self, iter=-1):
+    def learn(self, iter=-1, **kwargs):
 
         if not self._learning_on:
             return False
@@ -136,7 +136,7 @@ class ZPKOperatorLearningModule:
 class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
     """The ZPK operator learner but initialized with operators output by an LLM."""
 
-    def __init__(self, learned_operators, domain_name, llm):
+    def __init__(self, learned_operators, domain_name, llm, skills_to_overwrite_with_LLMinit_op):
         super().__init__(learned_operators, domain_name)
 
         self._llm:OpenAI_Model = llm
@@ -181,26 +181,28 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
             self._initialized_ndrs[action.predicate] = ndrs
             self._evaluate_first_iteration = True
 
+        self._skills_to_replace:set[str] = skills_to_overwrite_with_LLMinit_op
+
     def observe(self, state, action, effects, itr, **kwargs):
         if not self._learning_on:
             return
 
         self._transitions[action.predicate].append((state.literals, action, effects))
 
-        if len(effects) != 0 and action.predicate.name in self.skills_with_NOPS_only:
-            self.skills_with_NOPS_only.remove(action.predicate.name)
+        if len(effects) != 0 and action.predicate.name in self._skills_to_replace:
+            self._skills_to_replace.remove(action.predicate.name)
             self._first_nonNOP_itrs.append(itr)
 
         # Check whether we'll need to relearn
             # self._fits_all_data[action.predicate] is True once learned an initial NDR
-        if self._fits_all_data[action.predicate] and action.predicate.name not in self.skills_with_NOPS_only:
+        if self._fits_all_data[action.predicate] and action.predicate.name not in self._skills_to_replace:
             ndr = self._ndrs[action.predicate]
             if not self._ndr_fits_data(ndr, state, action, effects):
                 self._fits_all_data[action.predicate] = False
         # Logging
         self._actions.append(action)
 
-    def learn(self, itr=-1):
+    def learn(self, itr=-1, skill_to_edit=None, **kwargs):
         """Only call LNDR on skills that have a nonNOP.
         This is justified since if the NDR has no effects, no operator is conceived. Thus, until a nonNOP is received, no operator is conceived.
 
@@ -209,10 +211,10 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         if not self._learning_on:
             return False
 
-        # Check whether we have NDRs that need to be relearned
         is_updated = False
+        # Check whether we have NDRs that need to be relearned
         for action_predicate in self._fits_all_data:
-            if action_predicate.name in self.skills_with_NOPS_only:
+            if action_predicate.name in self._skills_to_replace:
                 continue
             if not self._fits_all_data[action_predicate]:
                 transition_for_action = self._transitions[action_predicate]
@@ -266,6 +268,47 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
 
             # print_rule_set(self._ndrs)
 
+        if skill_to_edit is not None:
+            # look in self._learned_operators and get the current operators
+            ops =[] 
+            for op in self._learned_operators:
+                for l in op.preconds.literals:
+                    if l.predicate.name == skill_to_edit.name:
+                        ops.append(op)
+
+            # remove each op with the skill in self._learned_operators
+            for op in ops:
+                self._learned_operators.remove(op)
+ 
+            # pick a random one
+            op = ops[np.random.choice(len(ops))]
+            # check if precondition has >1 lits (not including the action)
+            if len(op.preconds.literals) == 2:
+                # if not, delete the operator
+                ops.remove(op)
+            else:
+                # if yes, pick a random literal in the precondition, delete it, update the parameters of the operator
+                preconds = deepcopy(op.preconds.literals)
+                for i, lit in enumerate(preconds):
+                    if lit.predicate.name == skill_to_edit.name:
+                        action = lit
+                        preconds.remove(action)
+                lit = preconds[np.random.choice(len(preconds))]
+                preconds.remove(lit)
+                params = set()
+                for l in op.preconds.literals + op.effects.literals:
+                    for v in l.variables:
+                        params.add(v)
+                ops.remove(op)
+                ops.append(Operator(op.name, params, LiteralConjunction(preconds + [action]), op.effects))
+
+            # update self._learned_operators with the new operator set for the skill
+            for op in ops:
+                self._learned_operators.add(op)     
+               
+            # don't need to update NDRs since learning is not called for it
+            is_updated = True
+
         if self._evaluate_first_iteration and itr == 0:
             return True
 
@@ -300,7 +343,7 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
     def _query_llm(self, prompt):
         # response, path = self._llm.sample_completions([{"role": "user", "content": prompt}], temperature=0, seed=self._seed, num_completions=1)
         # response = response[0]
-        with open(f'baking_llm_responses/{(ac.seed - 20)}.pkl', 'rb') as f:
+        with open(f'{self._domain_name.lower()}_llm_responses/{str(ac.seed)[-1]}.pkl', 'rb') as f:
             response = pickle.load(f)[0]
         logging.info(f"Got response {response}")
         # logging.debug(f"Saved response at path: {path}")

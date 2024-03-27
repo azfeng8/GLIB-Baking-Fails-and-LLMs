@@ -107,16 +107,12 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
     ### Reset ###
 
     def _iw_reset(self):
-        logging.info("RESETTING EPISODE GOAL ACTIONS")
         # Want to retry goal-actions if a new episode or new operators learned
         self._untried_episode_goal_actions = copy.deepcopy(self._unseen_goal_actions)
         # Randomly shuffle within num_lits
         self._untried_episode_goal_actions = sorted(self._untried_episode_goal_actions,
             key=self._get_goal_action_priority)
-        with open('untried_ga.pkl', 'wb') as f:
-            pickle.dump(self._untried_episode_goal_actions, f)
  
-        logging.debug(self._untried_episode_goal_actions[:20])
         if self._ignore_statics:  # ignore static goals
             static_preds = self._compute_static_preds()
             self._untried_episode_goal_actions = list(filter(
@@ -158,7 +154,7 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
                 # GLIB_L_LOGGER.debug("*** Finished the plan, now executing the action")
                 # Execute the action
                 self.line_stats.append('FINISHED PLAN - babbled')
-                return action
+                return False, action
         # Either continue executing a plan or make a new one (or fall back to random)
         return super()._get_action(state)
 

@@ -14,4 +14,4 @@ class RandomCuriosityModule(BaseCuriosityModule):
         pass
 
     def get_action(self, state):
-        return self._action_space.sample(state)
+        return self._action_space.sample(state), False

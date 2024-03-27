@@ -50,11 +50,12 @@ class Agent:
 
         self.llm = OpenAI_Model()
         self.llm_precondition_goals = dict() # Op from LLM: Op from Learner with the same action predicate (random)
+        self.skills_to_overwrite_with_LLMinit_ops = set([p.name for p in ac.train_env.action_space.predicates])
 
         # The operator learning module learns operators. It should update the
         # agent's learned operators set
         self._operator_learning_module = create_operator_learning_module(
-            operator_learning_name, self.learned_operators, self.domain_name, self.llm, self.llm_precondition_goals, log_llm_path)
+            operator_learning_name, self.learned_operators, self.domain_name, self.llm, self.llm_precondition_goals, self.skills_to_overwrite_with_LLMinit_ops, log_llm_path)
         # The planning module uses the learned operators to plan at test time.
         self._planning_module = create_planning_module(
             planning_module_name, self.learned_operators, domain_name,
@@ -75,8 +76,13 @@ class Agent:
         """Get an exploratory action to collect more training data.
            Not used for testing. Planner is used for testing."""
         start_time = time.time()
-        action = self._curiosity_module.get_action(state)
+        in_plan, action = self._curiosity_module.get_action(state)
         self.curiosity_time += time.time()-start_time
+
+        if in_plan:
+            self._action_in_plan = True
+        else:
+            self._action_in_plan = False
         return action
 
     def observe(self, state, action, next_state, itr):
@@ -90,9 +96,17 @@ class Agent:
         self.curiosity_time += time.time()-start_time
         self.episode_start = False
 
+        if (len(effects) != 0):
+            if action.predicate.name in self.skills_to_overwrite_with_LLMinit_ops:
+                self.skills_to_overwrite_with_LLMinit_ops.remove(action.predicate.name)
+        if (len(effects) == 0) and self._action_in_plan and (action.predicate.name in self.skills_to_overwrite_with_LLMinit_ops):
+            self._skill_to_edit = action.predicate
+        else:
+            self._skill_to_edit = None
+
     def learn(self, itr):
         # Learn (probably less frequently than observing)
-        some_operator_changed = self._operator_learning_module.learn(itr)
+        some_operator_changed = self._operator_learning_module.learn(itr, skill_to_edit=self._skill_to_edit)
         self._curiosity_module.learn(itr)
 
         if some_operator_changed:
