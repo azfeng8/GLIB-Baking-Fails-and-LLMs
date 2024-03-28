@@ -16,7 +16,7 @@ class FastForwardPlanner(Planner):
     FF_PATH = os.environ['FF_PATH']
 
     def get_policy(self, raw_problem_fname):
-        actions = self.get_plan(raw_problem_fname)
+        actions, _ = self.get_plan(raw_problem_fname)
         def policy(_):
             if len(actions) == 0:
                 raise NoPlanFoundException() 
@@ -40,8 +40,8 @@ class FastForwardPlanner(Planner):
         if not use_cache:
             os.remove(problem_fname)
  
-        actions = self._plan_to_actions(plan, objects)
-        return actions
+        actions, operator_names = self._plan_to_actions(plan, objects)
+        return actions, operator_names
 
     def _get_cmd_str(self, domain_fname, problem_fname):
         timeout = "gtimeout" if sys.platform == "darwin" else "timeout"
@@ -66,9 +66,11 @@ class FastForwardPlanner(Planner):
         action_predicates = self._action_space.predicates
 
         actions = []
+        operator_names = []
         for plan_step in plan:
             if plan_step == "reach-goal":
                 continue
-            action = parse_plan_step(plan_step, operators, action_predicates, objects)
+            action, op_name = parse_plan_step(plan_step, operators, action_predicates, objects)
             actions.append(action)
-        return actions
+            operator_names.append(op_name)
+        return actions, operator_names

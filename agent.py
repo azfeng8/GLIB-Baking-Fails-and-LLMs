@@ -76,11 +76,11 @@ class Agent:
         """Get an exploratory action to collect more training data.
            Not used for testing. Planner is used for testing."""
         start_time = time.time()
-        in_plan, action = self._curiosity_module.get_action(state)
+        in_plan, op_name, action = self._curiosity_module.get_action(state)
         self.curiosity_time += time.time()-start_time
 
         if in_plan:
-            self._action_in_plan = True
+            self._action_in_plan = op_name
         else:
             self._action_in_plan = False
         return action
@@ -100,7 +100,7 @@ class Agent:
             if action.predicate.name in self.skills_to_overwrite_with_LLMinit_ops:
                 self.skills_to_overwrite_with_LLMinit_ops.remove(action.predicate.name)
         if (len(effects) == 0) and self._action_in_plan and (action.predicate.name in self.skills_to_overwrite_with_LLMinit_ops):
-            self._skill_to_edit = action.predicate
+            self._skill_to_edit = (action.predicate, self._action_in_plan)
         else:
             self._skill_to_edit = None
 

@@ -153,7 +153,14 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         prompt = self._create_todo_prompt()
         llm_output = self._query_llm(prompt)
         operators = self._llm_output_to_operators(llm_output)
-        self._initialized_ops = operators
+        # This tracks the most current version of the LLM ops that should be used for planning, as preconditions are relaxed
+        self._llm_ops = defaultdict(set)
+        for op in operators:
+            action = [p for p in op.preconds.literals if p.predicate in ac.train_env.action_space.predicates][0]
+            i = len(self._llm_ops[action.predicate])
+            op.name = op.name.rstrip('0123456789') + str(i)
+            self._llm_ops[action.predicate].add(op)
+        self._llm_op_fail_counts = defaultdict(lambda: 0)
         self._learned_operators.update(operators)
         self._evaluate_first_iteration = True
 
@@ -183,11 +190,75 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         This is justified since if the NDR has no effects, no operator is conceived. Thus, until a nonNOP is received, no operator is conceived.
 
         So, the LLM operator (if it exists) will be used in substitution.
+
+        Args:
+            skill_to_edit (tuple[act pred, str]): (action_predicate, operator_name)
         """
         if not self._learning_on:
             return False
 
         is_updated = False
+
+        # Only edit the operator if it was proposed by the LLM. Otherwise, let LNDR learn
+        op, action_pred, operator_name = None, None, None
+        if skill_to_edit is not None:
+            action_pred, operator_name = skill_to_edit
+            for o in self._llm_ops[action_pred]:
+                if o.name == operator_name:
+                    op = o
+                    self._llm_op_fail_counts[operator_name] += 1
+                    break
+        if op is not None and self._llm_op_fail_counts[operator_name] > ac.operator_fail_limit:
+            # check if precondition has >1 lits (not including the action)
+            if len(op.preconds.literals) == 2:
+                # if not, delete the operator
+                self._llm_ops[action_pred].remove(op)
+                self._learned_operators.remove(op)
+                del self._llm_op_fail_counts[op.name]
+                logging.info(f"DELETED LLM OPERATOR: {op.name}")
+                # Rename the LLM ops
+                names_map = {}
+                for i, op in enumerate(self._llm_ops[action_pred]):
+                    new_name = op.name.rstrip('1234567890') + str(i)
+                    names_map[op.name] = new_name
+                    op.name = new_name
+                # Migrate the fail counts
+                new_fail_counts = defaultdict(lambda:0)
+                for op_name in self._llm_op_fail_counts:
+                    if op_name in names_map:
+                        new_fail_counts[names_map[op_name]] = self._llm_op_fail_counts[op_name]
+                    else:
+                        new_fail_counts[op_name] = self._llm_op_fail_counts[op_name]
+                self._llm_op_fail_counts = new_fail_counts
+
+            else:
+                # if yes, pick a random literal in the precondition, delete it, update the parameters of the operator
+                preconds = deepcopy(op.preconds.literals)
+                for i, lit in enumerate(preconds):
+                    if lit.predicate.name == action_pred.name:
+                        action = lit
+                        preconds.remove(action)
+                lit = preconds[np.random.choice(len(preconds))]
+                preconds.remove(lit)
+                params = set()
+                for l in op.preconds.literals + op.effects.literals:
+                    for v in l.variables:
+                        params.add(v)
+                self._llm_ops[action_pred].remove(op)
+                self._learned_operators.remove(op)
+                new_op = Operator(op.name, params, LiteralConjunction(preconds + [action]), op.effects)
+                self._llm_ops[action_pred].add(new_op)
+                self._learned_operators.add(new_op)
+                self._llm_op_fail_counts[new_op.name] = 0
+                logging.info(f"EDITED LLM OPERATOR: {new_op.name}")
+
+            # If no LLM operators exist for this action predicate, default to LNDR.
+            if len(self._llm_ops[action_pred]) == 0:
+                self._skills_to_replace.remove(action_pred.name)
+               
+            # don't need to update NDRs since learning is not called for it
+            is_updated = True
+
         # Check whether we have NDRs that need to be relearned
         for action_predicate in self._fits_all_data:
             if action_predicate.name in self._skills_to_replace:
@@ -198,14 +269,6 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
                 # This is used to prioritize samples in the learning batch
                 def get_batch_probs(data):
                     assert False, "Assumed off"
-                    # Favor more recent data
-                    p = np.log(np.arange(1, len(data)+1)) + 1e-5
-                    # Downweight empty transitions
-                    for i in range(len(p)):
-                        if len(data[i][2]) == 0:
-                            p[i] /= 2.
-                    p = p / p.sum()
-                    return p
 
                 # Initialize from previous set?
                 if action_predicate in self._ndrs and \
@@ -234,57 +297,22 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         # Update all learned_operators
         if is_updated:
             self._learned_operators.clear()
-            for ndr_set in self._ndrs.values():
-                for i, ndr in enumerate(ndr_set):
-                    operator = ndr.determinize(name_suffix=i)
+            for act_pred in self._ndrs:
+                for i, ndr in enumerate(self._ndrs[act_pred]):
+                    suffix = len(self._llm_ops[act_pred]) + i
+                    operator = ndr.determinize(name_suffix=suffix)
                     # No point in adding an empty effect or noisy effect operator
                     if len(operator.effects.literals) == 0 or NOISE_OUTCOME in operator.effects.literals:
                         continue
                     self._learned_operators.add(operator)
+            for act_pred in self._llm_ops:
+                self._learned_operators.update(self._llm_ops[act_pred])
 
             # print_rule_set(self._ndrs)
 
-        if skill_to_edit is not None:
-            # look in self._learned_operators and get the current operators
-            ops =[] 
-            for op in self._learned_operators:
-                for l in op.preconds.literals:
-                    if l.predicate.name == skill_to_edit.name:
-                        ops.append(op)
-
-            # remove each op with the skill in self._learned_operators
-            for op in ops:
-                self._learned_operators.remove(op)
- 
-            # pick a random one
-            op = ops[np.random.choice(len(ops))]
-            # check if precondition has >1 lits (not including the action)
-            if len(op.preconds.literals) == 2:
-                # if not, delete the operator
-                ops.remove(op)
-            else:
-                # if yes, pick a random literal in the precondition, delete it, update the parameters of the operator
-                preconds = deepcopy(op.preconds.literals)
-                for i, lit in enumerate(preconds):
-                    if lit.predicate.name == skill_to_edit.name:
-                        action = lit
-                        preconds.remove(action)
-                lit = preconds[np.random.choice(len(preconds))]
-                preconds.remove(lit)
-                params = set()
-                for l in op.preconds.literals + op.effects.literals:
-                    for v in l.variables:
-                        params.add(v)
-                ops.remove(op)
-                ops.append(Operator(op.name, params, LiteralConjunction(preconds + [action]), op.effects))
-
-            # update self._learned_operators with the new operator set for the skill
-            for op in ops:
-                self._learned_operators.add(op)     
-               
-            # don't need to update NDRs since learning is not called for it
-            is_updated = True
-
+        logging.info(f"LLM OPERATORS")
+        for a in self._llm_ops:
+            logging.info(f"Ops for action {a}: {[o.name for o in self._llm_ops[a]]}")
         if self._evaluate_first_iteration and itr == 0:
             return True
 

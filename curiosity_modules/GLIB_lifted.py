@@ -154,7 +154,7 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
                 # GLIB_L_LOGGER.debug("*** Finished the plan, now executing the action")
                 # Execute the action
                 self.line_stats.append('FINISHED PLAN - babbled')
-                return False, action
+                return False, None, action
         # Either continue executing a plan or make a new one (or fall back to random)
         return super()._get_action(state)
 
