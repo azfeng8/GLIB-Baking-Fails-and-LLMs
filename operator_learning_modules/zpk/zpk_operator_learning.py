@@ -174,6 +174,10 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
 
         if len(effects) != 0 and action.predicate.name in self._skills_to_replace:
             self._skills_to_replace.remove(action.predicate.name)
+            for op in self._llm_ops[action.predicate]:
+                if op.name in self._llm_op_fail_counts:
+                    del self._llm_op_fail_counts[op.name]
+            self._llm_ops[action.predicate].clear()
             self._first_nonNOP_itrs.append(itr)
 
         # Check whether we'll need to relearn
