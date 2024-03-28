@@ -1,15 +1,43 @@
 from planning_modules.base_planner import Planner, PlannerTimeoutException, \
     NoPlanFoundException
 
-from pddlgym.parser import parse_plan_step
 from settings import AgentConfig as ac
 
+from pddlgym.structs import ground_literal
 import sys
 import os
 import re
 import subprocess
 import time
 
+
+def parse_plan_step(plan_step, operators, action_predicates, objects):
+    plan_step_split = plan_step.split()
+
+    # Get the operator from its name
+    operator = None
+    for op in operators:
+        if op.name.lower() == plan_step_split[0]:
+            operator = op
+            break
+    assert operator is not None, "Unknown operator '{}'".format(plan_step_split[0])
+
+    assert len(plan_step_split) == len(operator.params) + 1
+    object_names = plan_step_split[1:]
+    args = []
+    for name in object_names:
+        matches = [o for o in objects if o.name == name]
+        assert len(matches) == 1
+        args.append(matches[0])
+    assignments = dict(zip(operator.params, args))
+
+    for cond in operator.preconds.literals:
+        if cond.predicate in action_predicates:
+            ground_action = ground_literal(cond, assignments)
+            return ground_action, operator.name
+
+    import ipdb; ipdb.set_trace()
+    raise Exception("Unrecognized plan step: `{}`".format(str(plan_step)))
 
 
 class FastForwardPlanner(Planner):
