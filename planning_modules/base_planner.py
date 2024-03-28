@@ -15,7 +15,8 @@ class NoPlanFoundException(Exception):
 
 
 class Planner:
-    def __init__(self, learned_operators, domain_name, action_space, observation_space):
+    def __init__(self, planning_operators, learned_operators, domain_name, action_space, observation_space):
+        self._planning_operators = planning_operators
         self._learned_operators = learned_operators
         self.domain_name = domain_name
         self._action_space = action_space
@@ -34,7 +35,7 @@ class Planner:
         dom_str += self._create_domain_file_types()
         dom_str += self._create_domain_file_predicates()
 
-        for operator in sorted(self._learned_operators, key=lambda o:o.name):
+        for operator in sorted(self._planning_operators, key=lambda o:o.name):
             dom_str += self._create_domain_file_operator(operator)
         dom_str += '\n)'
 

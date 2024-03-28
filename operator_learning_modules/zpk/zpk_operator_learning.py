@@ -20,8 +20,9 @@ from copy import deepcopy
 
 class ZPKOperatorLearningModule:
 
-    def __init__(self, learned_operators, domain_name):
+    def __init__(self, planning_operators, learned_operators, domain_name):
         self._domain_name = domain_name
+        self._planning_operators = planning_operators
         self._learned_operators = learned_operators
         self._transitions = defaultdict(list)
         self._seed = ac.seed
@@ -102,13 +103,14 @@ class ZPKOperatorLearningModule:
 
         # Update all learned_operators
         if is_updated:
-            self._learned_operators.clear()
+            self._planning_operators.clear()
             for ndr_set in self._ndrs.values():
                 for i, ndr in enumerate(ndr_set):
                     operator = ndr.determinize(name_suffix=i)
                     # No point in adding an empty effect or noisy effect operator
                     if len(operator.effects.literals) == 0 or NOISE_OUTCOME in operator.effects.literals:
                         continue
+                    self._planning_operators.add(operator)
                     self._learned_operators.add(operator)
 
             # print_rule_set(self._ndrs)
@@ -135,8 +137,8 @@ class ZPKOperatorLearningModule:
 class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
     """The ZPK operator learner but initialized with operators output by an LLM."""
 
-    def __init__(self, learned_operators, domain_name, llm):
-        super().__init__(learned_operators, domain_name)
+    def __init__(self, planning_operators, learned_operators, domain_name, llm):
+        super().__init__(planning_operators, learned_operators, domain_name)
 
         self._llm:OpenAI_Model = llm
         ap = {p.name: p for p in ac.train_env.action_space.predicates}
@@ -152,7 +154,7 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         prompt = self._create_todo_prompt()
         llm_output = self._query_llm(prompt)
         operators = self._llm_output_to_operators(llm_output)
-        self._learned_operators.update(operators)
+        self._planning_operators.update(operators)
         # Also need to initialize ndrs!
         for op in operators:
             # In initializing the learner from previous, we assume a
