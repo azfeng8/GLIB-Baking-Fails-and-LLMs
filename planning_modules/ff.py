@@ -15,19 +15,19 @@ import time
 class FastForwardPlanner(Planner):
     FF_PATH = os.environ['FF_PATH']
 
-    def get_policy(self, raw_problem_fname):
-        actions = self.get_plan(raw_problem_fname)
+    def get_policy(self, raw_problem_fname, use_learned_ops=False):
+        actions = self.get_plan(raw_problem_fname, use_learned_ops)
         def policy(_):
             if len(actions) == 0:
                 raise NoPlanFoundException() 
             return actions.pop(0)
         return policy
 
-    def get_plan(self, raw_problem_fname, use_cache=True):
+    def get_plan(self, raw_problem_fname, use_learned_ops=False, use_cache=True):
         # If there are no operators yet, we're not going to be able to find a plan
         if not self._planning_operators:
             raise NoPlanFoundException()
-        domain_fname = self._create_domain_file()
+        domain_fname = self._create_domain_file(use_learned_ops)
         problem_fname, objects = self._create_problem_file(raw_problem_fname, use_cache=use_cache)
         cmd_str = self._get_cmd_str(domain_fname, problem_fname)
         start_time = time.time()
@@ -40,7 +40,7 @@ class FastForwardPlanner(Planner):
         if not use_cache:
             os.remove(problem_fname)
  
-        actions = self._plan_to_actions(plan, objects)
+        actions = self._plan_to_actions(plan, objects, use_learned_ops)
         return actions
 
     def _get_cmd_str(self, domain_fname, problem_fname):
@@ -61,8 +61,11 @@ class FastForwardPlanner(Planner):
             raise Exception("Plan not found with FF! Error: {}".format(output))
         return plan
 
-    def _plan_to_actions(self, plan, objects):
-        operators = self._planning_operators
+    def _plan_to_actions(self, plan, objects, use_learned_ops=False):
+        if use_learned_ops:
+            operators = self._learned_operators
+        else:
+            operators = self._planning_operators
         action_predicates = self._action_space.predicates
 
         actions = []

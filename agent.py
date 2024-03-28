@@ -122,6 +122,6 @@ class Agent:
         return positive_effects | negative_effects
 
     ## Test time methods
-    def get_policy(self, problem_fname):
+    def get_policy(self, problem_fname, use_learned_ops=False):
         """Get a plan given the learned operators and a PDDL problem file."""
-        return self._planning_module.get_policy(problem_fname)
+        return self._planning_module.get_policy(problem_fname, use_learned_ops)

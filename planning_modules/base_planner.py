@@ -27,17 +27,22 @@ class Planner:
         self._problem_files = {}
 
     @abc.abstractmethod
-    def get_policy(self, raw_problem_fname):
+    def get_policy(self, raw_problem_fname, use_learned_ops=False):
         pass
 
-    def _create_domain_file(self):
+    def _create_domain_file(self, use_learned_ops=False):
         dom_str = self._create_domain_file_header()
         dom_str += self._create_domain_file_types()
         dom_str += self._create_domain_file_predicates()
 
-        for operator in sorted(self._planning_operators, key=lambda o:o.name):
-            dom_str += self._create_domain_file_operator(operator)
-        dom_str += '\n)'
+        if use_learned_ops:
+            for operator in sorted(self._learned_operators, key=lambda o:o.name):
+                dom_str += self._create_domain_file_operator(operator)
+            dom_str += '\n)'
+        else:
+            for operator in sorted(self._planning_operators, key=lambda o:o.name):
+                dom_str += self._create_domain_file_operator(operator)
+            dom_str += '\n)'
 
         return self._create_domain_file_from_str(dom_str)
 

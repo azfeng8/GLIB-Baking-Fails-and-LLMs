@@ -104,6 +104,7 @@ class ZPKOperatorLearningModule:
         # Update all learned_operators
         if is_updated:
             self._planning_operators.clear()
+            self._learned_operators.clear()
             for ndr_set in self._ndrs.values():
                 for i, ndr in enumerate(ndr_set):
                     operator = ndr.determinize(name_suffix=i)

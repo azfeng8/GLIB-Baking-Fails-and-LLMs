@@ -217,7 +217,7 @@ class Runner:
             self.test_env.fix_problem_index(problem_idx)
             obs, debug_info = self.test_env.reset()
             try:
-                policy = self.agent.get_policy(debug_info["problem_file"])
+                policy = self.agent.get_policy(debug_info["problem_file"], use_learned_ops=True)
             except (NoPlanFoundException, PlannerTimeoutException):
                 # Automatic failure
                 successes.append(0)
