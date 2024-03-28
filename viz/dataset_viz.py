@@ -7,13 +7,13 @@ from pddlgym.parser import PDDLDomainParser
 import gym, pddlgym
 from collections import defaultdict
 
-SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results_openstack/results/LNDR'
-RESULTS_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results_openstack/results'
+# SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results_openstack/results/LNDR'
+# RESULTS_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results_openstack/results'
 BABBLING_SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results_openstack/results/GLIB'
 
-# SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results/LNDR'
-# RESULTS_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results'
-# BABBLING_SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results/GLIB'
+SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results/LNDR'
+RESULTS_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results'
+BABBLING_SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results/GLIB'
 
 SAVE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/dataset_visualizations'
 PDDLGYM_PATH = '/home/catalan/.virtualenvs/meng/lib/python3.10/site-packages/pddlgym/pddl'
@@ -878,6 +878,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
     use 'i/o' to jump between episode starts.
     use 'w/e' to jump between operator changes.
     use 'x/c' to jump between plan-following actions.
+    use 't/y' to jump between first nonNOPs.
     use left/right to scroll.
     use 'n' to change between NOPs and nonNOPs views.
     use 'r' to render the screen.
@@ -1425,15 +1426,14 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
 
 if __name__ == "__main__":
         
-    domain_name = 'Baking'
-    learning_name = 'LLMWarmStart+LNDR'
-    # learning_name = "LNDR"
+    domain_name = 'Minecraft'
+    learning_name = 'LNDR'
 
     # curiosity_name = 'random'
     seeds = [str(s) for s in range(145, 150)]
     
-    curiosity_name = 'GLIB_L2'
-    # seeds = [str(s) for s in range(184, 190)]
+    curiosity_name = 'GLIB_G1'
+    seeds = [str(s) for s in range(1002, 1003)]
 
     for seed in seeds:
         interactive_view_123(domain_name, curiosity_name, learning_name, seed)

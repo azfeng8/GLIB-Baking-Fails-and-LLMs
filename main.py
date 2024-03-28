@@ -168,7 +168,7 @@ class Runner:
                         path = os.path.join('results', 'LNDR', self.domain_name, self.agent.operator_learning_name, self.agent.curiosity_module_name, str(ec.seed), f'iter_{itr}' )
                         os.makedirs(path, exist_ok=True)
                         with open(os.path.join(path, 'operators.pkl'), 'wb') as f:
-                            pickle.dump(list(self.agent._operator_learning_module._learned_operators), f)
+                            pickle.dump(list(self.agent._operator_learning_module._planning_operators), f)
                         with open(os.path.join(path, 'ndrs.pkl'), 'wb') as f:
                             pickle.dump(self.agent._operator_learning_module._ndrs, f)
                     if log_data:
@@ -217,7 +217,7 @@ class Runner:
             self.test_env.fix_problem_index(problem_idx)
             obs, debug_info = self.test_env.reset()
             try:
-                policy = self.agent.get_policy(debug_info["problem_file"])
+                policy = self.agent.get_policy(debug_info["problem_file"], use_learned_ops=True)
             except (NoPlanFoundException, PlannerTimeoutException):
                 # Automatic failure
                 successes.append(0)
