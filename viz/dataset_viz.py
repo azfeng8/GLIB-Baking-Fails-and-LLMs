@@ -9,7 +9,7 @@ from collections import defaultdict
 
 # SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results_openstack/results/LNDR'
 # RESULTS_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results_openstack/results'
-BABBLING_SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results_openstack/results/GLIB'
+# BABBLING_SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results_openstack/results/GLIB'
 
 SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results/LNDR'
 RESULTS_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results'
@@ -1433,7 +1433,7 @@ if __name__ == "__main__":
     seeds = [str(s) for s in range(162, 170)]
     
     curiosity_name = 'GLIB_G1'
-    seeds = [str(s) for s in range(1002, 1003)]
+    seeds = [str(s) for s in range(230, 231)]
 
     for seed in seeds:
         interactive_view_123(domain_name, curiosity_name, learning_name, seed)

@@ -153,18 +153,23 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         self._llm_parser = LLM_PDDL_Parser(ap, op, types)
 
         # Initialize the operators from the LLM.
-        prompt = self._create_todo_prompt()
-        llm_output = self._query_llm(prompt)
-        operators = self._llm_output_to_operators(llm_output)
         # This tracks the most current version of the LLM ops that should be used for planning, as preconditions are relaxed
         self._llm_ops = defaultdict(set)
-        for op in operators:
+        self._llm_op_fail_counts = defaultdict(lambda: 0)
+        all_ops = []
+        for file in os.listdir(f'{self._domain_name.lower()}_llm_responses'):
+            with open(os.path.join(f'{self._domain_name.lower()}_llm_responses', file), 'rb') as f:
+                response = pickle.load(f)[0]
+            operators = self._llm_output_to_operators(response)
+            all_ops = add_ops_no_duplicates(operators, all_ops)
+
+        for op in all_ops:
             action = [p for p in op.preconds.literals if p.predicate in ac.train_env.action_space.predicates][0]
             i = len(self._llm_ops[action.predicate])
             op.name = op.name.rstrip('0123456789') + str(i)
             self._llm_ops[action.predicate].add(op)
-        self._llm_op_fail_counts = defaultdict(lambda: 0)
-        self._planning_operators.update(operators)
+ 
+        self._planning_operators.update(all_ops)
         self._evaluate_first_iteration = True
 
         self._skills_to_replace:set[str] = skills_to_overwrite_with_LLMinit_op
@@ -392,6 +397,26 @@ def ops_equal(op1:Operator, op2:Operator):
     if set(op1.effects.literals) != set(op2.effects.literals):
         return False
     return True
+
+def add_ops_no_duplicates(ops_to_add, ops):
+    """ Adds `ops_to_add` to  `ops`, no duplicate operators, make sure all ops are named according to the scheme `action_pred{int}` starting with int=0
+    """
+    for op1 in ops_to_add:
+        already_in = False
+        for op2 in ops:
+            if ops_equal(op1, op2):
+                already_in = True
+        if not already_in:
+            ops.append(op1)
+    # Rename all the ops
+    op_dict = defaultdict(list)
+    for op in ops:
+        op_dict[[p.predicate for p in op.preconds.literals if p.predicate in ac.train_env.action_space.predicates][0].name].append(op)
+    for action_name in op_dict:
+        for i, op in enumerate(op_dict[action_name]):
+            op.name = f'{action_name}{i}'
+    return ops 
+
 
 # Debug code
 if __name__ == '__main__':
