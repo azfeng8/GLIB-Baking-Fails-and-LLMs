@@ -44,7 +44,7 @@ class FastForwardPlanner(Planner):
     FF_PATH = os.environ['FF_PATH']
 
     def get_policy(self, raw_problem_fname, use_learned_ops=False):
-        actions = self.get_plan(raw_problem_fname, use_learned_ops)
+        actions, _ = self.get_plan(raw_problem_fname, use_learned_ops)
         def policy(_):
             if len(actions) == 0:
                 raise NoPlanFoundException() 

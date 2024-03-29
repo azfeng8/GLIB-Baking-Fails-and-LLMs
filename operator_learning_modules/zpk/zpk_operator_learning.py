@@ -140,7 +140,7 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
     """The ZPK operator learner but initialized with operators output by an LLM."""
 
     def __init__(self, planning_operators, learned_operators, domain_name, llm, skills_to_overwrite_with_LLMinit_op):
-        super().__init__(planning_operators, learned_operators, domain_name, skills_to_overwrite_with_LLMinit_op)
+        super().__init__(planning_operators, learned_operators, domain_name)
 
         self._llm:OpenAI_Model = llm
         ap = {p.name: p for p in ac.train_env.action_space.predicates}
@@ -220,7 +220,7 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
             if len(op.preconds.literals) == 2:
                 # if not, delete the operator
                 self._llm_ops[action_pred].remove(op)
-                self._learned_operators.remove(op)
+                self._planning_operators.remove(op)
                 del self._llm_op_fail_counts[op.name]
                 logging.info(f"DELETED LLM OPERATOR: {op.name}")
                 # Rename the LLM ops
@@ -252,10 +252,10 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
                     for v in l.variables:
                         params.add(v)
                 self._llm_ops[action_pred].remove(op)
-                self._learned_operators.remove(op)
+                self._planning_operators.remove(op)
                 new_op = Operator(op.name, params, LiteralConjunction(preconds + [action]), op.effects)
                 self._llm_ops[action_pred].add(new_op)
-                self._learned_operators.add(new_op)
+                self._planning_operators.add(new_op)
                 self._llm_op_fail_counts[new_op.name] = 0
                 logging.info(f"EDITED LLM OPERATOR: {new_op.name}")
 

@@ -10,7 +10,7 @@ def create_operator_learning_module(operator_learning_name, planning_operators, 
     if operator_learning_name == "LNDR":
         return ZPKOperatorLearningModule(planning_operators, learned_operators, domain_name)
     if operator_learning_name == "LLMWarmStart+LNDR":
-        return LLMZPKWarmStartOperatorLearningModule(learned_operators, domain_name, llm, skills_to_overwrite_with_LLMinit_ops)
+        return LLMZPKWarmStartOperatorLearningModule(planning_operators, learned_operators, domain_name, llm, skills_to_overwrite_with_LLMinit_ops)
     if operator_learning_name == "LLMIterative+LNDR":
         raise NotImplementedError("Learning and planning ops are not separate")
         return LLMZPKIterativeOperatorLearningModule(planning_operators, domain_name, llm, llm_precondition_goal_ops, log_llm_path)

@@ -98,7 +98,7 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
 
             # Get a plan
             try:
-                self._plan = self._planning_module.get_plan(
+                self._plan, self._operators = self._planning_module.get_plan(
                     problem_fname, use_cache=False, use_learned_ops=False)
             except NoPlanFoundException:
                 os.remove(problem_fname)
