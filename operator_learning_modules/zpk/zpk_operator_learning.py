@@ -315,8 +315,8 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
                     self._learned_operators.add(operator)
                     self._planning_operators.add(operator)
             for action_pred in self._llm_ops:
-                if action_pred.name in self._skills_to_replace:
-                    self._planning_operators.update(self._llm_ops[action_pred])
+                # if action_pred.name in self._skills_to_replace:
+                self._planning_operators.update(self._llm_ops[action_pred])
 
             # print_rule_set(self._ndrs)
 
