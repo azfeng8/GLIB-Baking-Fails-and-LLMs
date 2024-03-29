@@ -156,6 +156,10 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         prompt = self._create_todo_prompt()
         llm_output = self._query_llm(prompt)
         operators = self._llm_output_to_operators(llm_output)
+        self._llm_ops = defaultdict(list)
+        for op in operators:
+            action_pred = [l.predicate for l in op.preconds.literals if l.predicate in ac.train_env.action_space.predicates][0]
+            self._llm_ops[action_pred].append(op)
         self._planning_operators.update(operators)
         self._evaluate_first_iteration = True
 
@@ -233,14 +237,20 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
 
         # Update all learned_operators
         if is_updated:
+            self._planning_operators.clear()
             self._learned_operators.clear()
-            for ndr_set in self._ndrs.values():
-                for i, ndr in enumerate(ndr_set):
-                    operator = ndr.determinize(name_suffix=i)
+            for action_pred in self._ndrs:
+                for i, ndr in enumerate(self._ndrs[action_pred]):
+                    suffix = i + len(self._llm_ops[action_pred])
+                    operator = ndr.determinize(name_suffix=suffix)
                     # No point in adding an empty effect or noisy effect operator
                     if len(operator.effects.literals) == 0 or NOISE_OUTCOME in operator.effects.literals:
                         continue
                     self._learned_operators.add(operator)
+                    self._planning_operators.add(operator)
+            for action_pred in self._llm_ops:
+                if action_pred.name in self.skills_with_NOPS_only:
+                    self._planning_operators.update(self._llm_ops[action_pred])
 
             # print_rule_set(self._ndrs)
 
