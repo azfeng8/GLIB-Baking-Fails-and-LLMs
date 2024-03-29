@@ -18,11 +18,11 @@ class BaseCuriosityModule:
     """Base class for a curiosity module.
     """
     def __init__(self, action_space, observation_space, planning_module,
-                 learned_operators, operator_learning_module, domain_name, llm_learned_operators):
+                 planning_operators, operator_learning_module, domain_name, llm_learned_operators):
         self._action_space = action_space
         self._observation_space = observation_space
         self._planning_module = planning_module
-        self._learned_operators = learned_operators
+        self._planning_operators = planning_operators
         self._operator_learning_module = operator_learning_module
         self._domain_name = domain_name
 
@@ -81,7 +81,7 @@ class BaseCuriosityModule:
 
     def _get_predicted_next_state(self, state, action):
         """Get the next state resulting from the given state and action,
-        under the current self._learned_operators. Returns None if either
+        under the current self._planning_operators. Returns None if either
         there is no learned operator for this action, or the preconditions
         are not satisfied.
         """
@@ -125,10 +125,10 @@ class BaseCuriosityModule:
         return None
 
     def _get_predicted_next_state_ops(self, state, action, mode="max"):
-        """WARNING: Only use this method when self._learned_operators is
+        """WARNING: Only use this method when self._planning_operators is
         GROUND TRUTH OPS!!!
         """
-        for op in self._learned_operators:
+        for op in self._planning_operators:
             assignments = self._preconds_satisfied(state, action, op.preconds.literals)
             if assignments is not None:
                 ground_effects = []
@@ -192,12 +192,12 @@ class BaseCuriosityModule:
 
     def _compute_static_preds(self):
         """Compute the static predicates under the current
-        self._learned_operators.
+        self._planning_operators.
         """
         static_preds = set()
         for pred in self._observation_space.predicates:
             if any(self._op_changes_predicate(op, pred)
-                   for op in self._learned_operators):
+                   for op in self._planning_operators):
                 continue
             static_preds.add(pred)
         return static_preds
@@ -316,7 +316,7 @@ class BaseCuriosityModule:
             yield vs
 
     def _get_ground_effects(self, state, action):
-        for op in self._learned_operators:
+        for op in self._planning_operators:
             assignments = self._preconds_satisfied(state, action, op.preconds.literals)
 
             if assignments is not None:
@@ -339,7 +339,7 @@ class BaseCuriosityModule:
 
     def _compute_mutex_literals(self, initial_state):
         """Top-level method for mutex. Compute the pairs of mutex literals
-        under the current self._learned_operators, from the given initial
+        under the current self._planning_operators, from the given initial
         state, up to the given max_level.
         """
         state = initial_state
@@ -412,7 +412,7 @@ class BaseCuriosityModule:
             current_links[lit].append(persist_lit)
             next_links[lit].append(persist_lit)
         for action in self._action_space.all_ground_literals(state):
-            for op in self._learned_operators:
+            for op in self._planning_operators:
                 assignments = self._preconds_satisfied(
                     state, action, op.preconds.literals)
                 if assignments is None:

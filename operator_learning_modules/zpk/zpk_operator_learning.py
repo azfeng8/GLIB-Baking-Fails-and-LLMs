@@ -20,8 +20,9 @@ from copy import deepcopy
 
 class ZPKOperatorLearningModule:
 
-    def __init__(self, learned_operators, domain_name):
+    def __init__(self, planning_operators, learned_operators, domain_name):
         self._domain_name = domain_name
+        self._planning_operators = planning_operators
         self._learned_operators = learned_operators
         self._transitions = defaultdict(list)
         self._seed = ac.seed
@@ -103,6 +104,7 @@ class ZPKOperatorLearningModule:
 
         # Update all learned_operators
         if is_updated:
+            self._planning_operators.clear()
             self._learned_operators.clear()
             for ndr_set in self._ndrs.values():
                 for i, ndr in enumerate(ndr_set):
@@ -110,6 +112,7 @@ class ZPKOperatorLearningModule:
                     # No point in adding an empty effect or noisy effect operator
                     if len(operator.effects.literals) == 0 or NOISE_OUTCOME in operator.effects.literals:
                         continue
+                    self._planning_operators.add(operator)
                     self._learned_operators.add(operator)
 
             # print_rule_set(self._ndrs)
@@ -136,8 +139,8 @@ class ZPKOperatorLearningModule:
 class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
     """The ZPK operator learner but initialized with operators output by an LLM."""
 
-    def __init__(self, learned_operators, domain_name, llm, skills_to_overwrite_with_LLMinit_op):
-        super().__init__(learned_operators, domain_name)
+    def __init__(self, planning_operators, learned_operators, domain_name, llm, skills_to_overwrite_with_LLMinit_op):
+        super().__init__(planning_operators, learned_operators, domain_name, skills_to_overwrite_with_LLMinit_op)
 
         self._llm:OpenAI_Model = llm
         ap = {p.name: p for p in ac.train_env.action_space.predicates}
@@ -161,7 +164,7 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
             op.name = op.name.rstrip('0123456789') + str(i)
             self._llm_ops[action.predicate].add(op)
         self._llm_op_fail_counts = defaultdict(lambda: 0)
-        self._learned_operators.update(operators)
+        self._planning_operators.update(operators)
         self._evaluate_first_iteration = True
 
         self._skills_to_replace:set[str] = skills_to_overwrite_with_LLMinit_op
@@ -300,6 +303,7 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
 
         # Update all learned_operators
         if is_updated:
+            self._planning_operators.clear()
             self._learned_operators.clear()
             for act_pred in self._ndrs:
                 for i, ndr in enumerate(self._ndrs[act_pred]):
@@ -309,8 +313,10 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
                     if len(operator.effects.literals) == 0 or NOISE_OUTCOME in operator.effects.literals:
                         continue
                     self._learned_operators.add(operator)
-            for act_pred in self._llm_ops:
-                self._learned_operators.update(self._llm_ops[act_pred])
+                    self._planning_operators.add(operator)
+            for action_pred in self._llm_ops:
+                if action_pred.name in self._skills_to_replace:
+                    self._planning_operators.update(self._llm_ops[action_pred])
 
             # print_rule_set(self._ndrs)
 

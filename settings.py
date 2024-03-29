@@ -328,7 +328,6 @@ class PlottingConfig:
     # learner_explorer = [("LLM+LNDR", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2")]
     # learner_explorer = [("LLM+LNDR", "LLM+GLIB_L2")]#, ("LNDR", "GLIB_G1")]
     learner_explorer = [("LLMWarmStart+LNDR", "GLIB_L2"),  ("LNDR", "GLIB_L2")]
-    # learner_explorer = [("LLMWarmStart+LNDR", "GLIB_L1"),  ("LNDR", "GLIB_L1")]
     learner_explorer = [("LLMWarmStart+LNDR", "GLIB_G1"), ("LNDR", "GLIB_G1")]
     # seeds = [range(60, 70)]  + [range(1, 11)]
 
@@ -337,13 +336,12 @@ class PlottingConfig:
     # seeds = [range(1, 11), range(1,11)]
     # seeds = [range(50,60), range(50,60)]
     # seeds = [range(60,70), range(60,70)]
-    # seeds = [range(70,80), range(70,80)]
-    seeds = [range(190, 200)] + [range(1,11)]#[range(100, 110)]
+    # seeds = [range(182,192)] * 3
+    seeds = [range(240, 250)] + [range(100, 110)]
 
     # learner_explorer = [("LLM+LNDR", "LLM+GLIB_G1"), ("LLM+LNDR", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2"), ("LNDR", "GLIB_G1")]
     # seeds = [range(12, 22)] * 2 + [range(1, 11)]  * 2
 
-    # domains = ["Baking",  "Minecraft", "Travel"]
-    domains=['Baking', "Minecraft"]
+    domains = ["Baking", "Minecraft"]
     # domains = ["Baking", "Rearrangement", "Travel", "Minecraft", "Glibblocks", "Doors", "Easygripper"]
     # domains = ["Baking", "Minecraft", "Travel", "Blocks"]
