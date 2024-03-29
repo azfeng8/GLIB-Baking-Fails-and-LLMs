@@ -165,8 +165,6 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
 
         for op in all_ops:
             action = [p for p in op.preconds.literals if p.predicate in ac.train_env.action_space.predicates][0]
-            i = len(self._llm_ops[action.predicate])
-            op.name = op.name.rstrip('0123456789') + str(i)
             self._llm_ops[action.predicate].add(op)
  
         self._planning_operators.update(all_ops)
