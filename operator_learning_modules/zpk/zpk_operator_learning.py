@@ -157,31 +157,7 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         llm_output = self._query_llm(prompt)
         operators = self._llm_output_to_operators(llm_output)
         self._planning_operators.update(operators)
-        # Also need to initialize ndrs!
-        self._initialized_ndrs = {}
-        self._evaluate_first_iteration = False
-        for op in operators:
-            # In initializing the learner from previous, we assume a
-            # standard variable naming scheme.
-            action = [p for p in op.preconds.literals
-                        if p.predicate in ac.train_env.action_space.predicates][0]
-            preconditions = sorted(set(op.preconds.literals) - {action})
-            effects = list(op.effects.literals)
-            variables = list(action.variables)
-            for lit in preconditions + op.effects.literals:
-                for v in lit.variables:
-                    if v not in variables:
-                        variables.append(v)
-            sub = {old: TypedEntity(new_name, old.var_type)
-                    for old, new_name in zip(variables, iter_variable_names())}
-            action = ground_literal(action, sub)
-            preconditions = [ground_literal(l, sub) for l in preconditions]
-            effects = [ground_literal(l, sub) for l in effects]
-            ndr = NDR(action, preconditions, np.array([1.0, 0.0]), [effects, [NOISE_OUTCOME]])
-            ndrs = NDRSet(action, [ndr])
-            self._ndrs[action.predicate] = ndrs
-            self._initialized_ndrs[action.predicate] = ndrs
-            self._evaluate_first_iteration = True
+        self._evaluate_first_iteration = True
 
     def observe(self, state, action, effects, itr, **kwargs):
         if not self._learning_on:
@@ -302,7 +278,7 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
     def _query_llm(self, prompt):
         # response, path = self._llm.sample_completions([{"role": "user", "content": prompt}], temperature=0, seed=self._seed, num_completions=1)
         # response = response[0]
-        with open(f'baking_llm_responses/{(ac.seed - 20)}.pkl', 'rb') as f:
+        with open(f'{self._domain_name.lower()}_llm_responses/{str(ac.seed)[-1]}.pkl', 'rb') as f:
             response = pickle.load(f)[0]
         logging.info(f"Got response {response}")
         # logging.debug(f"Saved response at path: {path}")
