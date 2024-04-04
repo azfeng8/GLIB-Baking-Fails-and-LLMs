@@ -157,12 +157,12 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         llm_output = self._query_llm(prompt)
         operators = self._llm_output_to_operators(llm_output)
         # This tracks the most current version of the LLM ops that should be used for planning, as preconditions are relaxed
-        self._llm_ops = defaultdict(list)
+        self._llm_ops = defaultdict(set)
         for op in operators:
             action = [p for p in op.preconds.literals if p.predicate in ac.train_env.action_space.predicates][0]
             i = len(self._llm_ops[action.predicate])
             op.name = op.name.rstrip('0123456789') + str(i)
-            self._llm_ops[action.predicate].append(op)
+            self._llm_ops[action.predicate].add(op)
         self._llm_op_fail_counts = defaultdict(lambda: 0)
         self._planning_operators.update(operators)
         self._evaluate_first_iteration = True
@@ -254,7 +254,7 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
                 self._llm_ops[action_pred].remove(op)
                 self._planning_operators.remove(op)
                 new_op = Operator(op.name, params, LiteralConjunction(preconds + [action]), op.effects)
-                self._llm_ops[action_pred].append(new_op)
+                self._llm_ops[action_pred].add(new_op)
                 self._planning_operators.add(new_op)
                 self._llm_op_fail_counts[new_op.name] = 0
                 logging.info(f"EDITED LLM OPERATOR: {new_op.name}")
