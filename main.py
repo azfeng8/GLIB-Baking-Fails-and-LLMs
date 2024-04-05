@@ -81,6 +81,7 @@ class Runner:
         """Run primitive operator learning loop.
         """
         results = []
+        plan_ops_results = []
         episode_done = True
         episode_time_step = 0
         itrs_on = None
@@ -131,7 +132,8 @@ class Runner:
                     # start = time.time()
                     logging.debug("Testing...")
 
-                    test_solve_rate, variational_dist, successes = self._evaluate_operators()
+                    test_solve_rate, variational_dist, successes = self._evaluate_operators(use_learned_ops=True)
+                    plan_ops_solve_rate, v_dist, plan_ops_successes = self._evaluate_operators(use_learned_ops=False)
 
                     logging.info(f"Result: {test_solve_rate} {variational_dist}")
                     # logging.debug("Testing took {} seconds".format(time.time()-start))
@@ -162,6 +164,7 @@ class Runner:
                     logging.info(f"Result: {test_solve_rate} {variational_dist}")
 
                 results.append((itr, test_solve_rate, variational_dist))
+                plan_ops_results.append((itr, plan_ops_solve_rate, v_dist))
 
                 if gc.dataset_logging:
                     if log_ops:
@@ -196,9 +199,9 @@ class Runner:
             itrs_on = self.num_train_iters
         curiosity_avg_time = self.agent.curiosity_time/itrs_on
         
-        return results, curiosity_avg_time
+        return results, curiosity_avg_time, plan_ops_results
 
-    def _evaluate_operators(self):
+    def _evaluate_operators(self, use_learned_ops=True):
         """Test current operators. Return (solve rate on test suite,
         average variational distance).
         """
@@ -217,7 +220,7 @@ class Runner:
             self.test_env.fix_problem_index(problem_idx)
             obs, debug_info = self.test_env.reset()
             try:
-                policy = self.agent.get_policy(debug_info["problem_file"], use_learned_ops=True)
+                policy = self.agent.get_policy(debug_info["problem_file"], use_learned_ops=use_learned_ops)
             except (NoPlanFoundException, PlannerTimeoutException):
                 # Automatic failure
                 successes.append(0)
@@ -268,19 +271,25 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_
                   train_env.observation_space, curiosity_name, learning_name, log_llm_path=log_llmi_path,
                   planning_module_name=ac.planner_name[domain_name])
     test_env = gym.make("PDDLEnv{}Test-v0".format(domain_name))
-    results, curiosity_avg_time  = Runner(agent, train_env, test_env, domain_name, curiosity_name).run()
+    results, curiosity_avg_time, plan_ops_results  = Runner(agent, train_env, test_env, domain_name, curiosity_name).run()
     with open("results/timings/{}_{}_{}_{}.txt".format(domain_name, curiosity_name, learning_name, seed), "w") as f:
         f.write("{} {} {} {} {}\n".format(domain_name, curiosity_name, learning_name, seed, curiosity_avg_time))
 
     outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                           "results", domain_name, learning_name, curiosity_name)
-    if not os.path.exists(outdir):
-        os.makedirs(outdir, exist_ok=True)
+    plan_ops_outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                          "results", 'planning_ops', domain_name, learning_name, curiosity_name)
+    
+    os.makedirs(outdir, exist_ok=True)
+    os.makedirs(plan_ops_outdir, exist_ok=True)
     cache_file = os.path.join(outdir, "{}_{}_{}_{}.pkl".format(
         domain_name, learning_name, curiosity_name, seed))
     with open(cache_file, 'wb') as f:
         pickle.dump(results, f)
         logging.info("Dumped results to {}".format(cache_file))
+    with open(os.path.join(plan_ops_outdir, "{}_{}_{}_{}.pkl".format(
+        domain_name, learning_name, curiosity_name, seed)), 'wb') as f:
+        pickle.dump(plan_ops_results, f)
 
     if gc.dataset_logging:
         if "GLIB" in curiosity_name:

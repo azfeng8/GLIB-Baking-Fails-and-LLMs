@@ -162,7 +162,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.planning_results:
-        path = 'results/planning_results'
+        path = 'results/planning_ops'
     else:
         path = 'results_openstack/results'
     llm_path = 'results/llm_iterative_log'
