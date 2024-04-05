@@ -158,12 +158,17 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         llm_output = self._query_llm(prompt)
         operators = self._llm_output_to_operators(llm_output)
         # This tracks the most current version of the LLM ops that should be used for planning, as preconditions are relaxed
-        self._llm_ops = defaultdict(set)
+        self._llm_ops = defaultdict(list)
         for op in operators:
             action = [p for p in op.preconds.literals if p.predicate in ac.train_env.action_space.predicates][0]
             i = len(self._llm_ops[action.predicate])
             op.name = op.name.rstrip('0123456789') + str(i)
-            self._llm_ops[action.predicate].add(op)
+            not_equal = True
+            for o in self._llm_ops[action.predicate]:
+                if ops_equal(op, o):
+                    not_equal = False
+            if not_equal:
+                self._llm_ops[action.predicate].append(op)
         self._llm_op_fail_counts = defaultdict(lambda: 0)
         self._planning_operators.update(operators)
         self._evaluate_first_iteration = True
@@ -207,6 +212,8 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
 
         is_updated = False
 
+        ### Update self._llm_ops
+        
         # Only edit the operator if it was proposed by the LLM. Otherwise, let LNDR learn
         op, action_pred, operator_name = None, None, None
         if skill_to_edit is not None:
@@ -255,8 +262,12 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
                 self._llm_ops[action_pred].remove(op)
                 self._planning_operators.remove(op)
                 new_op = Operator(op.name, params, LiteralConjunction(preconds + [action]), op.effects)
-                self._llm_ops[action_pred].add(new_op)
-                self._planning_operators.add(new_op)
+                not_equal = True
+                for op in self._llm_ops[action_pred]:
+                    if ops_equal(op, new_op):
+                        not_equal = False
+                if not_equal:
+                    self._llm_ops[action_pred].append(new_op)
                 self._llm_op_fail_counts[new_op.name] = 0
                 logging.info(f"EDITED LLM OPERATOR: {new_op.name}")
 
@@ -264,10 +275,13 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
             if len(self._llm_ops[action_pred]) == 0:
                 self._skills_to_replace.remove(action_pred.name)
                
+            for a in self._llm_ops:
+                assert len(set([o.name for o in self._llm_ops[a]])) == len(self._llm_ops[a]), 'operator names are not all different'
             # don't need to update NDRs since learning is not called for it
             is_updated = True
+        ################################################################################################################
 
-        # Check whether we have NDRs that need to be relearned
+        ### Check whether we have NDRs that need to be relearned
         for action_predicate in self._fits_all_data:
             if action_predicate.name in self._skills_to_replace:
                 continue
@@ -301,8 +315,9 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
 
                 self._fits_all_data[action_predicate] = True
                 is_updated = True 
+        ################################################################################################################
 
-        # Update all learned_operators
+        ### Update all learned and planning operators
         if is_updated:
             self._planning_operators.clear()
             self._learned_operators.clear()
@@ -320,6 +335,7 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
                 self._planning_operators.update(self._llm_ops[action_pred])
 
             # print_rule_set(self._ndrs)
+        ################################################################################################################
 
         logging.info(f"LLM OPERATORS")
         for a in self._llm_ops:
