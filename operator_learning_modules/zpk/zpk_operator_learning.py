@@ -1,6 +1,6 @@
 from settings import AgentConfig as ac
 from pddlgym.parser import PDDLDomainParser, Operator
-from pddlgym.structs import TypedEntity, ground_literal, LiteralConjunction
+from pddlgym.structs import TypedEntity, ground_literal, LiteralConjunction, Literal
 from ndr.learn import run_main_search as learn_ndrs
 from ndr.learn import get_transition_likelihood, print_rule_set, iter_variable_names
 from ndr.ndrs import NOISE_OUTCOME, NDR, NDRSet
@@ -8,6 +8,7 @@ from openai_interface import OpenAI_Model
 from llm_parsing import LLM_PDDL_Parser, find_closing_paran
 
 import re
+import itertools
 import numpy as np
 import pickle
 from collections import defaultdict
@@ -154,7 +155,7 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
 
         # Initialize the operators from the LLM.
         # This tracks the most current version of the LLM ops that should be used for planning, as preconditions are relaxed
-        self._llm_ops = defaultdict(set)
+        self._llm_ops = defaultdict(list)
         self._llm_op_fail_counts = defaultdict(lambda: 0)
         all_ops = []
         for file in os.listdir(f'{self._domain_name.lower()}_llm_responses'):
@@ -165,7 +166,14 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
 
         for op in all_ops:
             action = [p for p in op.preconds.literals if p.predicate in ac.train_env.action_space.predicates][0]
-            self._llm_ops[action.predicate].add(op)
+            i = len(self._llm_ops[action.predicate])
+            op.name = op.name.rstrip('0123456789') + str(i)
+            not_equal = True
+            for o in self._llm_ops[action.predicate]:
+                if ops_equal(op, o):
+                    not_equal = False
+            if not_equal:
+                self._llm_ops[action.predicate].append(op)
  
         self._planning_operators.update(all_ops)
         self._evaluate_first_iteration = True
@@ -209,6 +217,8 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
 
         is_updated = False
 
+        ### Update self._llm_ops
+        
         # Only edit the operator if it was proposed by the LLM. Otherwise, let LNDR learn
         op, action_pred, operator_name = None, None, None
         if skill_to_edit is not None:
@@ -257,8 +267,12 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
                 self._llm_ops[action_pred].remove(op)
                 self._planning_operators.remove(op)
                 new_op = Operator(op.name, params, LiteralConjunction(preconds + [action]), op.effects)
-                self._llm_ops[action_pred].add(new_op)
-                self._planning_operators.add(new_op)
+                not_equal = True
+                for op in self._llm_ops[action_pred]:
+                    if ops_equal(op, new_op):
+                        not_equal = False
+                if not_equal:
+                    self._llm_ops[action_pred].append(new_op)
                 self._llm_op_fail_counts[new_op.name] = 0
                 logging.info(f"EDITED LLM OPERATOR: {new_op.name}")
 
@@ -266,10 +280,13 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
             if len(self._llm_ops[action_pred]) == 0:
                 self._skills_to_replace.remove(action_pred.name)
                
+            for a in self._llm_ops:
+                assert len(set([o.name for o in self._llm_ops[a]])) == len(self._llm_ops[a]), 'operator names are not all different'
             # don't need to update NDRs since learning is not called for it
             is_updated = True
+        ################################################################################################################
 
-        # Check whether we have NDRs that need to be relearned
+        ### Check whether we have NDRs that need to be relearned
         for action_predicate in self._fits_all_data:
             if action_predicate.name in self._skills_to_replace:
                 continue
@@ -303,8 +320,9 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
 
                 self._fits_all_data[action_predicate] = True
                 is_updated = True 
+        ################################################################################################################
 
-        # Update all learned_operators
+        ### Update all learned and planning operators
         if is_updated:
             self._planning_operators.clear()
             self._learned_operators.clear()
@@ -318,10 +336,11 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
                     self._learned_operators.add(operator)
                     self._planning_operators.add(operator)
             for action_pred in self._llm_ops:
-                if action_pred.name in self._skills_to_replace:
-                    self._planning_operators.update(self._llm_ops[action_pred])
+                # if action_pred.name in self._skills_to_replace:
+                self._planning_operators.update(self._llm_ops[action_pred])
 
             # print_rule_set(self._ndrs)
+        ################################################################################################################
 
         logging.info(f"LLM OPERATORS")
         for a in self._llm_ops:
@@ -387,14 +406,60 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
 
         return operators
 
-def ops_equal(op1:Operator, op2:Operator):
-    if op1.params != op2.params:
+def ops_equal(op1, op2):
+    # Check that the # params are equal, of each type.
+    op1_type_to_paramnames:dict[str, list] = defaultdict(list)
+    op2_type_to_paramnames:dict[str, list] = defaultdict(list)
+
+    for param in op1.params:
+        t = param._str.split(':')[-1]
+        op1_type_to_paramnames[t].append(param.split(':')[0])
+    
+    for param in op2.params:
+        t = param._str.split(':')[-1]
+        op2_type_to_paramnames[t].append(param.split(':')[0])
+
+    # If the number of types don't match, return False
+    if len(op2_type_to_paramnames) != len(op1_type_to_paramnames):
         return False
-    if set(op1.preconds.literals) != set(op2.preconds.literals):
-        return False
-    if set(op1.effects.literals) != set(op2.effects.literals):
-        return False
-    return True
+
+    # If the number of params of each type don't match, return False
+    for t in op1_type_to_paramnames:
+        if t not in op2_type_to_paramnames:
+            return False
+        if len(op2_type_to_paramnames[t]) != len(op1_type_to_paramnames[t]):
+            return False
+ 
+    # Get all parameterizations of the op1 params.
+        # get all the variable names in a list, and use itertools.permutations(var_names)
+    op1_params_list = []
+    for param in op1.params:
+        op1_params_list.append(param._str.split(':')[0])
+    for perm in itertools.permutations(op1_params_list):
+        # map from the original variable name list to the permutation
+        variables = dict(zip(op1_params_list, perm))
+        # Change the preconds and effects of op1 to the new arg names
+        # Change the name from op1 param to the corresponding op2 param in preconditions and effects
+        preconds = []
+        for l in op1.preconds.literals:
+            args = []
+            for v in l.variables:
+                args.append(variables[v.split(':')[0]])
+            preconds.append(Literal(l.predicate, args))
+        effects = []
+        for l in op1.effects.literals:
+            args = []
+            for v in l.variables:
+                args.append(variables[v.split(':')[0]])
+            effects.append(Literal(l.predicate, args))
+
+        # Check that the preconditions and effects of the changed op1 are the same as in op2
+        if (set(op2.preconds.literals) == set(preconds)) and (set(op2.effects.literals) == set(effects)):
+        # If the preconds and effects match, return True
+            return True
+ 
+    return False
+
 
 def add_ops_no_duplicates(ops_to_add, ops):
     """ Adds `ops_to_add` to  `ops`, no duplicate operators, make sure all ops are named according to the scheme `action_pred{int}` starting with int=0

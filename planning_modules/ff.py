@@ -53,8 +53,9 @@ class FastForwardPlanner(Planner):
 
     def get_plan(self, raw_problem_fname, use_learned_ops=False, use_cache=True):
         # If there are no operators yet, we're not going to be able to find a plan
-        if not self._planning_operators:
+        if (not use_learned_ops and not self._planning_operators) or (use_learned_ops and not self._learned_operators):
             raise NoPlanFoundException()
+        
         domain_fname = self._create_domain_file(use_learned_ops)
         problem_fname, objects = self._create_problem_file(raw_problem_fname, use_cache=use_cache)
         cmd_str = self._get_cmd_str(domain_fname, problem_fname)

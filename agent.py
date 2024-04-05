@@ -97,9 +97,6 @@ class Agent:
         self.curiosity_time += time.time()-start_time
         self.episode_start = False
 
-        if (len(effects) != 0):
-            if action.predicate.name in self.skills_to_overwrite_with_LLMinit_ops:
-                self.skills_to_overwrite_with_LLMinit_ops.remove(action.predicate.name)
         if (len(effects) == 0) and self._action_in_plan and (action.predicate.name in self.skills_to_overwrite_with_LLMinit_ops):
             self._skill_to_edit = (action.predicate, self._action_in_plan)
         else:
