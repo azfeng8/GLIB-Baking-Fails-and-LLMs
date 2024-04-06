@@ -156,14 +156,10 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         # Initialize the operators from the LLM.
         # This tracks the most current version of the LLM ops that should be used for planning, as preconditions are relaxed
         self._llm_ops = defaultdict(list)
-        self._llm_op_fail_counts = defaultdict(lambda: 0)
-        all_ops = []
-        # for file in os.listdir(f'{self._domain_name.lower()}_llm_responses'):
         file = f'{str(ac.seed)[-1]}.pkl'
         with open(os.path.join(f'{self._domain_name.lower()}_llm_responses', file), 'rb') as f:
             response = pickle.load(f)[0]
         operators = self._llm_output_to_operators(response)
-        # all_ops = add_ops_no_duplicates(operators, all_ops)
 
         for op in operators:
             action = [p for p in op.preconds.literals if p.predicate in ac.train_env.action_space.predicates][0]
@@ -176,6 +172,7 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
             if not_equal:
                 self._llm_ops[action.predicate].append(op)
  
+        self._llm_op_fail_counts = defaultdict(lambda: 0)
         self._planning_operators.update(operators)
         self._evaluate_first_iteration = True
 
