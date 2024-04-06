@@ -136,6 +136,8 @@ class ZPKOperatorLearningModule:
         return sorted(prediction) == sorted(effects)
         # return abs(1 - self.get_probability((state.literals, action, effects))) < 1e-5
 
+from pddlgym.inference import find_satisfying_assignments
+from pddlgym.structs import ground_literal
 
 class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
     """The ZPK operator learner but initialized with operators output by an LLM."""
@@ -189,11 +191,37 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
 
         if len(effects) != 0 and action.predicate.name in self._skills_to_replace:
             self._skills_to_replace.remove(action.predicate.name)
-            for op in self._llm_ops[action.predicate]:
-                if op.name in self._llm_op_fail_counts:
-                    del self._llm_op_fail_counts[op.name]
-            self._llm_ops[action.predicate].clear()
             self._first_nonNOP_itrs.append(itr)
+
+        # Delete the LLM planning operators that don't hold.
+        removes = []
+        for op in self._llm_ops[action.predicate]:
+            assignments = find_satisfying_assignments(list(state.literals) + [action], op.preconds.literals, allow_redundant_variables=False)
+
+            # preconditions don't hold
+            if len(assignments) == 0:
+                continue
+
+            # preconditions hold
+            effects_hold = False            
+            for assignment in assignments:
+                pred_effects = set()
+                for l in op.effects.literals:
+                    pred_effects.add(ground_literal(l, assignment))
+                if pred_effects == effects:
+                # if one of the ground effects of the operator matches the observed effects, then keep it. Otherwise, discard it.
+                    effects_hold = True
+            if not effects_hold:
+                removes.append(op)
+
+        for r in removes:
+            self._llm_ops[action.predicate].remove(r)
+            # Rename LLM ops
+            if r.name in self._llm_op_fail_counts:
+                del self._llm_op_fail_counts[r.name]
+            self._planning_operators.remove(r)
+            for i, op in enumerate(self._llm_ops[action.predicate]):
+                op.name = op.name.rstrip('1234567890') + str(i)
 
         # Check whether we'll need to relearn
             # self._fits_all_data[action.predicate] is True once learned an initial NDR
