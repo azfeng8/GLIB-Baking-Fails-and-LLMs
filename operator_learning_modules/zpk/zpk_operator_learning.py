@@ -249,61 +249,74 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         ### Update self._llm_ops
         
         # Only edit the operator if it was proposed by the LLM. Otherwise, let LNDR learn
-        op, action_pred, operator_name = None, None, None
+        op, action_pred, operator_name, same_precond_ops = None, None, None, None
         if skill_to_edit is not None:
             action_pred, operator_name = skill_to_edit
             for o in self._llm_ops[action_pred]:
                 if o.name == operator_name:
                     op = o
-                    self._llm_op_fail_counts[operator_name] += 1
                     break
-        if op is not None and self._llm_op_fail_counts[operator_name] > ac.operator_fail_limit:
-            # check if precondition has >1 lits (not including the action)
-            if len(op.preconds.literals) == 2:
-                # if not, delete the operator
-                self._llm_ops[action_pred].remove(op)
-                self._planning_operators.remove(op)
-                del self._llm_op_fail_counts[op.name]
-                logging.info(f"DELETED LLM OPERATOR: {op.name}")
-                # Rename the LLM ops
-                names_map = {}
-                for i, op in enumerate(self._llm_ops[action_pred]):
-                    new_name = op.name.rstrip('1234567890') + str(i)
-                    names_map[op.name] = new_name
-                    op.name = new_name
-                # Migrate the fail counts
-                new_fail_counts = defaultdict(lambda:0)
-                for op_name in self._llm_op_fail_counts:
-                    if op_name in names_map:
-                        new_fail_counts[names_map[op_name]] = self._llm_op_fail_counts[op_name]
-                    else:
-                        new_fail_counts[op_name] = self._llm_op_fail_counts[op_name]
-                self._llm_op_fail_counts = new_fail_counts
 
-            else:
-                # if yes, pick a random literal in the precondition, delete it, update the parameters of the operator
-                preconds = deepcopy(op.preconds.literals)
-                for i, lit in enumerate(preconds):
-                    if lit.predicate.name == action_pred.name:
-                        action = lit
-                        preconds.remove(action)
-                lit = preconds[np.random.choice(len(preconds))]
-                preconds.remove(lit)
-                params = set()
-                for l in op.preconds.literals + op.effects.literals:
-                    for v in l.variables:
-                        params.add(v)
-                self._llm_ops[action_pred].remove(op)
-                self._planning_operators.remove(op)
-                new_op = Operator(op.name, params, LiteralConjunction(preconds + [action]), op.effects)
-                not_equal = True
-                for op in self._llm_ops[action_pred]:
-                    if ops_equal(op, new_op):
-                        not_equal = False
-                if not_equal:
-                    self._llm_ops[action_pred].append(new_op)
-                self._llm_op_fail_counts[new_op.name] = 0
-                logging.info(f"EDITED LLM OPERATOR: {new_op.name}")
+        if op is not None:
+            # get all ops with the same precondition and skill, in a list O.
+            same_precond_ops = get_ops_with_same_preconds(op, self._llm_ops[action_pred])
+            # increment fail counts of all ops in that list O.
+            for op_ in same_precond_ops:
+                self._llm_op_fail_counts[op_.name] += 1
+
+        # loop thru the operators with the same preconditions
+        if same_precond_ops is not None:
+            for op in same_precond_ops:
+            # if the operator has exceeded the hyperparam:
+                if self._llm_op_fail_counts[op.name] > ac.operator_fail_limit:
+                # if the precond has only 1 lit: delete the operator
+                    # check if precondition has >1 lits (not including the action)
+                    if len(op.preconds.literals) == 2:
+                        # if not, delete the operator
+                        self._llm_ops[action_pred].remove(op)
+                        self._planning_operators.remove(op)
+                        del self._llm_op_fail_counts[op.name]
+                        logging.info(f"DELETED LLM OPERATOR: {op.name}")
+                        # Rename the LLM ops
+                        names_map = {}
+                        for i, op in enumerate(self._llm_ops[action_pred]):
+                            new_name = op.name.rstrip('1234567890') + str(i)
+                            names_map[op.name] = new_name
+                            op.name = new_name
+                        # Migrate the fail counts
+                        new_fail_counts = defaultdict(lambda:0)
+                        for op_name in self._llm_op_fail_counts:
+                            if op_name in names_map:
+                                new_fail_counts[names_map[op_name]] = self._llm_op_fail_counts[op_name]
+                            else:
+                                new_fail_counts[op_name] = self._llm_op_fail_counts[op_name]
+                        self._llm_op_fail_counts = new_fail_counts
+
+                # else randomly delete a literal in the precondition.
+                    else:
+                        # if yes, pick a random literal in the precondition, delete it, update the parameters of the operator
+                        preconds = deepcopy(op.preconds.literals)
+                        for i, lit in enumerate(preconds):
+                            if lit.predicate.name == action_pred.name:
+                                action = lit
+                                preconds.remove(action)
+                        lit = preconds[np.random.choice(len(preconds))]
+                        preconds.remove(lit)
+                        params = set()
+                        for l in op.preconds.literals + op.effects.literals:
+                            for v in l.variables:
+                                params.add(v)
+                        self._llm_ops[action_pred].remove(op)
+                        self._planning_operators.remove(op)
+                        new_op = Operator(op.name, params, LiteralConjunction(preconds + [action]), op.effects)
+                        not_equal = True
+                        for op in self._llm_ops[action_pred]:
+                            if ops_equal(op, new_op):
+                                not_equal = False
+                        if not_equal:
+                            self._llm_ops[action_pred].append(new_op)
+                        self._llm_op_fail_counts[new_op.name] = 0
+                        logging.info(f"EDITED LLM OPERATOR: {new_op.name}")
 
             # If no LLM operators exist for this action predicate, default to LNDR.
             if len(self._llm_ops[action_pred]) == 0:
@@ -311,7 +324,6 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
                
             for a in self._llm_ops:
                 assert len(set([o.name for o in self._llm_ops[a]])) == len(self._llm_ops[a]), 'operator names are not all different'
-            # don't need to update NDRs since learning is not called for it
             is_updated = True
         ################################################################################################################
 
@@ -365,7 +377,6 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
                     self._learned_operators.add(operator)
                     self._planning_operators.add(operator)
             for action_pred in self._llm_ops:
-                # if action_pred.name in self._skills_to_replace:
                 self._planning_operators.update(self._llm_ops[action_pred])
 
             # print_rule_set(self._ndrs)
@@ -508,6 +519,67 @@ def add_ops_no_duplicates(ops_to_add, ops):
         for i, op in enumerate(op_dict[action_name]):
             op.name = f'{action_name}{i}'
     return ops 
+
+def get_ops_with_same_preconds(op, ops) -> list[Operator]:
+    """Get the set of operators with the same preconditions as the operator passed in, agnostic to different parametrizations.
+
+    Args:
+        ops (list[Operator]): operators all of the same skill.
+
+    Returns:
+        list[Operator]
+    """
+    same_preconds_ops = []
+    op_counts = {}
+    op_params = set()
+    for lit in op.preconds.literals:
+        op_counts.setdefault(lit.predicate.name, 0)
+        op_counts[lit.predicate.name] += 1
+        # Get a list of parameter names that exist in the preconditions
+        for v in lit.variables:
+            v_name = v._str.split(':')[0]
+            op_params.add(v_name)
+    op_params = list(op_params)
+ 
+    for o in ops:
+        # if the number of literals is different, continue
+        if len(o.preconds.literals) != len(op.preconds.literals):
+            continue
+        # if the num predicates are different (count # of each predicate), continue
+        counts = {}
+        params = set()
+        for lit in o.preconds.literals:
+            counts.setdefault(lit.predicate.name, 0)
+            counts[lit.predicate.name] += 1
+            # Get the parameter names that exist in the preconditions
+            for v in lit.variables:
+                v_name = v._str.split(':')[0]
+                params.add(v_name)
+
+        if op_counts != counts:
+            continue
+            
+        # Get a list of parameter names that exist in the preconditions
+        params = list(params)
+ 
+        # Get all permutations of them, using each as a new mapping to the list of param names for `op`
+        for perm in itertools.permutations(params):
+            # create the new set of literals with the new names.
+            new_preconds = []
+            names_map = dict(zip(perm, op_params))
+            for lit in o.preconds.literals:
+                args = []
+                for v in lit.variables:
+                    args.append(names_map[v._str.split(':')[0]])
+                new_preconds.append(Literal(lit.predicate, args))
+            
+            # if the new set matches the set(op.preconds.literals):
+            if set(new_preconds) == set(op.preconds.literals):
+                # add the operator
+                same_preconds_ops.append(o)
+                break
+    return same_preconds_ops
+
 
 
 # Debug code
