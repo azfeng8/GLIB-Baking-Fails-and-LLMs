@@ -17,6 +17,7 @@ import pddlgym
 import logging
 import os
 from copy import deepcopy
+import shutil
 
 
 class ZPKOperatorLearningModule:
@@ -155,34 +156,9 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
                 types.add(t)
         self._llm_parser = LLM_PDDL_Parser(ap, op, types)
 
-        # Initialize the operators from the LLM.
-        # This tracks the most current version of the LLM ops that should be used for planning, as preconditions are relaxed
-        self._llm_ops = defaultdict(list)
-        all_ops = []
-        for file in os.listdir(f'{self._domain_name.lower()}_llm_responses'):
-            with open(os.path.join(f'{self._domain_name.lower()}_llm_responses', file), 'rb') as f:
-                response = pickle.load(f)[0]
-            operators = self._llm_output_to_operators(response)
-            all_ops = add_ops_no_duplicates(operators, all_ops)
-
-        for op in all_ops:
-            action = [p for p in op.preconds.literals if p.predicate in ac.train_env.action_space.predicates][0]
-            i = len(self._llm_ops[action.predicate])
-            op.name = op.name.rstrip('0123456789') + str(i)
-            not_equal = True
-            for o in self._llm_ops[action.predicate]:
-                if ops_equal(op, o):
-                    not_equal = False
-            if not_equal:
-                self._llm_ops[action.predicate].append(op)
- 
-        self._llm_op_fail_counts = defaultdict(lambda: 0)
-        for a in self._llm_ops:
-            self._planning_operators.update(self._llm_ops[a])
-        self._evaluate_first_iteration = True
-
-        self._skills_to_replace:set[str] = skills_to_overwrite_with_LLMinit_op
-
+        prompt = self._create_todo_prompt()
+        operators = self._query_llm(prompt)
+       
     def observe(self, state, action, effects, itr, **kwargs):
         if not self._learning_on:
             return
@@ -261,61 +237,26 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
            # increment fail count.
             self._llm_op_fail_counts[op.name] += 1
             # if failed more than # times allowed
-            # if it
-
-        # loop thru the operators with the same preconditions
-        if same_precond_ops is not None:
-            for op in same_precond_ops:
-            # if the operator has exceeded the hyperparam:
-                if self._llm_op_fail_counts[op.name] > ac.operator_fail_limit:
-                # if the precond has only 1 lit: delete the operator
-                    # check if precondition has >1 lits (not including the action)
-                    if len(op.preconds.literals) == 2:
-                        # if not, delete the operator
-                        self._llm_ops[action_pred].remove(op)
-                        self._planning_operators.remove(op)
-                        del self._llm_op_fail_counts[op.name]
-                        logging.info(f"DELETED LLM OPERATOR: {op.name}")
-                        # Rename the LLM ops
-                        names_map = {}
-                        for i, op in enumerate(self._llm_ops[action_pred]):
-                            new_name = op.name.rstrip('1234567890') + str(i)
-                            names_map[op.name] = new_name
-                            op.name = new_name
-                        # Migrate the fail counts
-                        new_fail_counts = defaultdict(lambda:0)
-                        for op_name in self._llm_op_fail_counts:
-                            if op_name in names_map:
-                                new_fail_counts[names_map[op_name]] = self._llm_op_fail_counts[op_name]
-                            else:
-                                new_fail_counts[op_name] = self._llm_op_fail_counts[op_name]
-                        self._llm_op_fail_counts = new_fail_counts
-
-                # else randomly delete a literal in the precondition.
+            if self._llm_op_fail_counts[op.name] > ac.operator_fail_limit:
+                # delete it from self._llm_ops
+                self._llm_ops[action_pred].remove(op)
+                self._planning_operators.remove(op)
+                del self._llm_op_fail_counts[op.name]
+                logging.info(f"DELETED LLM OPERATOR: {op.name}")
+                # Rename the LLM ops
+                names_map = {}
+                for i, op in enumerate(self._llm_ops[action_pred]):
+                    new_name = op.name.rstrip('1234567890') + str(i)
+                    names_map[op.name] = new_name
+                    op.name = new_name
+                # Migrate the fail counts
+                new_fail_counts = defaultdict(lambda:0)
+                for op_name in self._llm_op_fail_counts:
+                    if op_name in names_map:
+                        new_fail_counts[names_map[op_name]] = self._llm_op_fail_counts[op_name]
                     else:
-                        # if yes, pick a random literal in the precondition, delete it, update the parameters of the operator
-                        preconds = deepcopy(op.preconds.literals)
-                        for i, lit in enumerate(preconds):
-                            if lit.predicate.name == action_pred.name:
-                                action = lit
-                                preconds.remove(action)
-                        lit = preconds[np.random.choice(len(preconds))]
-                        preconds.remove(lit)
-                        params = set()
-                        for l in op.preconds.literals + op.effects.literals:
-                            for v in l.variables:
-                                params.add(v)
-                        self._llm_ops[action_pred].remove(op)
-                        self._planning_operators.remove(op)
-                        new_op = Operator(op.name, params, LiteralConjunction(preconds + [action]), op.effects)
-                        not_equal = True
-                        for op in self._llm_ops[action_pred]:
-                            if ops_equal(op, new_op):
-                                not_equal = False
-                        if not_equal:
-                            self._llm_ops[action_pred].append(new_op)
-                        self._llm_op_fail_counts[new_op.name] = 0
-                        logging.info(f"EDITED LLM OPERATOR: {new_op.name}")
+                        new_fail_counts[op_name] = self._llm_op_fail_counts[op_name]
+                self._llm_op_fail_counts = new_fail_counts
 
             # If no LLM operators exist for this action predicate, default to LNDR.
             if len(self._llm_ops[action_pred]) == 0:
@@ -416,12 +357,11 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         return prompt
 
     def _query_llm(self, prompt):
-        # response, path = self._llm.sample_completions([{"role": "user", "content": prompt}], temperature=0, seed=self._seed, num_completions=1)
-        # response = response[0]
-        with open(f'{self._domain_name.lower()}_llm_responses/{str(ac.seed)[-1]}.pkl', 'rb') as f:
-            response = pickle.load(f)[0]
+        response, path = self._llm.sample_completions([{"role": "user", "content": prompt}], temperature=0, seed=self._seed, num_completions=1)
+        response = response[0]
         logging.info(f"Got response {response}")
-        # logging.debug(f"Saved response at path: {path}")
+        logging.debug(f"Saved response at path: {path}")
+        shutil.copyfile(path, f'{self._domain_name.lower()}_llm_responses/{str(ac.seed)[-1]}.pkl')
         return response
 
 

@@ -270,6 +270,7 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_
     agent = Agent(domain_name, train_env.action_space,
                   train_env.observation_space, curiosity_name, learning_name, log_llm_path=log_llmi_path,
                   planning_module_name=ac.planner_name[domain_name])
+    return {}
     test_env = gym.make("PDDLEnv{}Test-v0".format(domain_name))
     results, curiosity_avg_time, plan_ops_results  = Runner(agent, train_env, test_env, domain_name, curiosity_name).run()
     with open("results/timings/{}_{}_{}_{}.txt".format(domain_name, curiosity_name, learning_name, seed), "w") as f:
@@ -331,14 +332,6 @@ def _main():
 
                 single_seed_results = _run_single_seed(
                     seed, domain_name, curiosity_name, ac.learning_name, llm_iterative_log_path)
-                for cur_name, results in single_seed_results.items():
-                    all_results[cur_name].append(results)
-                plot_results(domain_name, ac.learning_name, all_results)
-                plot_results(domain_name, ac.learning_name, all_results, dist=True)
-
-        plot_results(domain_name, ac.learning_name, all_results)
-        plot_results(domain_name, ac.learning_name, all_results, dist=True)
-
     logging.info("\n\n\n\n\nFinished in {} seconds".format(time.time()-start))
 
 

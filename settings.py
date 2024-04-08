@@ -337,7 +337,7 @@ class PlottingConfig:
     # seeds = [range(50,60), range(50,60)]
     # seeds = [range(60,70), range(60,70)]
     # seeds = [range(182,192)] * 3
-    seeds = [range(380, 390)] + [range(100, 110)]
+    seeds = [range(410, 420)] + [range(100, 110)]
 
     # learner_explorer = [("LLM+LNDR", "LLM+GLIB_G1"), ("LLM+LNDR", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2"), ("LNDR", "GLIB_G1")]
     # seeds = [range(12, 22)] * 2 + [range(1, 11)]  * 2
