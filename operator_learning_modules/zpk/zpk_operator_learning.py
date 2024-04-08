@@ -159,8 +159,8 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         # This tracks the most current version of the LLM ops that should be used for planning, as preconditions are relaxed
         self._llm_ops = defaultdict(list)
         all_ops = []
-        for file in os.listdir(f'{self._domain_name.lower()}_llm_responses'):
-            with open(os.path.join(f'{self._domain_name.lower()}_llm_responses', file), 'rb') as f:
+        for file in os.listdir(f'todo_prompt_responses/{self._domain_name.lower()}_llm_responses'):
+            with open(os.path.join('todo_prompt_responses', f'{self._domain_name.lower()}_llm_responses', file), 'rb') as f:
                 response = pickle.load(f)[0]
             operators = self._llm_output_to_operators(response)
             all_ops = add_ops_no_duplicates(operators, all_ops)
@@ -205,12 +205,14 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
             # preconditions hold
             effects_hold = False            
             for assignment in assignments:
-                pred_effects = set()
-                for l in op.effects.literals:
-                    pred_effects.add(ground_literal(l, assignment))
-                if pred_effects == effects:
-                # if one of the ground effects of the operator matches the observed effects, then keep it. Otherwise, discard it.
-                    effects_hold = True
+                full_assignments = find_satisfying_assignments(list(state.literals), op.effects.literals, init_assignments=assignment)
+                for full_assignment in full_assignments:
+                    pred_effects = set()
+                    for l in op.effects.literals:
+                        pred_effects.add(ground_literal(l, full_assignment))
+                    if pred_effects == effects:
+                    # if one of the ground effects of the operator matches the observed effects, then keep it. Otherwise, discard it.
+                        effects_hold = True
             if not effects_hold:
                 removes.append(op)
 
@@ -418,7 +420,7 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
     def _query_llm(self, prompt):
         # response, path = self._llm.sample_completions([{"role": "user", "content": prompt}], temperature=0, seed=self._seed, num_completions=1)
         # response = response[0]
-        with open(f'{self._domain_name.lower()}_llm_responses/{str(ac.seed)[-1]}.pkl', 'rb') as f:
+        with open(f'todo_prompt_responses/{self._domain_name.lower()}_llm_responses/{str(ac.seed)[-1]}.pkl', 'rb') as f:
             response = pickle.load(f)[0]
         logging.info(f"Got response {response}")
         # logging.debug(f"Saved response at path: {path}")
