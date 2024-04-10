@@ -357,11 +357,12 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         return prompt
 
     def _query_llm(self, prompt):
-        response, path = self._llm.sample_completions([{"role": "user", "content": prompt}], temperature=0, seed=self._seed, num_completions=1)
+        response, path = self._llm.sample_completions([{"role": "user", "content": prompt}], temperature=1, seed=self._seed, num_completions=1)
         response = response[0]
         logging.info(f"Got response {response}")
         logging.debug(f"Saved response at path: {path}")
-        shutil.copyfile(path, f'{self._domain_name.lower()}_llm_responses/{str(ac.seed)[-1]}.pkl')
+        os.makedirs(f'todo_prompt_responses_temperature1/{self._domain_name.lower()}_llm_responses', exist_ok=True)
+        shutil.copyfile(path, f'todo_prompt_responses_temperature1/{self._domain_name.lower()}_llm_responses/{str(ac.seed)[-1]}.pkl')
         return response
 
 
