@@ -306,7 +306,23 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
                                 action = lit
                                 preconds.remove(action)
                         self._llm_ops[action_pred].remove(op)
+                        del self._llm_op_fail_counts[op.name]
                         self._planning_operators.remove(op)
+                        logging.info(f"DELETED LLM OPERATOR: {op.name}")
+                        # Rename the LLM ops
+                        names_map = {}
+                        for i, op in enumerate(self._llm_ops[action_pred]):
+                            new_name = op.name.rstrip('1234567890') + str(i)
+                            names_map[op.name] = new_name
+                            op.name = new_name
+                        # Migrate the fail counts
+                        new_fail_counts = defaultdict(lambda:0)
+                        for op_name in self._llm_op_fail_counts:
+                            if op_name in names_map:
+                                new_fail_counts[names_map[op_name]] = self._llm_op_fail_counts[op_name]
+                            else:
+                                new_fail_counts[op_name] = self._llm_op_fail_counts[op_name]
+                        self._llm_op_fail_counts = new_fail_counts
                         for lit in preconds:
                             preconds_ = preconds[:]
                             preconds_.remove(lit)
@@ -324,8 +340,9 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
                                 new_op.name = new_op.name.rstrip('0123456789') + str(suffix)
                                 self._llm_ops[action_pred].append(new_op)
                                 self._history_llm_ops[action_pred].append(new_op)
+                        # Migrate the fail counts
                         self._llm_op_fail_counts[new_op.name] = 0
-                        logging.info(f"EDITED LLM OPERATOR: {new_op.name}")
+                        logging.info(f"Added LLM OPERATOR: {new_op.name}")
 
             # If no LLM operators exist for this action predicate, default to LNDR.
             if len(self._llm_ops[action_pred]) == 0:
