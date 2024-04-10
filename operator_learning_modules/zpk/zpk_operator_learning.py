@@ -5,7 +5,7 @@ from ndr.learn import run_main_search as learn_ndrs
 from ndr.learn import get_transition_likelihood, print_rule_set, iter_variable_names
 from ndr.ndrs import NOISE_OUTCOME, NDR, NDRSet
 from openai_interface import OpenAI_Model
-from llm_parsing import LLM_PDDL_Parser, find_closing_paran
+from llm_parsing import LLM_PDDL_Parser, find_closing_paran, ops_equal
 
 import re
 import itertools
@@ -447,60 +447,6 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
             end = match.start()
 
         return operators
-
-def ops_equal(op1, op2):
-    # Check that the # params are equal, of each type.
-    op1_type_to_paramnames:dict[str, list] = defaultdict(list)
-    op2_type_to_paramnames:dict[str, list] = defaultdict(list)
-
-    for param in op1.params:
-        t = param._str.split(':')[-1]
-        op1_type_to_paramnames[t].append(param.split(':')[0])
-    
-    for param in op2.params:
-        t = param._str.split(':')[-1]
-        op2_type_to_paramnames[t].append(param.split(':')[0])
-
-    # If the number of types don't match, return False
-    if len(op2_type_to_paramnames) != len(op1_type_to_paramnames):
-        return False
-
-    # If the number of params of each type don't match, return False
-    for t in op1_type_to_paramnames:
-        if t not in op2_type_to_paramnames:
-            return False
-        if len(op2_type_to_paramnames[t]) != len(op1_type_to_paramnames[t]):
-            return False
- 
-    # Get all parameterizations of the op1 params.
-        # get all the variable names in a list, and use itertools.permutations(var_names)
-    op1_params_list = []
-    for param in op1.params:
-        op1_params_list.append(param._str.split(':')[0])
-    for perm in itertools.permutations(op1_params_list):
-        # map from the original variable name list to the permutation
-        variables = dict(zip(op1_params_list, perm))
-        # Change the preconds and effects of op1 to the new arg names
-        # Change the name from op1 param to the corresponding op2 param in preconditions and effects
-        preconds = []
-        for l in op1.preconds.literals:
-            args = []
-            for v in l.variables:
-                args.append(variables[v.split(':')[0]])
-            preconds.append(Literal(l.predicate, args))
-        effects = []
-        for l in op1.effects.literals:
-            args = []
-            for v in l.variables:
-                args.append(variables[v.split(':')[0]])
-            effects.append(Literal(l.predicate, args))
-
-        # Check that the preconditions and effects of the changed op1 are the same as in op2
-        if (set(op2.preconds.literals) == set(preconds)) and (set(op2.effects.literals) == set(effects)):
-        # If the preconds and effects match, return True
-            return True
- 
-    return False
 
 
 def add_ops_no_duplicates(ops_to_add, ops):
