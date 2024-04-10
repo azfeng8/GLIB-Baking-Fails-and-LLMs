@@ -158,6 +158,8 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         # Initialize the operators from the LLM.
         # This tracks the most current version of the LLM ops that should be used for planning, as preconditions are relaxed
         self._llm_ops = defaultdict(list)
+        # This tracks all of the planning operators tried from the LLM.
+        self._history_llm_ops = defaultdict(list)
         all_ops = []
         for file in os.listdir(f'todo_prompt_responses/{self._domain_name.lower()}_llm_responses'):
             with open(os.path.join('todo_prompt_responses', f'{self._domain_name.lower()}_llm_responses', file), 'rb') as f:
@@ -175,6 +177,7 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
                     not_equal = False
             if not_equal:
                 self._llm_ops[action.predicate].append(op)
+                self._history_llm_ops[action.predicate].append(op)
  
         self._llm_op_fail_counts = defaultdict(lambda: 0)
         for a in self._llm_ops:
@@ -294,7 +297,7 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
                                 new_fail_counts[op_name] = self._llm_op_fail_counts[op_name]
                         self._llm_op_fail_counts = new_fail_counts
 
-                # else randomly delete a literal in the precondition.
+                # else delete a literal in the precondition, generating a new operator for each. Don't add operators already tried.
                     else:
                         # if yes, pick a random literal in the precondition, delete it, update the parameters of the operator
                         preconds = deepcopy(op.preconds.literals)
@@ -302,21 +305,25 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
                             if lit.predicate.name == action_pred.name:
                                 action = lit
                                 preconds.remove(action)
-                        lit = preconds[np.random.choice(len(preconds))]
-                        preconds.remove(lit)
-                        params = set()
-                        for l in op.preconds.literals + op.effects.literals:
-                            for v in l.variables:
-                                params.add(v)
                         self._llm_ops[action_pred].remove(op)
                         self._planning_operators.remove(op)
-                        new_op = Operator(op.name, params, LiteralConjunction(preconds + [action]), op.effects)
-                        not_equal = True
-                        for op in self._llm_ops[action_pred]:
-                            if ops_equal(op, new_op):
-                                not_equal = False
-                        if not_equal:
-                            self._llm_ops[action_pred].append(new_op)
+                        for lit in preconds:
+                            preconds_ = preconds[:]
+                            preconds_.remove(lit)
+                            params = set()
+                            for l in preconds_ + op.effects.literals + [action]:
+                                for v in l.variables:
+                                    params.add(v)
+                            new_op = Operator(op.name, params, LiteralConjunction(preconds + [action]), op.effects)
+                            not_equal = True
+                            for op in self._history_llm_ops[action_pred]:
+                                if ops_equal(op, new_op):
+                                    not_equal = False
+                            if not_equal:
+                                suffix = len(self._llm_ops[action_pred])
+                                new_op.name = new_op.name.rstrip('0123456789') + str(suffix)
+                                self._llm_ops[action_pred].append(new_op)
+                                self._history_llm_ops[action_pred].append(new_op)
                         self._llm_op_fail_counts[new_op.name] = 0
                         logging.info(f"EDITED LLM OPERATOR: {new_op.name}")
 
