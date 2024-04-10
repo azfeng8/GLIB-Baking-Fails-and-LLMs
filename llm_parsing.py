@@ -31,7 +31,7 @@ class LLM_PDDL_Parser:
             start, end = match.start(), match.end()
             pddl_str = pddl_str[:start]+pddl_str[end-1:]
 
-    def parse_operators(self, llm_response:str) -> Optional[list[Operator]]:
+    def parse_operators(self, llm_response:str, parse_action_using_op_name=True) -> Optional[list[Operator]]:
         """Parse an Operator from the LLM response.
 
         Args:
@@ -69,20 +69,21 @@ class LLM_PDDL_Parser:
                 param_types.append(var_type)
 
         # NOTE: Propose a single operator for an action. Prompting the action multiple times will result in different operators.
-        if op_name not in self._action_predicates:
-            return None
-        action_pred = self._action_predicates[op_name]
-        args = []
-        param_types_temp = param_types[:]
-        for v_type in action_pred.var_types:
-            if v_type not in param_types_temp:
-                    # Can't form the action from the operator arguments
-                    return None 
-            i = param_types_temp.index(str(v_type))
-            param_types_temp[i] = None
-            v_name = param_names[i]
-            args.append(Type(v_name))
-        action = action_pred(*args)
+        if parse_action_using_op_name:
+            if op_name not in self._action_predicates:
+                return None
+            action_pred = self._action_predicates[op_name]
+            args = []
+            param_types_temp = param_types[:]
+            for v_type in action_pred.var_types:
+                if v_type not in param_types_temp:
+                        # Can't form the action from the operator arguments
+                        return None 
+                i = param_types_temp.index(str(v_type))
+                param_types_temp[i] = None
+                v_name = param_names[i]
+                args.append(Type(v_name))
+            action = action_pred(*args)
 
         # Extract preconditions.
         precond_match = re.search(":precondition[\(\s]*\w", operator_str)
@@ -104,9 +105,15 @@ class LLM_PDDL_Parser:
         for i in range(len(precond_list)):
             lc = precond_list[i]
             if isinstance(lc, Literal):
-                precond_list[i] = LiteralConjunction([lc, action])
+                if parse_action_using_op_name:
+                    precond_list[i] = LiteralConjunction([lc, action])
+                else:
+                    precond_list[i] = LiteralConjunction([lc])
             elif isinstance(lc, LiteralConjunction):
-                precond_list[i] = LiteralConjunction(lc.literals + [action])
+                if parse_action_using_op_name:
+                    precond_list[i] = LiteralConjunction(lc.literals + [action])
+                else:
+                    precond_list[i] = LiteralConjunction(lc.literals)
             else:
                 raise Exception(f"Unsupported type: {type(lc)}")    
 
