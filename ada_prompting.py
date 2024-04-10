@@ -294,13 +294,13 @@ A:
     return operators
 
 from pddlgym.parser import Operator
-def associate_operators_with_skills(operator_proposals, domain_name, seed, n) -> list[tuple[Operator, str]]:
+def associate_operators_with_skills_LLM(operator_proposals, domain_name, seed, n) -> list[tuple[Operator, str]]:
     """Returns tuples of the parsed operator + the name of the skill associated with it."""
     skills_list = ','.join([p.pddl_str() for p in train_env.action_space.predicates])
     operators_and_skills = []
     for proposal in operator_proposals:
         # Parse the operator into pddlgym
-        ops = llm_parser.parse_operators(proposal)
+        ops = llm_parser.parse_operators(proposal, False)
         if ops is None: # Parsing failed.
             continue
         # Get the pddl string
@@ -323,10 +323,49 @@ A:
         for response in responses:
             operators_and_skills.append((operator, response))
     return operators_and_skills
+
+import wordsegment
+import numpy as np
+import gensim.downloader
+# word_vectors = gensim.downloader.load("glove-twitter-100")
+# wordsegment.load()
+def associate_operators_with_skills_semantic(operator_proposals, domain_name):
+    """ associate operators by semantic similarity to the skill"""
+
+    # Get the semantic vector representation of each skill
+    skills_list = [p.name for p in train_env.action_space.predicates]
+    skills_segmented = []
+    for skill in skills_list:
+        skills_segmented.append(wordsegment.segment(skill))
+    skill_vecs = []
+    for skill_words in skills_segmented:
+        skill_vecs.append(sum([word_vectors[word] for word in skill_words]))
+    
+    operators_and_skills = []
+    for proposal in operator_proposals:
+        # Parse the operator into pddlgym
+        ops = llm_parser.parse_operators(proposal, False)
+        if ops is None: # Parsing failed.
+            continue
+        # Get the pddl string
+        operator = ops[0]
+        op_name_vec = sum([word_vectors[word] for word in wordsegment.segment(operator.name)])
+        best_score = 0
+        best_skill = None
+        for i,vec in enumerate(skill_vecs):
+            score = np.dot(vec, op_name_vec) / (np.linalg.norm(op_name_vec) * np.linalg.norm(vec))
+            if score > best_score:
+                best_score = score
+                best_skill = skills_list[i]
+        assert best_skill is not None
+        operators_and_skills.append((operator, best_skill))
+    return operators_and_skills
     
 import itertools
 from collections import defaultdict
 from operator_learning_modules.zpk.zpk_operator_learning import ops_equal
+from pddlgym.structs import LiteralConjunction
+from pprint import pprint
 
 def create_final_operators(operators_and_skills:list[tuple[Operator, str]]) -> list[Operator]:
     """Adds the skill to the operators, and renames and removes duplicate operators."""
@@ -334,6 +373,7 @@ def create_final_operators(operators_and_skills:list[tuple[Operator, str]]) -> l
     operators = []
     op_names = defaultdict(lambda: 0)
     for operator, skill in operators_and_skills:
+        skip_operator = False
         action_pred = [p for p in train_env.action_space.predicates if p.name == skill][0]
         # Variable type to parameter name in the operator
         type_to_op_param_names:dict[str, list[str]] = {}
@@ -353,6 +393,10 @@ def create_final_operators(operators_and_skills:list[tuple[Operator, str]]) -> l
         for v in action_pred.pddl_variables():
             # Get all combinations of operator params of that variable type
             name, var_type = v.split(' - ')
+            if len(type_to_op_param_names[var_type]) < len(type_to_action_param_names[var_type]):
+                skip_operator = True
+                break
+                
             for comb in itertools.combinations(type_to_op_param_names[var_type], len(type_to_action_param_names[var_type])):
             # For each combination
                 # Get all permutation of the variables in the combination
@@ -361,20 +405,29 @@ def create_final_operators(operators_and_skills:list[tuple[Operator, str]]) -> l
                     # Create a mapping from type_to_action_param_names[v_type] to the permutation
                     # add the map to the maintained dict
                     type_to_param_name_maps[var_type].append(list(zip(type_to_action_param_names[var_type], perm)))
+        if skip_operator:
+            continue
         # Take itertools.product on the values of the dict
         # For each assignment/permutation,
         for assignment in itertools.product(*list(type_to_param_name_maps.values())):
+            if len(assignment) < len(type_to_param_name_maps):
+                continue
             # Map the action predicate to the operator parameters
             args = []
             # Action name to operator name
-            assignment = dict(assignment)
+            a = []
+            for l in assignment:
+                a.extend(l) 
+            assignment = dict(a)
+            # print(">")
+            # pprint(assignment)
             for v in action_pred.pddl_variables():
                 name, v_type = v.split(' - ')
                 args.append(assignment[name])
             lit = action_pred(*args)
             # Create the operator with the action predicate in the precondition
-            preconds = op.preconds.literals + [lit]
-            new_op = Operator(f"{op.name}{suffix}", op.params, preconds, op.effects)
+            preconds = operator.preconds.literals + [lit]
+            new_op = Operator(operator.name, operator.params, LiteralConjunction(preconds), operator.effects)
             # don't add duplicates
             equal = False
             for op in operators:
@@ -387,7 +440,8 @@ def create_final_operators(operators_and_skills:list[tuple[Operator, str]]) -> l
                 op_names[new_op.name] += 1
                 new_op.name = f'{new_op.name}{suffix}'
                 operators.append(new_op)
-        raise Exception
+        # for o in operators:
+            # print(o.pddl_str())
         
     return operators
 
@@ -420,16 +474,19 @@ import os
 #     t.extend(a)
 # ops = get_operator_definitions(t, 0, 3)
 # with open('ada_init_operators/Baking/operator_proposals.pkl', 'rb') as f:
-    # pickle.dump(ops, f)
-    # ops = pickle.load(f)
-# print(len(ops))
-# for o in ops:
-    # print(o)
-# operators_and_skills = associate_operators_with_skills(ops, domain_name, 0, 3)
+# #     # pickle.dump(ops, f)
+#     ops = pickle.load(f)
+# operators_and_skills = associate_operators_with_skills_semantic(ops, domain_name)
 
-with open('ada_init_operators/Baking/ops_and_skills.pkl', 'rb') as f:
+with open('ada_init_operators/Baking/ops_and_skills_semantic.pkl', 'rb') as f:
     # pickle.dump(operators_and_skills, f)
     operators_and_skills = pickle.load(f)
 
-print(len(operators_and_skills))
-create_final_operators(operators_and_skills)
+# print(len(operators_and_skills))
+# for o,s in operators_and_skills:
+#     if 'make_souffle' in o.pddl_str():
+#         print(s)
+ops = create_final_operators(operators_and_skills)
+print(len(ops))
+with open('ada_init_operators/Baking/ops.pkl', 'wb') as f:
+    pickle.dump(ops, f)
