@@ -52,7 +52,7 @@ class AgentConfig:
     # learning_name = "LLMWarmStart+LNDR"
     learning_name = "LLM+LNDR"
 
-    operator_fail_limit = 3
+    operator_fail_limit = 0
 
     planner_name = {
         "Blocks": "ff",
