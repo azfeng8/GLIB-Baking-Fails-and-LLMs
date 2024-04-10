@@ -478,15 +478,19 @@ import os
 #     ops = pickle.load(f)
 # operators_and_skills = associate_operators_with_skills_semantic(ops, domain_name)
 
-with open('ada_init_operators/Baking/ops_and_skills_semantic.pkl', 'rb') as f:
+# with open('ada_init_operators/Baking/ops_and_skills_semantic.pkl', 'rb') as f:
     # pickle.dump(operators_and_skills, f)
-    operators_and_skills = pickle.load(f)
+    # operators_and_skills = pickle.load(f)
 
 # print(len(operators_and_skills))
 # for o,s in operators_and_skills:
 #     if 'make_souffle' in o.pddl_str():
 #         print(s)
-ops = create_final_operators(operators_and_skills)
-print(len(ops))
-with open('ada_init_operators/Baking/ops.pkl', 'wb') as f:
-    pickle.dump(ops, f)
+# ops = create_final_operators(operators_and_skills)
+# print(len(ops))
+with open('ada_init_operators/Baking/ops.pkl', 'rb') as f:
+    # pickle.dump(ops, f)
+    ops = pickle.load(f)
+
+for o in ops:
+    print(o.pddl_str())
