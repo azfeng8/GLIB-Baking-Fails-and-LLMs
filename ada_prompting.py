@@ -419,17 +419,25 @@ import os
 # for a in task_decomps:
 #     t.extend(a)
 # ops = get_operator_definitions(t, 0, 3)
-# with open('ada_init_operators/Baking/operator_proposals.pkl', 'rb') as f:
+with open('ada_init_operators/Baking/operator_proposals.pkl', 'rb') as f:
     # pickle.dump(ops, f)
-    # ops = pickle.load(f)
+    op_proposals = pickle.load(f)
 # print(len(ops))
-# for o in ops:
-    # print(o)
+ops = []
+for o in op_proposals:
+    ops.extend(llm_parser.parse_operators(o))
+skill_list = []
+for o in ops:
+    skills = [p.name for p in train_env.action_space.predicates]
+    prompt = ""
+    for i,s in enumerate(skills):
+        prompt += f'[{i}] {s}\n'
+    skill_list.append(skills[int(input(prompt))])
 # operators_and_skills = associate_operators_with_skills(ops, domain_name, 0, 3)
 
-with open('ada_init_operators/Baking/ops_and_skills.pkl', 'rb') as f:
-    # pickle.dump(operators_and_skills, f)
-    operators_and_skills = pickle.load(f)
+# with open('ada_init_operators/Baking/ops_and_skills.pkl', 'rb') as f:
+#     # pickle.dump(operators_and_skills, f)
+#     operators_and_skills = pickle.load(f)
 
-print(len(operators_and_skills))
-create_final_operators(operators_and_skills)
+# print(len(operators_and_skills))
+create_final_operators(list(zip(ops, skill_list)))

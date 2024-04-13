@@ -33,7 +33,18 @@ class LLM_PDDL_Parser:
             start, end = match.start(), match.end()
             pddl_str = pddl_str[:start]+pddl_str[end-1:]
 
-    def parse_operators(self, llm_response:str, parse_action_using_op_name=True) -> Optional[list[Operator]]:
+    def parse_operators(self, llm_response:str, parse_action_using_op_name=True):
+        matches = re.finditer(r"\(:action", llm_response)
+        ops = []
+        for match in matches:
+            start_ind = match.start()
+            op_str = find_closing_paran(llm_response[start_ind:]).strip()
+            ops_to_add = self._parse_operators(op_str, parse_action_using_op_name=parse_action_using_op_name)
+            if ops_to_add is not None:
+                ops.extend(ops_to_add)
+        return ops
+ 
+    def _parse_operators(self, operator_str:str, parse_action_using_op_name=True) -> Optional[list[Operator]]:
         """Parse an Operator from the LLM response.
 
         Args:
@@ -45,16 +56,11 @@ class LLM_PDDL_Parser:
         Returns:
             list[Operator] or None: operators that were parsed, or None if not able to parse a non-null-effect operator.
         """
-        # Find the PDDL operator in the response.
-        match = re.search("\(\:action", llm_response)
-        # Count parantheses: look for the closing to "(:action" to get the operator string.
-        operator_str = find_closing_paran(llm_response[match.start():])
-        operator_str = self._purge_comments(operator_str)
-
-        if operator_str is None: raise Exception(f"Parsing error: {llm_response}")
         # Extract operator name.
         match = re.search("\(\:action\s\w+", operator_str)
-        op_name = operator_str[match.start() + len("(:action "):match.end()]
+        patt = r"\(:action(.*):parameters(.*):precondition(.*):effect(.*)\)"
+        op_match = re.match(patt, operator_str, re.DOTALL)
+        op_name, _, _, _ = op_match.groups()
 
         # Extract parameters.
         match = re.search("\:parameters[^\)]*\)", operator_str)
