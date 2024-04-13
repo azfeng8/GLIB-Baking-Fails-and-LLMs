@@ -64,7 +64,7 @@ def get_data(domain_name, curiosity, learning_name, seeds):
 
     first_nonNOP_iter = defaultdict(list)
     for seed in seeds:
-        path = os.path.join(LNDR_PATH, domain_name, curiosity, seed)
+        path = os.path.join(LNDR_PATH, domain_name, learning_name, curiosity, seed)
         # Find the last iteration with transition data
         last_tdata_dir = -1
         for dir in os.listdir(path):
@@ -92,9 +92,9 @@ def get_data(domain_name, curiosity, learning_name, seeds):
                 if act == a:
                     if len(e) != 0:
                         if "GLIB" in curiosity:
-                            if babbling_stats[iter_num] == 'fallback':
+                            if 'fallback' in babbling_stats[iter_num]:
                                 fallback_nonNOP_action[skill] += 1
-                            elif babbling_stats[iter_num] == 'babbled':
+                            elif 'babbled' in babbling_stats[iter_num]:
                                 babbled_nonNOP_action[skill] += 1
                             else:
                                 inplan_nonNOP_action[skill] += 1
@@ -108,11 +108,12 @@ def get_data(domain_name, curiosity, learning_name, seeds):
                 iter_num += 1
     return first_nonNOP_iter, fallback_nonNOP_action, babbled_nonNOP_action, inplan_nonNOP_action
 
-# domain_name = 'Baking'
+domain_name = 'Baking'
 # datasets = [('LLMWarmStart+LNDR',"GLIB_G1", [str(s) for s in range(120, 130) if s != 125]) , ("LNDR", "GLIB_G1", [str(s) for s in range(100, 110) if s != 106]), ("LLMWarmStart+LNDR", "GLIB_L2", [str(s) for s in range(120, 130)]), ("LNDR", "GLIB_L2", [str(s) for s in range(100, 110) if s not in (108, 107)]), ("LNDR", "random", [str(s) for s in range(120, 130)])]
-domain_name = 'Minecraft'
-datasets = [('LLMWarmStart+LNDR',"GLIB_G1", [str(s) for s in range(140, 150) ]), ("LNDR", "GLIB_G1", [str(s) for s in range(100, 110)]) ]
-# datasets = [('LLMWarmStart+LNDR',"GLIB_L2", [str(s) for s in range(140, 150) ]), ("LNDR", "GLIB_L2", [str(s) for s in range(100, 110)]) ]
+datasets = [('LLMWarmStart+LNDR',"GLIB_L2", [str(s) for s in range(160, 170) ]), ('LLMWarmStart+LNDR',"GLIB_G1", [str(s) for s in range(140, 150) ]), ("LNDR", "GLIB_L2", [str(s) for s in range(100, 110)  if s not in (107,108)]) , ("LNDR", "GLIB_G1", [str(s) for s in range(100, 110) if s not in (106,)])]
+# domain_name = 'Minecraft'
+# datasets = [('LLMWarmStart+LNDR',"GLIB_G1", [str(s) for s in range(180, 190) ]),  ("LLMWarmStart+LNDR", "GLIB_L2", [str(s) for s in range(180, 190)])]
+# datasets = [('LLMWarmStart+LNDR',"GLIB_L2", [str(s) for s in range(180, 190) ]), ('LLMWarmStart+LNDR',"GLIB_G1", [str(s) for s in range(180, 190) ])]#, ("LNDR", "GLIB_L2", [str(s) for s in range(100, 110)]) ]
 
 env = pddlgym.make(f'PDDLEnv{domain_name}-v0')
 skills = [p.name for p in env.action_space.predicates]

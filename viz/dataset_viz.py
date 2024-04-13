@@ -9,7 +9,7 @@ from collections import defaultdict
 
 # SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results_openstack/results/LNDR'
 # RESULTS_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results_openstack/results'
-BABBLING_SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results_openstack/results/GLIB'
+# BABBLING_SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results_openstack/results/GLIB'
 
 SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results/LNDR'
 RESULTS_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results'
@@ -330,14 +330,14 @@ def view4(save_path, domain_name, curiosity_name, learning_name, seed):
                 num_fallback += 1
         plt.scatter(following_plan_itrs, following_plan_ys, color='#008000')
     # Plot vertical orange line where operator changes
-    ops_change_itrs = np.loadtxt(os.path.join(SOURCE_PATH, domain_name, curiosity_name, seed, 'ops_change_iters.txt'))
+    ops_change_itrs = np.loadtxt(os.path.join(SOURCE_PATH, domain_name, learning_name, curiosity_name, seed, 'ops_change_iters.txt'))
     for itr in ops_change_itrs:
         plt.axvline(x=itr, color='#FFA500')
     
     total = num_fallback + num_babbled + num_inplan
     plt.xlabel(f'Babbled: {num_babbled / total* 100}%\nFallback: {num_fallback / total* 100}%\nIn-plan: {num_inplan / total* 100}%')
     plt.gcf().set_size_inches(22, 14)
-    plt.savefig(os.path.join(save_path, 'GLIB_success_plot.png'), dpi=300)
+    plt.savefig(os.path.join(save_path, f'GLIB_success_plot.png'), dpi=300)
     plt.close()
 
 
@@ -358,7 +358,7 @@ def interactive_view1(domain_name, curiosity_name, learning_name, seed):
         curiosity_name (str)
         seed (str)
     """
-    path = os.path.join(SOURCE_PATH, domain_name, curiosity_name, seed)
+    path = os.path.join(SOURCE_PATH, domain_name, learning_name, curiosity_name, seed)
     iter_dirs = []
     for dir in os.listdir(path):
         if '.txt' in dir or '.pkl' in dir: continue
@@ -378,7 +378,7 @@ def interactive_view1(domain_name, curiosity_name, learning_name, seed):
     if not os.path.exists(filepath):
         view1(iter_save_path, ops, transition_data, domain_name)
 
-    success_increases = np.loadtxt(os.path.join(SOURCE_PATH, domain_name, curiosity_name, seed, 'success_increases.txt'))
+    success_increases = np.loadtxt(os.path.join(SOURCE_PATH, domain_name, learning_name, curiosity_name, seed, 'success_increases.txt'))
     if len(success_increases.shape) == 1:
         success_increases = success_increases[np.newaxis, :]
     success_itrs = success_increases[:, 0].tolist()
@@ -572,6 +572,7 @@ def interactive_view1(domain_name, curiosity_name, learning_name, seed):
 
         img = mpimg.imread(filepath)
         ax.set_title(f"{iter_dir} : success rate {succ[int(iter_dir[5:])]}")
+        itr = int(iter_dir[5:])
         if "GLIB" in curiosity_name:
             if not (('babbled' in babbling_seq[itr]) or ('fallback' in babbling_seq[itr])):
                 goal, plan = babbling_seq[itr_num]
@@ -906,12 +907,12 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
         ax = fig.add_subplot(111)
         figs[action_pred.name] = (fig, ax)
 
-    success_increases = np.loadtxt(os.path.join(SOURCE_PATH, domain_name, curiosity_name, seed, 'success_increases.txt'))
+    success_increases = np.loadtxt(os.path.join(SOURCE_PATH, domain_name, learning_name, curiosity_name, seed, 'success_increases.txt'))
     if len(success_increases.shape) == 1:
         success_increases = success_increases[np.newaxis, :]
     success_itrs = success_increases[:, 0].tolist()
 
-    ops_change_itrs = np.loadtxt(os.path.join(SOURCE_PATH, domain_name, curiosity_name, seed, 'ops_change_iters.txt'))
+    ops_change_itrs = np.loadtxt(os.path.join(SOURCE_PATH, domain_name, learning_name, curiosity_name, seed, 'ops_change_iters.txt'))
 
     results_path = os.path.join(RESULTS_PATH, domain_name, learning_name, curiosity_name, f'{domain_name}_{learning_name}_{curiosity_name}_{seed}.pkl')
     with open(results_path, 'rb') as f:
@@ -1426,13 +1427,14 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
 if __name__ == "__main__":
         
     domain_name = 'Minecraft'
-    learning_name = 'LNDR'
+    learning_name = 'LLMWarmStart+LNDR'
 
     # curiosity_name = 'random'
-    # seeds = [str(s) for s in range(110, 120)]
+    seeds = [str(s) for s in range(162, 170)]
     
-    curiosity_name = 'GLIB_G1'
-    seeds = [str(s) for s in range(1002, 1003)]
+    curiosity_name = 'GLIB_L2'
+    seeds = [str(s) for s in range(532, 533)]
 
     for seed in seeds:
         interactive_view_123(domain_name, curiosity_name, learning_name, seed)
+        # view4(f'individual_plots/{domain_name}/{learning_name}/{curiosity_name}', domain_name, curiosity_name, learning_name, seed)

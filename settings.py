@@ -52,6 +52,8 @@ class AgentConfig:
     # learning_name = "LLMWarmStart+LNDR"
     learning_name = "LLM+LNDR"
 
+    operator_fail_limit = 0
+
     planner_name = {
         "Blocks": "ff",
         "Glibblocks": "ff",
@@ -176,7 +178,7 @@ class AgentConfig:
         "NDRBlocks" : 1501,
         "Baking": 1799,
         "Travel": 1501,
-        "Minecraft": 199
+        "Minecraft": 1799
     }
 
     ## Constants for curiosity modules. ##
@@ -325,8 +327,8 @@ class PlottingConfig:
 
     # learner_explorer = [("LLM+LNDR", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2")]
     # learner_explorer = [("LLM+LNDR", "LLM+GLIB_L2")]#, ("LNDR", "GLIB_G1")]
-    learner_explorer = [("LLMWarmStart+LNDR", "GLIB_L2"),  ("LNDR", "GLIB_L2")]
-    # learner_explorer = [("LLMWarmStart+LNDR", "GLIB_G1"), ("LNDR", "GLIB_G1")]
+    # learner_explorer = [("LLMWarmStart+LNDR", "GLIB_L2"),  ("LNDR", "GLIB_L2")]
+    learner_explorer = [("LLMWarmStart+LNDR", "GLIB_G1"), ("LNDR", "GLIB_G1")]
     # seeds = [range(60, 70)]  + [range(1, 11)]
 
     # learner_explorer= [("LNDR", "GLIB_L2"), ("LNDR", "GLIB_G1"), ("LNDR", "random")]
@@ -334,12 +336,12 @@ class PlottingConfig:
     # seeds = [range(1, 11), range(1,11)]
     # seeds = [range(50,60), range(50,60)]
     # seeds = [range(60,70), range(60,70)]
-    # seeds = [range(70,80), range(70,80)]
-    seeds = [range(150, 160)] + [range(100, 110)]
+    # seeds = [range(182,192)] * 3
+    seeds = [range(490, 500)] + [range(100, 110)]
 
     # learner_explorer = [("LLM+LNDR", "LLM+GLIB_G1"), ("LLM+LNDR", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2"), ("LNDR", "GLIB_G1")]
     # seeds = [range(12, 22)] * 2 + [range(1, 11)]  * 2
 
-    # domains = ["Baking",  "Minecraft", "Travel"]
+    domains = ["Minecraft", "Baking"]
     # domains = ["Baking", "Rearrangement", "Travel", "Minecraft", "Glibblocks", "Doors", "Easygripper"]
-    domains = ["Baking", "Minecraft", "Travel", "Blocks"]
+    # domains = ["Baking", "Minecraft", "Travel", "Blocks"]

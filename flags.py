@@ -35,6 +35,7 @@ def parse_flags() -> None:
     ac.learning_name = args.learning_name
     ac.max_zpk_learning_time = args.max_zpk_learning_time
     ac.max_traj_len = args.max_traj_len
+    ac.operator_fail_limit = int(args.operator_fail_limit)
 
     ec.domain_name = args.domains
 
@@ -66,3 +67,4 @@ def parse_agent_config(parser:argparse.ArgumentParser):
     parser.add_argument('--curiosity_methods', required=True, nargs='+')
     parser.add_argument('--learning_name', required=True, type=str)
     parser.add_argument('--max_zpk_learning_time', type=int, default=180, help='seconds before timeout ZPK')
+    parser.add_argument('--operator_fail_limit', required=False, default=0, help='# times before deleting the operator')

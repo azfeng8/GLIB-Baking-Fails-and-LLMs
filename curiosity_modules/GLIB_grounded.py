@@ -45,11 +45,11 @@ class GLIBG1CuriosityModule(GoalBabblingCuriosityModule):
     def _get_action(self, state):
         if self._unseen_lits_acts is None:
             self._recompute_unseen_lits_acts(state)
-        action = super()._get_action(state)
+        in_plan, operator_name, action = super()._get_action(state)
         for lit in state:  # update novelty
             if (lit, action, False) in self._unseen_lits_acts:
                 self._unseen_lits_acts.remove((lit, action, False))
-        return action
+        return in_plan, operator_name, action
 
     def learning_callback(self):
         super().learning_callback()

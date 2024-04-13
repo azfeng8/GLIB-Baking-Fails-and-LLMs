@@ -7,3 +7,7 @@ llm_cache/
 machines.txt
 settings.py
 logs/
+results_openstack
+individual_plots
+dataset_visualizations
+local_iterative_only_individual_plots

@@ -5,6 +5,7 @@ from pddlgym.inference import find_satisfying_assignments
 
 from collections import defaultdict
 import copy
+import pickle
 import itertools
 import numpy as np
 import logging
@@ -122,7 +123,6 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
                 lambda ga: frozenset(ga[0]) not in mutex_pairs,
                 self._untried_episode_goal_actions))
         # Forget the goal-action that was going to be taken at the end of the plan in progress
-        # GLIB_L_LOGGER.debug("Resetting self._current_goal_action")
         self._current_goal_action = None
 
     def _get_goal_action_priority(self, goal_action):
@@ -153,7 +153,7 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
                 # GLIB_L_LOGGER.debug("*** Finished the plan, now executing the action")
                 # Execute the action
                 self.line_stats.append('FINISHED PLAN - babbled')
-                return action
+                return False, None, action
         # Either continue executing a plan or make a new one (or fall back to random)
         return super()._get_action(state)
 
