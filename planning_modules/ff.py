@@ -65,6 +65,7 @@ class FastForwardPlanner(Planner):
         if end_time - start_time > 0.9*ac.planner_timeout:
             raise PlannerTimeoutException()
         plan = self._output_to_plan(output)
+        print(domain_fname)
         os.remove(domain_fname)
         if not use_cache:
             os.remove(problem_fname)

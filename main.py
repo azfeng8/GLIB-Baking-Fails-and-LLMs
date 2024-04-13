@@ -243,15 +243,6 @@ class Runner:
                 assert reward == 0.
                 successes.append(0)
         variational_dist = 0
-        # for state, action, next_state in self._variational_dist_transitions:
-        #     if ac.learning_name.startswith("groundtruth"):
-        #         predicted_next_state = self.agent._curiosity_module._get_predicted_next_state_ops(state, action)
-        #     else:
-        #         predicted_next_state = self.agent._curiosity_module.sample_next_state(state, action)
-        #     if predicted_next_state is None or \
-        #        predicted_next_state.literals != next_state.literals:
-        #         variational_dist += 1
-        # variational_dist /= len(self._variational_dist_transitions)
         return float(num_successes)/num_problems, variational_dist, successes
 
 def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_path:str):
