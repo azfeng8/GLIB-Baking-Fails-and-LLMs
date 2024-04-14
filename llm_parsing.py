@@ -61,6 +61,7 @@ class LLM_PDDL_Parser:
         patt = r"\(:action(.*):parameters(.*):precondition(.*):effect(.*)\)"
         op_match = re.match(patt, operator_str, re.DOTALL)
         op_name, _, _, _ = op_match.groups()
+        op_name = op_name.strip()
 
         # Extract parameters.
         match = re.search("\:parameters[^\)]*\)", operator_str)

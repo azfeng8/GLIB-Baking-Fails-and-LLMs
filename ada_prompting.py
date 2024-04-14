@@ -5,6 +5,7 @@ import pddlgym
 import gym
 import numpy as np
 from llm_parsing import LLM_PDDL_Parser
+from pddlgym.structs import LiteralConjunction
 
 domain_name = "Baking"
 train_env = gym.make("PDDLEnv{}-v0".format(domain_name))
@@ -334,6 +335,7 @@ def create_final_operators(operators_and_skills:list[tuple[Operator, str]]) -> l
     operators = []
     op_names = defaultdict(lambda: 0)
     for operator, skill in operators_and_skills:
+        skip_operator = False
         action_pred = [p for p in train_env.action_space.predicates if p.name == skill][0]
         # Variable type to parameter name in the operator
         type_to_op_param_names:dict[str, list[str]] = {}
@@ -351,6 +353,10 @@ def create_final_operators(operators_and_skills:list[tuple[Operator, str]]) -> l
         type_to_param_name_maps = defaultdict(list)
         # For each variable type in the action predicate
         for v in action_pred.pddl_variables():
+            if len(type_to_op_param_names[var_type]) < len(type_to_action_param_names[var_type]):
+                skip_operator = True
+                break
+ 
             # Get all combinations of operator params of that variable type
             name, var_type = v.split(' - ')
             for comb in itertools.combinations(type_to_op_param_names[var_type], len(type_to_action_param_names[var_type])):
@@ -358,23 +364,30 @@ def create_final_operators(operators_and_skills:list[tuple[Operator, str]]) -> l
                 # Get all permutation of the variables in the combination
                 for perm in itertools.permutations(comb):
                 # For each permutation
-                    # Create a mapping from type_to_action_param_names[v_type] to the permutation
-                    # add the map to the maintained dict
+                    # Create a mapping from type_to_action_param_names[v_type] to the permutation of operator param names
+                    # Add the assignment from action param names to operator param names for variables of this type
                     type_to_param_name_maps[var_type].append(list(zip(type_to_action_param_names[var_type], perm)))
+        if skip_operator:
+            continue
+ 
         # Take itertools.product on the values of the dict
         # For each assignment/permutation,
-        for assignment in itertools.product(*list(type_to_param_name_maps.values())):
+        for a in itertools.product(*list(type_to_param_name_maps.values())):
+            if len(a) < len(type_to_param_name_maps):
+                continue
             # Map the action predicate to the operator parameters
             args = []
             # Action name to operator name
-            assignment = dict(assignment)
+            assignment = {}
+            for type_list in a:
+                assignment.update(dict(type_list) )
             for v in action_pred.pddl_variables():
                 name, v_type = v.split(' - ')
                 args.append(assignment[name])
             lit = action_pred(*args)
             # Create the operator with the action predicate in the precondition
-            preconds = op.preconds.literals + [lit]
-            new_op = Operator(f"{op.name}{suffix}", op.params, preconds, op.effects)
+            preconds = operator.preconds.literals + [lit]
+            new_op = Operator(operator.name, operator.params, LiteralConjunction(preconds), operator.effects)
             # don't add duplicates
             equal = False
             for op in operators:
@@ -387,57 +400,69 @@ def create_final_operators(operators_and_skills:list[tuple[Operator, str]]) -> l
                 op_names[new_op.name] += 1
                 new_op.name = f'{new_op.name}{suffix}'
                 operators.append(new_op)
-        raise Exception
         
     return operators
 
+if __name__ == '__main__':
 
-import pickle
-import os
-#TODO: save each set of responses in ada_init_operators/{domain_name}/operators.pkl, add to the repo.
-# rets = get_goals_and_init_states(0, 4)
-# with open('goal_translations.pkl', 'rb') as f:
-#     # pickle.dump(rets, f)
-#     rets = pickle.load(f)
+    import pickle
+    import os
+    #TODO: save each set of responses in ada_init_operators/{domain_name}/operators.pkl, add to the repo.
+    # rets = get_goals_and_init_states(0, 4)
+    # with open('goal_translations.pkl', 'rb') as f:
+    #     # pickle.dump(rets, f)
+    #     rets = pickle.load(f)
 
-# for r in rets:
-#     print(r[0] + r[1])
-#     print('>')
+    # for r in rets:
+    #     print(r[0] + r[1])
+    #     print('>')
 
-# print('----')
-# task_decomps = get_task_decompositions(domain_name, rets, 4, 0)
-# with open('task_decomps.pkl', 'rb') as f:
-#     # pickle.dump(task_decomps, f)
-#     task_decomps = pickle.load(f)
+    # print('----')
+    # task_decomps = get_task_decompositions(domain_name, rets, 4, 0)
+    # with open('task_decomps.pkl', 'rb') as f:
+    #     # pickle.dump(task_decomps, f)
+    #     task_decomps = pickle.load(f)
 
-# for t in task_decomps:
-#     print("+++")
-#     for a in t:
-#         print(a)
-#         print('-')
-# t = []
-# for a in task_decomps:
-#     t.extend(a)
-# ops = get_operator_definitions(t, 0, 3)
-with open('ada_init_operators/Baking/operator_proposals.pkl', 'rb') as f:
-    # pickle.dump(ops, f)
-    op_proposals = pickle.load(f)
-# print(len(ops))
-ops = []
-for o in op_proposals:
-    ops.extend(llm_parser.parse_operators(o))
-skill_list = []
-for o in ops:
-    skills = [p.name for p in train_env.action_space.predicates]
-    prompt = ""
-    for i,s in enumerate(skills):
-        prompt += f'[{i}] {s}\n'
-    skill_list.append(skills[int(input(prompt))])
-# operators_and_skills = associate_operators_with_skills(ops, domain_name, 0, 3)
+    # for t in task_decomps:
+    #     print("+++")
+    #     for a in t:
+    #         print(a)
+    #         print('-')
+    # t = []
+    # for a in task_decomps:
+    #     t.extend(a)
+    # ops = get_operator_definitions(t, 0, 3)
 
-# with open('ada_init_operators/Baking/ops_and_skills.pkl', 'rb') as f:
-#     # pickle.dump(operators_and_skills, f)
-#     operators_and_skills = pickle.load(f)
+    ### Manually labeling code
+    with open('ada_init_operators/Baking/operator_proposals.pkl', 'rb') as f:
+        # pickle.dump(ops, f)
+        op_proposals = pickle.load(f)
+    ops = []
+    for o in op_proposals:
+        ops.extend(llm_parser.parse_operators(o, False))
+    # skill_list = []
+    # for o in ops:
+    #     print(o.pddl_str())
+    #     skills = [p.name for p in train_env.action_space.predicates]
+    #     prompt = ""
+    #     for i,s in enumerate(skills):
+    #         prompt += f'[{i}] {s}\n'
+    #     skill_list.append(skills[int(input(prompt))])
+    with open('ada_init_operators/Baking/manually_labeled_ops_and_skills.pkl', 'rb') as f:
+        # pickle.dump(list(zip(ops, skill_list)), f)
+        ops_skills = pickle.load(f)
+    skills = []
+    for o, skill in ops_skills:
+        skills.append(skill)
+    ops_skills = list(zip(ops, skills))
+        
+    final_ops = create_final_operators(ops_skills)
 
-# print(len(operators_and_skills))
-create_final_operators(list(zip(ops, skill_list)))
+    # operators_and_skills = associate_operators_with_skills(ops, domain_name, 0, 3)
+
+    with open('ada_init_operators/Baking/manually_labeled_ops.pkl', 'wb') as f:
+        pickle.dump(final_ops, f)
+    #     # pickle.dump(operators_and_skills, f)
+    #     operators_and_skills = pickle.load(f)
+
+    # print(len(operators_and_skills))
