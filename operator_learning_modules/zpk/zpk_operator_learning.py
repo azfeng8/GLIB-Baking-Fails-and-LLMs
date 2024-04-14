@@ -159,12 +159,15 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         # This tracks the most current version of the LLM ops that should be used for planning, as preconditions are relaxed
         self._llm_ops = defaultdict(list)
         all_ops = []
-        dir = f'todo_prompt_responses_temperature{ac.temperature}/{self._domain_name.lower()}_llm_responses'
-        for file in os.listdir(dir):
-            with open(os.path.join(dir, file), 'rb') as f:
-                response = pickle.load(f)[0]
-            operators = self._llm_output_to_operators(response)
-            all_ops = add_ops_no_duplicates(operators, all_ops)
+        # dir = f'todo_prompt_responses_temperature{ac.temperature}/{self._domain_name.lower()}_llm_responses'
+        # for file in os.listdir(dir):
+        dir = 'ada_init_operators/Baking'
+        file = 'manually_labeled_ops.pkl'
+        with open(os.path.join(dir, file), 'rb') as f:
+            # response = pickle.load(f)[0]
+            all_ops = pickle.load(f)
+        # operators = self._llm_output_to_operators(response)
+        # all_ops = add_ops_no_duplicates(operators, all_ops)
 
         for op in all_ops:
             action = [p for p in op.preconds.literals if p.predicate in ac.train_env.action_space.predicates][0]
