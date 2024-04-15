@@ -161,11 +161,20 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         all_ops = []
         # dir = f'todo_prompt_responses_temperature{ac.temperature}/{self._domain_name.lower()}_llm_responses'
         # for file in os.listdir(dir):
-        dir = 'ada_init_operators/Baking'
-        file = 'manually_labeled_ops.pkl'
+        dir = f'ada_init_operators/{self._domain_name}'
+        file = 'manually_labeled_ops_fulltrainset.pkl'
+        all_ops = []
         with open(os.path.join(dir, file), 'rb') as f:
-            # response = pickle.load(f)[0]
-            all_ops = pickle.load(f)
+            trainset_ops = pickle.load(f)
+        for op_set in trainset_ops:
+            for op in op_set:
+                is_dup = False
+                for o in all_ops:
+                    if ops_equal(o, op):
+                        is_dup = True
+                        break
+                if not is_dup:
+                    all_ops.append(op)
         # operators = self._llm_output_to_operators(response)
         # all_ops = add_ops_no_duplicates(operators, all_ops)
 
