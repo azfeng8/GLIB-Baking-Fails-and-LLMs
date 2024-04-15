@@ -198,16 +198,18 @@ A: rotate
 """
 
 MAX_NUM_TASKS = 5
-def get_goals_and_init_states(seed, n) -> list[tuple[str, str]]:
+def get_goals_and_init_states(seed, n) -> list[list[tuple[str, str]]]:
     """Returns the natural language goals and state.
 
     Returns:
-        list[tuple[str, str]]: list of (natural language goal, state)
+        [ [[tuple[str, str]]] ]: for each training task, a list of (natural language goal, state)
     """
     rets = []
     num_problems = len(train_env.problems)
     # for idx in np.random.choice(range(num_problems), size=min(MAX_NUM_TASKS, num_problems), replace=False):
-    for idx in np.random.choice(range(num_problems), size=np.ceil(.1 * num_problems), replace=False):
+    # for idx in np.random.choice(range(num_problems), size=np.ceil(.1 * num_problems), replace=False):
+    for idx in np.arange(num_problems):
+        rets_per_problem = []
         train_env.fix_problem_index(idx)
         init_state, info = train_env.reset()
         objects_str = "Objects: " + ','.join([o._str for o in init_state.objects])
@@ -225,13 +227,14 @@ A:
         conv = [{"role": "user", "content": prompt}]
         responses, path = llm.sample_completions(conv, 1.0, seed, 1)
         response = responses[0]
-        rets.append((f'Goal: {response}', objects_str + '\n' +  state_str))
+        rets_per_problem.append((f'Goal: {response}', objects_str + '\n' +  state_str))
         for _ in range(max(0, n - 1)):
             conv.append({"role": "assistant", "content": response})
             conv.append({"role": "user", "content": "Please give another translation."})
             responses, path = llm.sample_completions(conv, 1.0, seed, 1)
             response = responses[0]
-            rets.append((f'Goal: {response}', objects_str + '\n' +  state_str))
+            rets_per_problem.append((f'Goal: {response}', objects_str + '\n' +  state_str))
+        rets.append(rets_per_problem)
     return rets
 
 def get_task_decompositions(domain_name, goals_and_states:list[tuple[str,str]], n, seed):
@@ -256,7 +259,7 @@ Domain: {domain_name}
 A:
 """
         responses, path = llm.sample_completions([{"role":"user", "content":prompt}], 1.0, seed, n)
-        task_decomps.append(responses)
+        task_decomps.extend(responses)
     return task_decomps
 
 from tqdm import tqdm
@@ -407,60 +410,70 @@ if __name__ == '__main__':
 
     import pickle
     import os
-    #TODO: save each set of responses in ada_init_operators/{domain_name}/operators.pkl, add to the repo.
-    # rets = get_goals_and_init_states(0, 4)
-    # with open('goal_translations.pkl', 'rb') as f:
-    #     # pickle.dump(rets, f)
-    #     rets = pickle.load(f)
+    # save each set of responses in ada_init_operators/{domain_name}/operators.pkl, add to the repo.
+    path = f'ada_init_operators/{domain_name}'
+    def get_op_definitions():
+        # rets = get_goals_and_init_states(0, 4)
+        with open(f'{path}/goalstate_pairs_alltasks.pkl', 'rb') as f:
+            # pickle.dump(rets, f)
+            rets = pickle.load(f)
+        all_task_decomps = []
+        all_op_definitions = []
+        for train_task_idx, task_goalstates in enumerate(rets):
+            task_decomps = get_task_decompositions(domain_name, task_goalstates, 4, 0)
+            all_task_decomps.append(task_decomps)
+            with open(f'{path}/task_decomps_alltasks.pkl', 'wb') as f:
+                pickle.dump(all_task_decomps, f)
+            op_definitions = get_operator_definitions(task_decomps, 0, 3)
+            all_op_definitions.append(op_definitions)
+            with open(f'{path}/op_definitions_alltasks.pkl', 'wb') as f:
+                pickle.dump(all_op_definitions, f)
 
-    # for r in rets:
-    #     print(r[0] + r[1])
-    #     print('>')
-
-    # print('----')
-    # task_decomps = get_task_decompositions(domain_name, rets, 4, 0)
-    # with open('task_decomps.pkl', 'rb') as f:
-    #     # pickle.dump(task_decomps, f)
-    #     task_decomps = pickle.load(f)
-
-    # for t in task_decomps:
-    #     print("+++")
-    #     for a in t:
-    #         print(a)
-    #         print('-')
-    # t = []
-    # for a in task_decomps:
-    #     t.extend(a)
-    # ops = get_operator_definitions(t, 0, 3)
+    # get_op_definitions()
 
     ### Manually labeling code
-    with open('ada_init_operators/Baking/operator_proposals.pkl', 'rb') as f:
-        # pickle.dump(ops, f)
-        op_proposals = pickle.load(f)
-    ops = []
-    for o in op_proposals:
-        ops.extend(llm_parser.parse_operators(o, False))
-    # skill_list = []
-    # for o in ops:
-    #     print(o.pddl_str())
-    #     skills = [p.name for p in train_env.action_space.predicates]
-    #     prompt = ""
-    #     for i,s in enumerate(skills):
-    #         prompt += f'[{i}] {s}\n'
-    #     skill_list.append(skills[int(input(prompt))])
-    with open('ada_init_operators/Baking/manually_labeled_ops_and_skills.pkl', 'rb') as f:
-        # pickle.dump(list(zip(ops, skill_list)), f)
-        ops_skills = pickle.load(f)
-    skills = []
-    for o, skill in ops_skills:
-        skills.append(skill)
-    ops_skills = list(zip(ops, skills))
-        
-    final_ops = create_final_operators(ops_skills)
+    with open(f'{path}/op_definitions_alltasks.pkl', 'rb') as f:
+        op_proposals_alltasks = pickle.load(f)
+
+    all_ops = []
+    for op_proposals in op_proposals_alltasks:
+        ops = []
+        for op_str in op_proposals:
+            ops.extend(llm_parser.parse_operators(op_str, False))
+        all_ops.append(ops)
+
+    skills = [p.name for p in train_env.action_space.predicates]
+    prompt = ""
+    for i,s in enumerate(skills):
+        prompt += f'[{i}] {s}\n'
+    
+    ops_skill_list = []
+    if os.path.exists(f'{path}/manually_labeled_ops_and_skills.pkl'):
+        with open(f'{path}/manually_labeled_ops_and_skills.pkl', 'rb') as f:
+            ops_skill_list = pickle.load(f)
+    set_to_start_labeling = 0
+    for set_i, ops in enumerate(all_ops[set_to_start_labeling:]):
+        skill_l = []
+        print(f'In set {set_i} out of {len(all_ops)}: {len(ops)} in this set to go')
+        for o in ops:
+            print('--------------------------------------------')
+            print(o.pddl_str())
+            inp = int(input(prompt))
+            while inp not in np.arange(len(skills)):
+                inp = int(input(prompt))
+            skill_l.append(skills[inp])
+        print(f"Finished set {set_i}. Saving")
+        ops_skill_list.append(list(zip(ops, skill_l)))
+        with open(f'{path}/manually_labeled_ops_and_skills.pkl', 'wb') as f:
+            pickle.dump(ops_skill_list, f)
+       
+    final_ops = []
+    for ops_skills in ops_skill_list:
+        final_ops.append(create_final_operators(ops_skills))
 
     # operators_and_skills = associate_operators_with_skills(ops, domain_name, 0, 3)
 
-    with open('ada_init_operators/Baking/manually_labeled_ops.pkl', 'wb') as f:
+    with open(f'{path}/manually_labeled_ops.pkl', 'wb') as f:
         pickle.dump(final_ops, f)
     #     # pickle.dump(operators_and_skills, f)
     #     operators_and_skills = pickle.load(f)

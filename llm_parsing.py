@@ -38,7 +38,11 @@ class LLM_PDDL_Parser:
         ops = []
         for match in matches:
             start_ind = match.start()
-            op_str = find_closing_paran(llm_response[start_ind:]).strip()
+            op_str = find_closing_paran(llm_response[start_ind:])
+            if op_str is None:
+                continue
+            op_str = op_str.strip()
+            op_str = self._purge_comments(op_str)
             ops_to_add = self._parse_operators(op_str, parse_action_using_op_name=parse_action_using_op_name)
             if ops_to_add is not None:
                 ops.extend(ops_to_add)
@@ -81,30 +85,34 @@ class LLM_PDDL_Parser:
         precond_match = re.search(":precondition[\(\s]*\w", operator_str)
         if precond_match is None:
             # No preconditions found.
-            return None
-        # Get rid of space between ":effect (" and the first word such as "and" or a predicate name
-        operator_str = operator_str[:precond_match.end() - 1].strip() + operator_str[precond_match.end() - 1:]
+            precond_list = [[]]
+        else:
+            # Get rid of space between ":effect (" and the first word such as "and" or a predicate name
+            operator_str = operator_str[:precond_match.end() - 1].strip() + operator_str[precond_match.end() - 1:]
 
-        precond_match = re.search(":precondition[\(\s]*\w", operator_str)
-        precond_str = find_closing_paran(operator_str[precond_match.end() - 2:])
-        #NOTE: Supports only LiteralConjunction and Literal for now.
-        precond_list = self._parse_into_cnf(precond_str, param_names, param_types, False)
-        PARSING_LOGGER.debug(f"PRECONDS: {precond_list}")
+            precond_match = re.search(":precondition[\(\s]*\w", operator_str)
+            precond_str = find_closing_paran(operator_str[precond_match.end() - 2:])
+            #NOTE: Supports only LiteralConjunction and Literal for now.
+            precond_list = self._parse_into_cnf(precond_str, param_names, param_types, False)
+            PARSING_LOGGER.debug(f"PRECONDS: {precond_list}")
 
-        if not all(precond_list):
-            return None
+            if not all(precond_list):
+                return None
 
-        for i in range(len(precond_list)):
-            lc = precond_list[i]
-            if isinstance(lc, Literal):
-                precond_list[i] = LiteralConjunction([lc])
-            elif isinstance(lc, LiteralConjunction):
-                precond_list[i] = LiteralConjunction(lc.literals)
-            else:
-                raise Exception(f"Unsupported type: {type(lc)}")    
+            for i in range(len(precond_list)):
+                lc = precond_list[i]
+                if isinstance(lc, Literal):
+                    precond_list[i] = LiteralConjunction([lc])
+                elif isinstance(lc, LiteralConjunction):
+                    precond_list[i] = LiteralConjunction(lc.literals)
+                else:
+                    raise Exception(f"Unsupported type: {type(lc)}")    
 
         # Extract effects.
         effect_str_match = re.search(":effect[\(\s]*\w", operator_str)
+        if effect_str_match is None:
+            # Don't consider operators with no effects.
+            return None
         # Get rid of space between ":effect (" and the first word such as "and" or a predicate name
         operator_str = operator_str[:effect_str_match.end() - 1].strip() + operator_str[effect_str_match.end() - 1:]
         effect_str_match = re.search(":effect[\(\s]*\w", operator_str)
@@ -180,8 +188,8 @@ class LLM_PDDL_Parser:
         """
         if not string:
             return []
-        assert string[0] == "("
-        assert string[-1] == ")"
+        if string[0] != "(": return None
+        if string[-1] != ")": return None
         exprs = []
         index = 0
         start_index = index
@@ -219,7 +227,10 @@ class LLM_PDDL_Parser:
             [ Literal or None ]: lists of the literals. Each literal in the list is an item in the Disjunction, like a CNF: [ [AND] OR [AND] ].
         """
         if string.startswith("(and") and string[4] in (" ", "\n", "(", ")"):
-            clauses = self._find_all_balanced_expressions(string[4:-1].strip())
+            clauses = self._find_all_balanced_expressions(string[4:-1])
+            if clauses is None:
+                return [None]
+            clauses = clauses.strip()
             lits_list = [self._parse_into_cnf(clause, param_names, param_types, 
                                         is_effect=is_effect) for clause in clauses]
             clauses_to_and = []
@@ -356,6 +367,7 @@ def find_closing_paran(string:str) -> str:
         string: starts with "(" open paran.
     Returns:
         string: string truncated right after the mirrored closing paran
+        None if closing parantheses is not found.
     """
     assert string[0] == "("
     balance = 0
@@ -366,7 +378,7 @@ def find_closing_paran(string:str) -> str:
             balance += 1
         if balance == 0:
             return string[:i+1]
-    raise Exception("Closing parantheses not found")
+    return None
 
 def rAnti(x):
     if isinstance(x, LiteralConjunction):
