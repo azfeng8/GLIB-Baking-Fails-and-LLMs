@@ -7,7 +7,7 @@ import numpy as np
 from llm_parsing import LLM_PDDL_Parser
 from pddlgym.structs import LiteralConjunction
 
-domain_name = "Baking"
+domain_name = "Glibdoors"
 train_env = gym.make("PDDLEnv{}-v0".format(domain_name))
 types = set()
 ap = {p.name: p for p in train_env.action_space.predicates}
@@ -412,11 +412,13 @@ if __name__ == '__main__':
     import os
     # save each set of responses in ada_init_operators/{domain_name}/operators.pkl, add to the repo.
     path = f'ada_init_operators/{domain_name}'
+    os.makedirs(path, exist_ok=True)
+
     def get_op_definitions():
-        # rets = get_goals_and_init_states(0, 4)
-        with open(f'{path}/goalstate_pairs_alltasks.pkl', 'rb') as f:
-            # pickle.dump(rets, f)
-            rets = pickle.load(f)
+        rets = get_goals_and_init_states(0, 4)
+        with open(f'{path}/goalstate_pairs_alltasks.pkl', 'wb') as f:
+            pickle.dump(rets, f)
+            # rets = pickle.load(f)
         all_task_decomps = []
         all_op_definitions = []
         for train_task_idx, task_goalstates in enumerate(rets):
@@ -429,7 +431,7 @@ if __name__ == '__main__':
             with open(f'{path}/op_definitions_alltasks.pkl', 'wb') as f:
                 pickle.dump(all_op_definitions, f)
 
-    # get_op_definitions()
+    get_op_definitions()
 
     ### Manually labeling code
     with open(f'{path}/op_definitions_alltasks.pkl', 'rb') as f:
@@ -442,6 +444,27 @@ if __name__ == '__main__':
             ops.extend(llm_parser.parse_operators(op_str, False))
         all_ops.append(ops)
 
+    total = 0
+    for op_set in all_ops:
+        total += len(op_set)
+    print(total, "num ops parsed")
+
+    non_duplicates = []
+    for op_set in all_ops:
+        non_duplicate_set = []
+        for op in op_set:
+            is_dup = False
+            for o in non_duplicate_set:
+                if ops_equal(op, o):
+                    is_dup = True
+                    break
+            if not is_dup:
+                non_duplicate_set.append(op)
+        non_duplicates.append(non_duplicate_set)
+                
+    print(sum([len(l) for l in non_duplicates]), "num unique ops parsed")
+    all_ops = non_duplicates
+
     skills = [p.name for p in train_env.action_space.predicates]
     prompt = ""
     for i,s in enumerate(skills):
@@ -451,31 +474,37 @@ if __name__ == '__main__':
     if os.path.exists(f'{path}/manually_labeled_ops_and_skills.pkl'):
         with open(f'{path}/manually_labeled_ops_and_skills.pkl', 'rb') as f:
             ops_skill_list = pickle.load(f)
+            print(f"Loaded {len(ops_skill_list)} number of sets")
+            print(f"Num ops per set: {[len(l) for l in ops_skill_list]}")
     set_to_start_labeling = 0
     for set_i, ops in enumerate(all_ops[set_to_start_labeling:]):
         skill_l = []
-        print(f'In set {set_i} out of {len(all_ops)}: {len(ops)} in this set to go')
+        print(f'In set {set_i + set_to_start_labeling} out of {len(all_ops) - 1}: {len(ops)} in this set to go')
+        j = 0
         for o in ops:
             print('--------------------------------------------')
+            print(f"Labeling {j}/{len(ops)}")
             print(o.pddl_str())
             inp = int(input(prompt))
             while inp not in np.arange(len(skills)):
                 inp = int(input(prompt))
             skill_l.append(skills[inp])
+            j+= 1
         print(f"Finished set {set_i}. Saving")
+        x = list(zip(ops,skill_l))
         ops_skill_list.append(list(zip(ops, skill_l)))
         with open(f'{path}/manually_labeled_ops_and_skills.pkl', 'wb') as f:
             pickle.dump(ops_skill_list, f)
        
+    # with open(f'{path}/manually_labeled_ops_and_skills.pkl', 'rb') as f:
+        # ops_skill_list = pickle.load(f)
     final_ops = []
     for ops_skills in ops_skill_list:
+        print(len(ops_skills))
         final_ops.append(create_final_operators(ops_skills))
 
-    # operators_and_skills = associate_operators_with_skills(ops, domain_name, 0, 3)
-
-    with open(f'{path}/manually_labeled_ops.pkl', 'wb') as f:
+    print("# Final ops per set")
+    for op_set in final_ops:
+        print(len(op_set))
+    with open(f'{path}/manually_labeled_ops_fulltrainset.pkl', 'wb') as f:
         pickle.dump(final_ops, f)
-    #     # pickle.dump(operators_and_skills, f)
-    #     operators_and_skills = pickle.load(f)
-
-    # print(len(operators_and_skills))

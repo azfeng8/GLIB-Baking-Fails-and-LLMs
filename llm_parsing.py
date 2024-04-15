@@ -227,10 +227,10 @@ class LLM_PDDL_Parser:
             [ Literal or None ]: lists of the literals. Each literal in the list is an item in the Disjunction, like a CNF: [ [AND] OR [AND] ].
         """
         if string.startswith("(and") and string[4] in (" ", "\n", "(", ")"):
-            clauses = self._find_all_balanced_expressions(string[4:-1])
+            clauses = self._find_all_balanced_expressions(string[4:-1].strip())
             if clauses is None:
-                return [None]
-            clauses = clauses.strip()
+               return [None]
+            clauses = clauses
             lits_list = [self._parse_into_cnf(clause, param_names, param_types, 
                                         is_effect=is_effect) for clause in clauses]
             clauses_to_and = []
