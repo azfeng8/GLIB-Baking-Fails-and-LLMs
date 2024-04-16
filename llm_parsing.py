@@ -64,6 +64,8 @@ class LLM_PDDL_Parser:
         match = re.search("\(\:action\s\w+", operator_str)
         patt = r"\(:action(.*):parameters(.*):precondition(.*):effect(.*)\)"
         op_match = re.match(patt, operator_str, re.DOTALL)
+        if op_match is None:
+            return None
         op_name, _, _, _ = op_match.groups()
         op_name = op_name.strip()
 

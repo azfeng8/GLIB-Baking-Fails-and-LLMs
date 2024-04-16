@@ -59,7 +59,7 @@ def config_to_cmd_flags(cfg: RunConfig) -> str:
                           f"--start_seed {cfg.seed} "
                           f"--num_seeds 1 "
                         #   "--dataset_logging "
-                            "--operator_fail_limit 3 "
+                            "--operator_fail_limit 0 "
                           f"--debug ")
     return args_and_flags_str
 
@@ -131,8 +131,8 @@ def get_cmds_to_prep_repo(branch: str) -> List[str]:
         "git pull",
         "pip install -r requirements.txt",
         # Remove old results.
-        # f"rm -rf {old_dir_pattern}",
-        # "mkdir -p logs",
+        f"rm -rf {old_dir_pattern}",
+        "mkdir -p logs",
    ]
 
 

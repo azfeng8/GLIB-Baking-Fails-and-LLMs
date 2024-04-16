@@ -7,7 +7,7 @@ import numpy as np
 from llm_parsing import LLM_PDDL_Parser
 from pddlgym.structs import LiteralConjunction
 
-domain_name = "Glibdoors"
+domain_name = "Easygripper"
 train_env = gym.make("PDDLEnv{}-v0".format(domain_name))
 types = set()
 ap = {p.name: p for p in train_env.action_space.predicates}
@@ -431,7 +431,7 @@ if __name__ == '__main__':
             with open(f'{path}/op_definitions_alltasks.pkl', 'wb') as f:
                 pickle.dump(all_op_definitions, f)
 
-    get_op_definitions()
+    # get_op_definitions()
 
     ### Manually labeling code
     with open(f'{path}/op_definitions_alltasks.pkl', 'rb') as f:
