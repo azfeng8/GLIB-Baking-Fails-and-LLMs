@@ -53,6 +53,7 @@ class AgentConfig:
     learning_name = "LLM+LNDR"
 
     operator_fail_limit = 3 
+    init_ops_method = 'skill-conditioned'
 
     planner_name = {
         "Blocks": "ff",
