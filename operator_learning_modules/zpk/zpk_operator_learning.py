@@ -161,13 +161,41 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         # This tracks all of the planning operators tried from the LLM.
         self._history_llm_ops = defaultdict(list)
         all_ops = []
-        dir = f'todo_prompt_responses_temperature1/{self._domain_name.lower()}_llm_responses'
-        for file in os.listdir(dir):
+        if ac.init_ops_method == 'goal-conditioned':
+            dir = f'ada_init_operators/{self._domain_name}'
+            file = 'manually_labeled_ops_fulltrainset.pkl'
             with open(os.path.join(dir, file), 'rb') as f:
-                response = pickle.load(f)[0]
-            operators = self._llm_output_to_operators(response)
-            all_ops = add_ops_no_duplicates(operators, all_ops)
-
+                trainset_ops = pickle.load(f)
+            for op_set in trainset_ops:
+                for op in op_set:
+                    all_ops.append(op)
+        elif ac.init_ops_method == 'skill-conditioned':
+            dir = f'todo_prompt_responses_temperature{ac.temperature}/{self._domain_name.lower()}_llm_responses'
+            for file in os.listdir(dir):
+                with open(os.path.join(dir, file), 'rb') as f:
+                    response = pickle.load(f)[0]
+                ops = self._llm_parser.parse_operators(response)
+                for op in ops:
+                    all_ops.append(op)
+        elif ac.init_ops_method == 'combined':
+            dir = f'todo_prompt_responses_temperature{ac.temperature}/{self._domain_name.lower()}_llm_responses'
+            for file in os.listdir(dir):
+                with open(os.path.join(dir, file), 'rb') as f:
+                    response = pickle.load(f)[0]
+                ops = self._llm_parser.parse_operators(response)
+                for op in ops:
+                    all_ops.append(op)
+ 
+            dir = f'ada_init_operators/{self._domain_name}'
+            file = 'manually_labeled_ops_fulltrainset.pkl'
+            with open(os.path.join(dir, file), 'rb') as f:
+                trainset_ops = pickle.load(f)
+            for op_set in trainset_ops:
+                for op in op_set:
+                    all_ops.append(op)
+        else:
+            raise Exception(f'Not an option: {ac.init_ops_method}')
+ 
         for op in all_ops:
             action = [p for p in op.preconds.literals if p.predicate in ac.train_env.action_space.predicates][0]
             i = len(self._llm_ops[action.predicate])
