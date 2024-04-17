@@ -282,13 +282,13 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
                         self._llm_ops[action_pred].remove(op)
                         self._planning_operators.remove(op)
                         del self._llm_op_fail_counts[op.name]
-                        logging.info(f"DELETED LLM OPERATOR: {op.name}")
+                        logging.info(f"Precond would be empty; DELETED LLM OPERATOR: {op.pddl_str()}")
                         # Rename the LLM ops
                         names_map = {}
-                        for i, op in enumerate(self._llm_ops[action_pred]):
-                            new_name = op.name.rstrip('1234567890') + str(i)
-                            names_map[op.name] = new_name
-                            op.name = new_name
+                        for i, operator in enumerate(self._llm_ops[action_pred]):
+                            new_name = operator.name.rstrip('1234567890') + str(i)
+                            names_map[operator.name] = new_name
+                            operator.name = new_name
                         # Migrate the fail counts
                         new_fail_counts = defaultdict(lambda:0)
                         for op_name in self._llm_op_fail_counts:
@@ -309,13 +309,13 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
                         self._llm_ops[action_pred].remove(op)
                         del self._llm_op_fail_counts[op.name]
                         self._planning_operators.remove(op)
-                        logging.info(f"DELETED LLM OPERATOR: {op.name}")
+                        logging.info(f"DELETED LLM OPERATOR: {op.pddl_str()}")
                         # Rename the LLM ops
                         names_map = {}
-                        for i, op in enumerate(self._llm_ops[action_pred]):
-                            new_name = op.name.rstrip('1234567890') + str(i)
-                            names_map[op.name] = new_name
-                            op.name = new_name
+                        for i, operator in enumerate(self._llm_ops[action_pred]):
+                            new_name = operator.name.rstrip('1234567890') + str(i)
+                            names_map[operator.name] = new_name
+                            operator.name = new_name
                         # Migrate the fail counts
                         new_fail_counts = defaultdict(lambda:0)
                         for op_name in self._llm_op_fail_counts:
@@ -324,26 +324,27 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
                             else:
                                 new_fail_counts[op_name] = self._llm_op_fail_counts[op_name]
                         self._llm_op_fail_counts = new_fail_counts
+
+                        ### Add the new operators
                         for lit in preconds:
-                            preconds_ = preconds[:]
-                            preconds_.remove(lit)
+                            edited_preconds = deepcopy(preconds)
+                            edited_preconds.remove(lit)
                             params = set()
-                            for l in preconds_ + op.effects.literals + [action]:
+                            for l in edited_preconds + op.effects.literals + [action]:
                                 for v in l.variables:
                                     params.add(v)
-                            new_op = Operator(op.name, params, LiteralConjunction(preconds + [action]), op.effects)
-                            not_equal = True
-                            for op in self._history_llm_ops[action_pred]:
-                                if ops_equal(op, new_op):
-                                    not_equal = False
-                            if not_equal:
+                            new_op = Operator(op.name, params, LiteralConjunction(edited_preconds + [action]), op.effects)
+                            is_dup = False
+                            for operator in self._history_llm_ops[action_pred]:
+                                if ops_equal(operator, new_op):
+                                    is_dup = True
+                            if not is_dup:
                                 suffix = len(self._llm_ops[action_pred])
                                 new_op.name = new_op.name.rstrip('0123456789') + str(suffix)
                                 self._llm_ops[action_pred].append(new_op)
                                 self._history_llm_ops[action_pred].append(new_op)
-                        # Migrate the fail counts
-                        self._llm_op_fail_counts[new_op.name] = 0
-                        logging.info(f"Added LLM OPERATOR: {new_op.name}")
+                                self._llm_op_fail_counts[new_op.name] = 0
+                                logging.info(f"ADDED LLM OPERATOR: {new_op.pddl_str()}")
 
             # If no LLM operators exist for this action predicate, default to LNDR.
             if len(self._llm_ops[action_pred]) == 0:

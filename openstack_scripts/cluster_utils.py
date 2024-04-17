@@ -60,6 +60,8 @@ def config_to_cmd_flags(cfg: RunConfig) -> str:
                           f"--num_seeds 1 "
                         #   "--dataset_logging "
                             "--operator_fail_limit 3 "
+                            "--init_ops_method combined "
+                            "--temperature 1 "
                           f"--debug ")
     return args_and_flags_str
 
