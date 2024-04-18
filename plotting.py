@@ -74,6 +74,7 @@ def plot_results(domain_name, learning_name, all_results, outdir="results",
     plt.legend(loc="lower right")
     plt.tight_layout()
     plt.savefig(outfile, dpi=300)
+    plt.close()
     print("Wrote out to {}".format(outfile))
 
 from settings import PlottingConfig as pc
@@ -88,8 +89,11 @@ def main(results_path):
         save_dir = f'plots/{domain}'
         os.makedirs(save_dir, exist_ok=True)
         figures.append(Figure(domain, lines, save_dir))
+    missing_seeds = set()
     for figure in figures:
-        figure.run(results_path)
+        ms = figure.run(results_path)
+        missing_seeds |= ms
+    print(f"Missing seeds:\n\t" + "\n\t".join(sorted(missing_seeds)))
     
 import dataclasses
 
@@ -120,6 +124,8 @@ class Figure:
         color_idx = 0
         for plotline in self.plotlines:
             learner = plotline.learning_method
+            if learner == 'LLMWarmStart+LNDR':
+                name = f'{domain}_seeds{plotline.seeds[0]}-{plotline.seeds[-1]}_{plotline.curiosity_method}_succ.png'
             explorer = plotline.curiosity_method
             seeds = plotline.seeds
             seeds_path = os.path.join(domain_path, learner, explorer)
@@ -138,7 +144,9 @@ class Figure:
             min_seeds = min(min_seeds, len(results))
             max_seeds = max(max_seeds, len(results))
             if len(results) == 0:
-                raise Exception(f"Data not found: {seeds_path}")
+                for seed in seeds:
+                    missing_seeds.add(f"\t{domain}\t{learner}\t{explorer} Seed {seed}")
+                return missing_seeds
             for i,r in enumerate(results):
                 results[i] = r[:min_length]
             results = np.array(results)
@@ -165,10 +173,11 @@ class Figure:
         plt.tight_layout()
         plt.xlabel("Iterations")
 
-        outfile = os.path.join(self.save_dir, f'{domain}_seeds{seeds[0]}-{seeds[-1]}_succ.png')
+        outfile = os.path.join(self.save_dir, name)
         plt.savefig(outfile, dpi=300)
         print("Wrote out to {}".format(outfile))
-        print(f"Missing seeds:\n\t" + "\n\t".join(sorted(missing_seeds)))
+        plt.close()
+        return missing_seeds
 
 if __name__ == "__main__":
     import argparse
