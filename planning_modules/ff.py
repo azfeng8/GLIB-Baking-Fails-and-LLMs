@@ -51,11 +51,16 @@ class FastForwardPlanner(Planner):
             return actions.pop(0)
         return policy
 
+    def delete_cached_plan_files(self, domain_fname, problem_fname, use_cache):
+        """Deletes domain and problem files so they don't persist."""
+        os.remove(domain_fname)
+        if not use_cache:
+            os.remove(problem_fname)
+
     def get_plan(self, raw_problem_fname, use_learned_ops=False, use_cache=True):
         # If there are no operators yet, we're not going to be able to find a plan
         if (not use_learned_ops and not self._planning_operators) or (use_learned_ops and not self._learned_operators):
             raise NoPlanFoundException()
-        
         domain_fname = self._create_domain_file(use_learned_ops)
         problem_fname, objects = self._create_problem_file(raw_problem_fname, use_cache=use_cache)
         cmd_str = self._get_cmd_str(domain_fname, problem_fname)
@@ -63,13 +68,15 @@ class FastForwardPlanner(Planner):
         output = subprocess.getoutput(cmd_str)
         end_time = time.time()
         if end_time - start_time > 0.9*ac.planner_timeout:
+            self.delete_cached_plan_files(domain_fname, problem_fname, use_cache)
             raise PlannerTimeoutException()
-        plan = self._output_to_plan(output)
-        os.remove(domain_fname)
-        if not use_cache:
-            os.remove(problem_fname)
- 
+        try:
+            plan = self._output_to_plan(output)
+        except Exception as e:
+            self.delete_cached_plan_files(domain_fname, problem_fname, use_cache)
+            raise e 
         actions, operator_names = self._plan_to_actions(plan, objects)
+        self.delete_cached_plan_files(domain_fname, problem_fname, use_cache)
         return actions, operator_names
 
     def _get_cmd_str(self, domain_fname, problem_fname):
