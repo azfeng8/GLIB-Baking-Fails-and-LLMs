@@ -292,11 +292,10 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
                     break
 
         if op is not None:
-            # get all ops with the same precondition and skill, in a list O.
-            same_precond_ops = get_ops_with_same_preconds(op, self._llm_ops[action_pred])
-            # increment fail counts of all ops in that list O.
-            for op_ in same_precond_ops:
-                self._llm_op_fail_counts[op_.name] += 1
+           # increment fail count.
+            self._llm_op_fail_counts[op.name] += 1
+            # if failed more than # times allowed
+            # if it
 
         # loop thru the operators with the same preconditions
         if same_precond_ops is not None:
