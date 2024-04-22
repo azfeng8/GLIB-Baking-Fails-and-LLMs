@@ -323,14 +323,14 @@ class PlottingConfig:
 
     # One string per plot
     domains = []
-    for _ in range(4):
+    for _ in range(1):
         for domain in ["Minecraft", "Baking", "Travel", "Blocks", "Glibdoors", "Easygripper"]:
             domains.append(domain)
             domains.append(domain)
     
     # One list of ranges per plot
     seeds = []
-    for i in range(740, 790, 10):
+    for i in range(790, 800, 10):
         for _ in range(8):
             seeds.append([range(i, i+10), range(100, 110)])
         for _ in range(4):
@@ -338,6 +338,6 @@ class PlottingConfig:
     
     # One list of (learning_name, curiosity_name) per plot
     methods = []
-    for _ in range(48):
+    for _ in range(6 * 1):
         methods.append([("LLMWarmStart+LNDR", "GLIB_G1"), ("LNDR", "GLIB_G1")])
         methods.append([("LLMWarmStart+LNDR", "GLIB_L2"), ("LNDR", "GLIB_L2")])

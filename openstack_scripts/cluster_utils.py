@@ -8,7 +8,7 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 import yaml
 
 SAVE_DIRS = [
-    "logs", "results/Minecraft",# "llm_cache", "llm_iterative_log"
+    "logs", "results",# "llm_cache", "llm_iterative_log"
 ]
 DEFAULT_BRANCH = "master"
 
@@ -59,9 +59,10 @@ def config_to_cmd_flags(cfg: RunConfig) -> str:
                           f"--start_seed {cfg.seed} "
                           f"--num_seeds 1 "
                         #   "--dataset_logging "
-                            "--operator_fail_limit 0 "
+                            "--operator_fail_limit 3 "
                             "--init_ops_method skill-conditioned "
-                            "--temperature 1 "
+                            "--temperature 0 "
+                            "--local_minima_method delete-operator "
                           f"--debug ")
     return args_and_flags_str
 
@@ -133,8 +134,8 @@ def get_cmds_to_prep_repo(branch: str) -> List[str]:
         "git pull",
         "pip install -r requirements.txt",
         # Remove old results.
-        # f"rm -rf {old_dir_pattern}",
-        # "mkdir -p logs",
+        f"rm -rf {old_dir_pattern}",
+        "mkdir -p logs",
    ]
 
 

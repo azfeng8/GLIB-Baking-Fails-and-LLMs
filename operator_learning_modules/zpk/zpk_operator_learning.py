@@ -143,17 +143,16 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
     """The ZPK operator learner but initialized with operators output by an LLM."""
 
     def __init__(self, planning_operators, learned_operators, domain_name, llm):
-        """TODO:
+        """Loads the LLM-proposed operators and initializes.
 
         Args:
-            planning_operators (_type_): _description_
-            learned_operators (_type_): _description_
-            domain_name (_type_): _description_
-            llm (_type_): _description_
-            skills_to_overwrite_with_LLMinit_op (_type_): _description_
+            planning_operators (set[Operator]): set of operators to use in planning for exploration (shared with other modules)
+            learned_operators (set[Operator]): set of learned operators (shared with other modules)
+            domain_name (str): pddlgym domain name
+            llm (OpenAI_Model): LLM interface
 
         Raises:
-            Exception: _description_
+            Exception: if the option to load operators is not one of the choices ['skill-conditioned', 'goal-conditioned', 'combined'], or the temperature provided is not in [0, 1]
         """
         super().__init__(planning_operators, learned_operators, domain_name)
 
@@ -168,10 +167,6 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         self._llm_parser = LLM_PDDL_Parser(ap, op, types)
 
         # Initialize the operators from the LLM.
-        # This tracks the most current version of the LLM ops that should be used for planning, as preconditions are relaxed
-        self._llm_ops = defaultdict(list)
-        # This tracks all of the planning operators tried from the LLM.
-        self._history_llm_ops = defaultdict(list)
         all_ops = []
         if ac.init_ops_method == 'goal-conditioned':
             dir = f'ada_init_operators/{self._domain_name}'
@@ -207,7 +202,13 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
                     all_ops.append(op)
         else:
             raise Exception(f'Not an option: {ac.init_ops_method}')
- 
+
+         # This tracks the most current version of the LLM-derived operators that should be used for GLIB.
+        self._llm_ops = defaultdict(list)
+        # This tracks all of the planning operators derived from the LLM tried so far.
+        self._history_llm_ops = defaultdict(list)
+
+        # Rename and remove duplicate operators from the loaded LLM operators. Add them to the history and currently used operators.
         for op in all_ops:
             action = [p for p in op.preconds.literals if p.predicate in ac.train_env.action_space.predicates][0]
             i = len(self._llm_ops[action.predicate])
@@ -220,17 +221,29 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
                 self._llm_ops[action.predicate].append(op)
                 self._history_llm_ops[action.predicate].append(op)
  
-        self._llm_op_fail_counts = defaultdict(lambda: 0)
+        # Update the planning operators with the LLM-derived operators
         for a in self._llm_ops:
             self._planning_operators.update(self._llm_ops[a])
-        self._evaluate_first_iteration = True
+
+        # A dict from operator name to the number of times it was executed in a plan and had no effects. This is continuously updated as planning operators are deleted / added.
+        self._llm_op_fail_counts = defaultdict(lambda: 0)
 
     def observe(self, state, action, effects, itr, **kwargs):
+        """Observe a transition.
+
+        Args:
+            state (pddlgym.structs.State): initial state of the transition
+            action (Literal): action taken
+            effects (set[Literal]): effects of the transition
+            itr (int): training iteration #
+        """
         if not self._learning_on:
             return
 
+        # Add transition to training dataset
         self._transitions[action.predicate].append((state.literals, action, effects))
 
+        # Logging info: get the first nonNOP
         if len(effects) != 0 and action.predicate.name in self.skills_with_NOPS_only:
             self.skills_with_NOPS_only.remove(action.predicate.name)
             self._first_nonNOP_itrs.append(itr)
@@ -277,13 +290,11 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         self._actions.append(action)
 
     def learn(self, itr, skill_to_edit=None, **kwargs):
-        """Only call LNDR on skills that have a nonNOP.
-        This is justified since if the NDR has no effects, no operator is conceived. Thus, until a nonNOP is received, no operator is conceived.
-
-        So, the LLM operator (if it exists) will be used in substitution.
+        """Updates the LLM-derived operators, calls LNDR, and updates the planning operators and learned operators.
 
         Args:
-            skill_to_edit (tuple[act pred, str]): (action_predicate, operator_name)
+            itr (int): training iteration #.
+            skill_to_edit (tuple[action predicate : pddlgym.structs.Predicate, operator_name : str]): the operator and skill executed in the plan, since learn() is called every iteration.
         """
         if not self._learning_on:
             return False
@@ -292,7 +303,7 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
 
         ### Update self._llm_ops
         
-        # Only edit the operator if it was proposed by the LLM. Otherwise, let LNDR learn
+        # Only delete / modify the operator if it was derived from an LLM-proposed one (i.e., not from LNDR).
         op, action_pred, operator_name, same_precond_ops = None, None, None, None
         if skill_to_edit is not None:
             action_pred, operator_name = skill_to_edit
@@ -302,9 +313,9 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
                     break
 
         if op is not None:
-           # increment fail count.
+            same_precond_ops = get_ops_with_same_preconds(op, self._llm_ops[action_pred])
+            # increment fail count.
             self._llm_op_fail_counts[op.name] += 1
-            # if failed more than # times allowed
 
         # loop thru the operators with the same preconditions
         if same_precond_ops is not None:
@@ -376,7 +387,9 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         logging.info(f"LLM OPERATORS")
         for a in self._llm_ops:
             logging.info(f"Ops for action {a}: {[o.name for o in self._llm_ops[a]]}")
-        if self._evaluate_first_iteration and itr == 0:
+
+        # Need to add this to evaluate LLM operators on the first learning iteration (is_updated is False).
+        if itr == 0:
             return True
 
         return is_updated
