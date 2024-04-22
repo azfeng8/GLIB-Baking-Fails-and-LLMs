@@ -293,6 +293,8 @@ class AgentConfig:
         "Travel": False
     }
 
+    local_minima_method = 'delete-operator'
+
     # Major hacks. Only used by oracle_curiosity.py and LLM methods.
     train_env = None
 

@@ -38,6 +38,7 @@ def parse_flags() -> None:
     ac.operator_fail_limit = int(args.operator_fail_limit)
     ac.temperature = str(args.temperature)
     ac.init_ops_method = args.init_ops_method
+    ac.local_minima_method = args.local_minima_method
 
     ec.domain_name = args.domains
 
@@ -72,3 +73,4 @@ def parse_agent_config(parser:argparse.ArgumentParser):
     parser.add_argument('--operator_fail_limit', required=False, default=0, help='# times before deleting the operator')
     parser.add_argument('--temperature', required=False, default=1, help='LLM temperature')
     parser.add_argument('--init_ops_method', required=False, default='skill-conditioned', choices=['goal-conditioned', 'skill-conditioned', 'combined'])
+    parser.add_argument('--local_minima_method', required=False, default='delete-operator', choices=['precond-relax', 'delete-operator'])
