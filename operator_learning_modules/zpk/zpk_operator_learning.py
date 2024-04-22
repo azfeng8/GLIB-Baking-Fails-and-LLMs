@@ -142,7 +142,19 @@ from pddlgym.structs import ground_literal
 class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
     """The ZPK operator learner but initialized with operators output by an LLM."""
 
-    def __init__(self, planning_operators, learned_operators, domain_name, llm, skills_to_overwrite_with_LLMinit_op):
+    def __init__(self, planning_operators, learned_operators, domain_name, llm):
+        """TODO:
+
+        Args:
+            planning_operators (_type_): _description_
+            learned_operators (_type_): _description_
+            domain_name (_type_): _description_
+            llm (_type_): _description_
+            skills_to_overwrite_with_LLMinit_op (_type_): _description_
+
+        Raises:
+            Exception: _description_
+        """
         super().__init__(planning_operators, learned_operators, domain_name)
 
         self._llm:OpenAI_Model = llm
@@ -213,16 +225,14 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
             self._planning_operators.update(self._llm_ops[a])
         self._evaluate_first_iteration = True
 
-        self._skills_to_replace:set[str] = skills_to_overwrite_with_LLMinit_op
-
     def observe(self, state, action, effects, itr, **kwargs):
         if not self._learning_on:
             return
 
         self._transitions[action.predicate].append((state.literals, action, effects))
 
-        if len(effects) != 0 and action.predicate.name in self._skills_to_replace:
-            self._skills_to_replace.remove(action.predicate.name)
+        if len(effects) != 0 and action.predicate.name in self.skills_with_NOPS_only:
+            self.skills_with_NOPS_only.remove(action.predicate.name)
             self._first_nonNOP_itrs.append(itr)
 
         # Delete the LLM planning operators that don't hold.
@@ -259,14 +269,14 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
 
         # Check whether we'll need to relearn
             # self._fits_all_data[action.predicate] is True once learned an initial NDR
-        if self._fits_all_data[action.predicate] and action.predicate.name not in self._skills_to_replace:
+        if self._fits_all_data[action.predicate]:
             ndr = self._ndrs[action.predicate]
             if not self._ndr_fits_data(ndr, state, action, effects):
                 self._fits_all_data[action.predicate] = False
         # Logging
         self._actions.append(action)
 
-    def learn(self, itr=-1, skill_to_edit=None, **kwargs):
+    def learn(self, itr, skill_to_edit=None, **kwargs):
         """Only call LNDR on skills that have a nonNOP.
         This is justified since if the NDR has no effects, no operator is conceived. Thus, until a nonNOP is received, no operator is conceived.
 
@@ -305,10 +315,6 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
             else:
                 raise Exception(f"Method {ac.local_minima_method} not found")
 
-            # If no LLM operators exist for this action predicate, default to LNDR.
-            if len(self._llm_ops[action_pred]) == 0:
-                self._skills_to_replace.remove(action_pred.name)
-               
             for a in self._llm_ops:
                 assert len(set([o.name for o in self._llm_ops[a]])) == len(self._llm_ops[a]), 'operator names are not all different'
             is_updated = True
@@ -316,8 +322,6 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
 
         ### Check whether we have NDRs that need to be relearned
         for action_predicate in self._fits_all_data:
-            if action_predicate.name in self._skills_to_replace:
-                continue
             if not self._fits_all_data[action_predicate]:
                 transition_for_action = self._transitions[action_predicate]
                 
@@ -487,6 +491,7 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
                             self._history_llm_ops[action_pred].append(new_op)
                             self._llm_op_fail_counts[new_op.name] = 0
                             logging.info(f"ADDED LLM OPERATOR: {new_op.pddl_str()}")
+
     def _create_todo_prompt(self):
         """Generate the prompt using operator names, the action parameters (a subset of operator parameters), object types, and the observation predicates with types.
         """
@@ -514,34 +519,19 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         return prompt
 
     def _query_llm(self, prompt):
-        # response, path = self._llm.sample_completions([{"role": "user", "content": prompt}], temperature=0, seed=self._seed, num_completions=1)
-        # response = response[0]
-        with open(f'todo_prompt_responses/{self._domain_name.lower()}_llm_responses/{str(ac.seed)[-1]}.pkl', 'rb') as f:
-            response = pickle.load(f)[0]
+        """Do a network request to the LLM for a response of the TODO prompt.
+
+        Args:
+            prompt (str): TODO-template prompt for the LLM, of one operator per skill.
+
+        Returns:
+            str: response from the LLM
+        """
+        response, path = self._llm.sample_completions([{"role": "user", "content": prompt}], temperature=0, seed=self._seed, num_completions=1)
+        response = response[0]
         logging.info(f"Got response {response}")
-        # logging.debug(f"Saved response at path: {path}")
+        logging.debug(f"Saved response at path: {path}")
         return response
-
-
-    def _llm_output_to_operators(self, llm_output) -> list[Operator]:
-        """Parse the LLM output."""
-
-        # Split the response into chunks separated by "(:action ", and discard the first chunk with the header and LLM chat.
-        operator_matches = list(re.finditer("\(\:action\s", llm_output))
-        operators = []
-        end = len(llm_output)
-        for match in operator_matches[::-1]: # Read matches from end of file to top of file
-            start = match.start()
-            operator_str = find_closing_paran(llm_output[start:end])
-            ops = self._llm_parser.parse_operators(operator_str)
-            if ops is None:
-                continue
-            for o in ops:
-                if o is None: continue
-                operators.append(o)
-            end = match.start()
-
-        return operators
 
 
 def add_ops_no_duplicates(ops_to_add, ops):

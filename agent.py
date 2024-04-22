@@ -51,12 +51,11 @@ class Agent:
 
         self.llm = OpenAI_Model()
         self.llm_precondition_goals = dict() # Op from LLM: Op from Learner with the same action predicate (random)
-        self.skills_to_overwrite_with_LLMinit_ops = set([p.name for p in ac.train_env.action_space.predicates])
 
         # The operator learning module learns operators. It should update the
         # agent's learned operators set
         self._operator_learning_module = create_operator_learning_module(
-            operator_learning_name, self.planning_operators, self.learned_operators, self.domain_name, self.llm, self.llm_precondition_goals, self.skills_to_overwrite_with_LLMinit_ops, log_llm_path)
+            operator_learning_name, self.planning_operators, self.learned_operators, self.domain_name, self.llm, self.llm_precondition_goals, log_llm_path)
         # The planning module uses the learned operators to plan at test time.
         self._planning_module = create_planning_module(
             planning_module_name, self.planning_operators, self.learned_operators, domain_name,
@@ -97,7 +96,7 @@ class Agent:
         self.curiosity_time += time.time()-start_time
         self.episode_start = False
 
-        if (len(effects) == 0) and self._action_in_plan and (action.predicate.name in self.skills_to_overwrite_with_LLMinit_ops):
+        if (len(effects) == 0) and self._action_in_plan:
             self._skill_to_edit = (action.predicate, self._action_in_plan)
         else:
             self._skill_to_edit = None

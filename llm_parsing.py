@@ -33,7 +33,7 @@ class LLM_PDDL_Parser:
             start, end = match.start(), match.end()
             pddl_str = pddl_str[:start]+pddl_str[end-1:]
 
-    def parse_operators(self, llm_response:str, parse_action_using_op_name=True):
+    def parse_operators(self, llm_response:str, parse_action_using_op_name=True) -> list[Operator]:
         matches = re.finditer(r"\(:action", llm_response)
         ops = []
         for match in matches:
