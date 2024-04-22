@@ -12,7 +12,7 @@ import itertools
 import numpy as np
 import pickle
 from collections import defaultdict
-from typing import Dict
+from typing import Dict, Iterable, Optional
 import pddlgym
 import logging
 import os
@@ -289,12 +289,12 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         # Logging
         self._actions.append(action)
 
-    def learn(self, itr, skill_to_edit=None, **kwargs):
+    def learn(self, itr, skill_to_edit:Optional[tuple], **kwargs):
         """Updates the LLM-derived operators, calls LNDR, and updates the planning operators and learned operators.
 
         Args:
             itr (int): training iteration #.
-            skill_to_edit (tuple[action predicate : pddlgym.structs.Predicate, operator_name : str]): the operator and skill executed in the plan, since learn() is called every iteration.
+            skill_to_edit (Optional[tuple[action predicate : pddlgym.structs.Predicate, operator_name : str]]): None if the operator was executed with effects. Otherwise, a tuple of the operator and skill executed in the plan which resulted in a No-Op.
         """
         if not self._learning_on:
             return False
@@ -303,10 +303,10 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
 
         ### Update self._llm_ops
         
-        # Only delete / modify the operator if it was derived from an LLM-proposed one (i.e., not from LNDR).
         op, action_pred, operator_name, same_precond_ops = None, None, None, None
         if skill_to_edit is not None:
             action_pred, operator_name = skill_to_edit
+            # Only delete / modify the operator if it was derived from an LLM-proposed one (i.e., not from LNDR).
             for o in self._llm_ops[action_pred]:
                 if o.name == operator_name:
                     op = o
@@ -320,18 +320,17 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         # loop thru the operators with the same preconditions
         if same_precond_ops is not None:
             if ac.local_minima_method == 'delete-operator':
-                self._delete_operator_update(same_precond_ops, action_pred)
+                is_updated = is_updated or self._delete_operator_update(same_precond_ops, action_pred)
             elif ac.local_minima_method == 'precond-relax':
-                self._precond_relax_update(same_precond_ops, action_pred)
+                is_updated = is_updated or self._precond_relax_update(same_precond_ops, action_pred)
             else:
                 raise Exception(f"Method {ac.local_minima_method} not found")
 
             for a in self._llm_ops:
                 assert len(set([o.name for o in self._llm_ops[a]])) == len(self._llm_ops[a]), 'operator names are not all different'
-            is_updated = True
         ################################################################################################################
 
-        ### Check whether we have NDRs that need to be relearned
+        ### Call LNDR: Check whether we have NDRs that need to be relearned
         for action_predicate in self._fits_all_data:
             if not self._fits_all_data[action_predicate]:
                 transition_for_action = self._transitions[action_predicate]
@@ -369,6 +368,10 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         if is_updated:
             self._planning_operators.clear()
             self._learned_operators.clear()
+
+            for action_pred in self._llm_ops:
+                self._planning_operators.update(self._llm_ops[action_pred])
+
             for act_pred in self._ndrs:
                 for i, ndr in enumerate(self._ndrs[act_pred]):
                     suffix = len(self._llm_ops[act_pred]) + i
@@ -378,8 +381,6 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
                         continue
                     self._learned_operators.add(operator)
                     self._planning_operators.add(operator)
-            for action_pred in self._llm_ops:
-                self._planning_operators.update(self._llm_ops[action_pred])
 
             # print_rule_set(self._ndrs)
         ################################################################################################################
@@ -394,13 +395,16 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
 
         return is_updated
 
-    def _delete_operator_update(self, same_precond_ops, action_pred):
-        """TODO:
+    def _delete_operator_update(self, same_precond_ops:Iterable[Operator], action_pred):
+        """Deletes the LLM-proposed operator if it fails more than AgentConfig.operator_fail_limit (see settings.py) times.
 
         Args:
-            same_precond_ops (_type_): _description_
-            action_pred (_type_): _description_
+            same_precond_ops: operators with the same precondition as the operator that was executed in the plan with no effects.
+            action_pred (pddlgym.structs.Predicate): skill that was executed in the plan with no effects.
+        Returns:
+            is_updated (bool): True if the operators changed, False otherwise.
         """
+        is_updated = False
         for op in same_precond_ops:
             # if the operator has exceeded the hyperparam:
                 if self._llm_op_fail_counts[op.name] > ac.operator_fail_limit:
@@ -409,13 +413,14 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
                     self._planning_operators.remove(op)
                     del self._llm_op_fail_counts[op.name]
                     logging.info(f"DELETED LLM OPERATOR: {op.name}")
-                    # Rename the LLM ops
+                    # Maintain the naming convention of the LLM ops: the highest suffix number is less than the number of LLM planning operators with that skill
+                        # To maintain, rename the operators after deleting one.
                     names_map = {}
                     for i, op in enumerate(self._llm_ops[action_pred]):
                         new_name = op.name.rstrip('1234567890') + str(i)
                         names_map[op.name] = new_name
                         op.name = new_name
-                    # Migrate the fail counts
+                    # Maintain the operator fail counts indexed by operator name, by migrate the fail counts from old to new names.
                     new_fail_counts = defaultdict(lambda:0)
                     for op_name in self._llm_op_fail_counts:
                         if op_name in names_map:
@@ -423,68 +428,55 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
                         else:
                             new_fail_counts[op_name] = self._llm_op_fail_counts[op_name]
                     self._llm_op_fail_counts = new_fail_counts
+                    is_updated = True
+        return is_updated
      
-    def _precond_relax_update(self, same_precond_ops, action_pred):
-        """TODO:
+    def _precond_relax_update(self, same_precond_ops:Iterable[Operator], action_pred):
+        """Relaxes the precondition of the LLM-derived operator if it fails more than AgentConfig.operator_fail_limit (see settings.py) times. If the precondition is empty, delete the operator.
 
         Args:
-            same_precond_ops (_type_): _description_
-            action_pred (_type_): _description_
+            same_precond_ops: operators with the same precondition as the operator that was executed in the plan with no effects.
+            action_pred (pddlgym.structs.Predicate): skill that was executed in the plan with no effects.
+        Returns:
+            is_updated: True if operators changed
         """
+        is_updated = False
         for op in same_precond_ops:
-        # if the operator has exceeded the hyperparam:
             if self._llm_op_fail_counts[op.name] > ac.operator_fail_limit:
-            # if the precond has only 1 lit: delete the operator
-                # check if precondition has >1 lits (not including the action)
-                if len(op.preconds.literals) == 2:
-                    # if not, delete the operator
-                    self._llm_ops[action_pred].remove(op)
-                    self._planning_operators.remove(op)
-                    del self._llm_op_fail_counts[op.name]
-                    logging.info(f"Precond would be empty; DELETED LLM OPERATOR: {op.pddl_str()}")
-                    # Rename the LLM ops
-                    names_map = {}
-                    for i, operator in enumerate(self._llm_ops[action_pred]):
-                        new_name = operator.name.rstrip('1234567890') + str(i)
-                        names_map[operator.name] = new_name
-                        operator.name = new_name
-                    # Migrate the fail counts
-                    new_fail_counts = defaultdict(lambda:0)
-                    for op_name in self._llm_op_fail_counts:
-                        if op_name in names_map:
-                            new_fail_counts[names_map[op_name]] = self._llm_op_fail_counts[op_name]
-                        else:
-                            new_fail_counts[op_name] = self._llm_op_fail_counts[op_name]
-                    self._llm_op_fail_counts = new_fail_counts
+                ### Delete the operator
+                self._llm_ops[action_pred].remove(op)
+                del self._llm_op_fail_counts[op.name]
+                self._planning_operators.remove(op)
+                logging.info(f"DELETED LLM OPERATOR: {op.pddl_str()}")
 
-            # else delete a literal in the precondition, generating a new operator for each. Don't add operators already tried.
-                else:
-                    # if yes, pick a random literal in the precondition, delete it, update the parameters of the operator
+                # Maintain the naming convention of the LLM ops: the highest suffix number is less than the number of LLM planning operators with that skill
+                    # To maintain, rename the operators after deleting one.
+ 
+                names_map = {}
+                for i, operator in enumerate(self._llm_ops[action_pred]):
+                    new_name = operator.name.rstrip('1234567890') + str(i)
+                    names_map[operator.name] = new_name
+                    operator.name = new_name
+
+                # Maintain the operator fail counts indexed by operator name, by migrate the fail counts from old to new names.
+                new_fail_counts = defaultdict(lambda:0)
+                for op_name in self._llm_op_fail_counts:
+                    if op_name in names_map:
+                        new_fail_counts[names_map[op_name]] = self._llm_op_fail_counts[op_name]
+                    else:
+                        new_fail_counts[op_name] = self._llm_op_fail_counts[op_name]
+                self._llm_op_fail_counts = new_fail_counts
+
+
+                # if the precondition is not empty, generate a new operator for each literal in the precondition. Don't add operators already tried for planning from the LLM (i.e. allow duplicates with those planning operators from LNDR).
+                # The precondition is empty if there is just the action predicate in the precondition.
+                if len(op.preconds.literals) > 1:
                     preconds = deepcopy(op.preconds.literals)
                     for i, lit in enumerate(preconds):
                         if lit.predicate.name == action_pred.name:
                             action = lit
                             preconds.remove(action)
-                    self._llm_ops[action_pred].remove(op)
-                    del self._llm_op_fail_counts[op.name]
-                    self._planning_operators.remove(op)
-                    logging.info(f"DELETED LLM OPERATOR: {op.pddl_str()}")
-                    # Rename the LLM ops
-                    names_map = {}
-                    for i, operator in enumerate(self._llm_ops[action_pred]):
-                        new_name = operator.name.rstrip('1234567890') + str(i)
-                        names_map[operator.name] = new_name
-                        operator.name = new_name
-                    # Migrate the fail counts
-                    new_fail_counts = defaultdict(lambda:0)
-                    for op_name in self._llm_op_fail_counts:
-                        if op_name in names_map:
-                            new_fail_counts[names_map[op_name]] = self._llm_op_fail_counts[op_name]
-                        else:
-                            new_fail_counts[op_name] = self._llm_op_fail_counts[op_name]
-                    self._llm_op_fail_counts = new_fail_counts
-
-                    ### Add the new operators
+                    ### Add the new operators, avoiding duplicates from the history of LLM-derived operators.
                     for lit in preconds:
                         edited_preconds = deepcopy(preconds)
                         edited_preconds.remove(lit)
@@ -504,6 +496,8 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
                             self._history_llm_ops[action_pred].append(new_op)
                             self._llm_op_fail_counts[new_op.name] = 0
                             logging.info(f"ADDED LLM OPERATOR: {new_op.pddl_str()}")
+                is_updated = True
+        return is_updated
 
     def _create_todo_prompt(self):
         """Generate the prompt using operator names, the action parameters (a subset of operator parameters), object types, and the observation predicates with types.
@@ -546,31 +540,12 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         logging.debug(f"Saved response at path: {path}")
         return response
 
-
-def add_ops_no_duplicates(ops_to_add, ops):
-    """ Adds `ops_to_add` to  `ops`, no duplicate operators, make sure all ops are named according to the scheme `action_pred{int}` starting with int=0
-    """
-    for op1 in ops_to_add:
-        already_in = False
-        for op2 in ops:
-            if ops_equal(op1, op2):
-                already_in = True
-        if not already_in:
-            ops.append(op1)
-    # Rename all the ops
-    op_dict = defaultdict(list)
-    for op in ops:
-        op_dict[[p.predicate for p in op.preconds.literals if p.predicate in ac.train_env.action_space.predicates][0].name].append(op)
-    for action_name in op_dict:
-        for i, op in enumerate(op_dict[action_name]):
-            op.name = f'{action_name}{i}'
-    return ops 
-
 def get_ops_with_same_preconds(op, ops) -> list[Operator]:
-    """Get the set of operators with the same preconditions as the operator passed in, agnostic to different parametrizations.
+    """Get the set of operators with the same preconditions as the operator, agnostic to different parametrizations.
 
     Args:
-        ops (list[Operator]): operators all of the same skill.
+        op (Operator): the operator with preconditions of interest
+        ops (list[Operator]): operators all of the same skill, to find a subset of with the same preconditions as `op`.
 
     Returns:
         list[Operator]

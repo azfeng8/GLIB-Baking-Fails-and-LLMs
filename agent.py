@@ -86,6 +86,14 @@ class Agent:
         return action
 
     def observe(self, state, action, next_state, itr):
+        """Observe a transition.
+
+        Args:
+            state (pddlgym.structs.State): initial state of the transition
+            action (Literal): action taken
+            effects (set[Literal]): effects of the transition
+            itr (int): training iteration #
+        """
         # Get effects
         effects = self._compute_effects(state, next_state)
         # Add data
@@ -96,14 +104,18 @@ class Agent:
         self.curiosity_time += time.time()-start_time
         self.episode_start = False
 
+        # Set the info about the operator executed in the plan for the learning module.
+        # If the action is not in a plan, this is None. Interested when the action is in a plan, and the operator executed has no effects (the operator fails).
         if (len(effects) == 0) and self._action_in_plan:
             self._skill_to_edit = (action.predicate, self._action_in_plan)
         else:
             self._skill_to_edit = None
 
     def learn(self, itr):
-        # Learn (probably less frequently than observing)
+        # Learn
         some_operator_changed = self._operator_learning_module.learn(itr, skill_to_edit=self._skill_to_edit)
+
+        # Used in LLMIterative only
         self._curiosity_module.learn(itr)
 
         if some_operator_changed:

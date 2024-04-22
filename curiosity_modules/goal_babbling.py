@@ -43,12 +43,24 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
         return plan
 
     def get_action(self, state):
-        """Execute plans open loop until stuck, then replan"""
+        """Execute plans open loop until stuck, then replan
+        
+        Returns:
+            in_plan (bool): True if the action is in a plan
+            op_name (Optional[str]): name of the operator executed in the plan, or None if action is not in a plan
+            action (Literal): action literal taken
+            """
         in_plan, op_name, action = self._get_action(state)
         self._num_steps += 1
         return in_plan, op_name, action
 
     def _get_action(self, state):
+        """
+        Returns:
+            in_plan (bool): True if the action is in a plan
+            op_name (Optional[str]): name of the operator executed in the plan, or None if action is not in a plan
+            action (Literal): action literal taken
+        """
         last_state = self._last_state
         self._last_state = state
         in_plan = False
