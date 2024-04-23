@@ -43,14 +43,27 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
         return plan
 
     def get_action(self, state):
-        """Execute plans open loop until stuck, then replan"""
-        action = self._get_action(state)
+        """Execute plans open loop until stuck, then replan
+        
+        Returns:
+            in_plan (bool): True if the action is in a plan
+            op_name (Optional[str]): name of the operator executed in the plan, or None if action is not in a plan
+            action (Literal): action literal taken
+            """
+        in_plan, op_name, action = self._get_action(state)
         self._num_steps += 1
-        return action
+        return in_plan, op_name, action
 
     def _get_action(self, state):
+        """
+        Returns:
+            in_plan (bool): True if the action is in a plan
+            op_name (Optional[str]): name of the operator executed in the plan, or None if action is not in a plan
+            action (Literal): action literal taken
+        """
         last_state = self._last_state
         self._last_state = state
+        in_plan = False
 
         # Continue executing plan?
         if self._plan and (last_state != state):
@@ -60,16 +73,21 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
                     self.line_stats.append('FINISHED PLAN - babbled')
                 else:
                     self.line_stats.append((self._goal, deepcopy(self._plan[:-1])))
+                    in_plan = True
             else:
                 # in GLIB-lifted, the last item in the plan is not the babbled action
                 self.line_stats.append((self._goal, deepcopy(self._plan)))
+                in_plan = True
             if self._goal_from_llm:
                 self.llm_line_stats.append(1)
             else:
                 self.llm_line_stats.append(0)
             GOAL_BABBLING_LOGGER.debug("CONTINUING PLAN")
             GOAL_BABBLING_LOGGER.debug(f"PLAN: {self._plan}")
-            return self._plan.pop(0)
+            if len(self._operators) > 0:
+                return in_plan, self._operators.pop(0), self._plan.pop(0)
+            else:
+                return in_plan, None, self._plan.pop(0)
 
         # Try to sample a goal for which we can find a plan
         sampling_attempts = planning_attempts = 0
@@ -92,8 +110,8 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
 
             # Get a plan
             try:
-                self._plan = self._planning_module.get_plan(
-                    problem_fname, use_cache=False)
+                self._plan, self._operators = self._planning_module.get_plan(
+                    problem_fname, use_cache=False, use_learned_ops=False)
             except NoPlanFoundException:
                 os.remove(problem_fname)
                 continue
@@ -105,7 +123,10 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
 
             if self._plan_is_good():
                 if len(self._plan) != 0:
+                    in_plan = True
                     self.line_stats.append((goal, deepcopy(self._plan)))
+                    GOAL_BABBLING_LOGGER.debug(f"\tGOAL: {goal}")
+                    GOAL_BABBLING_LOGGER.debug(f"\tPLAN: {self._plan}")
                     if self._goal_from_llm:
                         self.llm_line_stats.append(1)
                     else:
@@ -113,16 +134,17 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
     
                 self._plan = self._finish_plan(self._plan)
                 self._goal = goal
-                GOAL_BABBLING_LOGGER.debug(f"\tGOAL: {goal}")
-                GOAL_BABBLING_LOGGER.debug(f"\tPLAN: {self._plan}")
                 # import ipdb; ipdb.set_trace()
                 # Take the first step in the plan
-                return self._plan.pop(0)
+                if len(self._operators) > 0:
+                    return in_plan, self._operators.pop(0), self._plan.pop(0)
+                else:
+                    return in_plan, None, self._plan.pop(0)
             self._plan = []
 
         # No plan found within budget; take a random action
         # print("falling back to random")
-        return self._get_fallback_action(state)
+        return in_plan, None, self._get_fallback_action(state)
 
     def _get_fallback_action(self, state):
         self.line_stats.append('fallback')

@@ -7,10 +7,6 @@ import pickle
 
 from collections import defaultdict
 
-from settings import PlottingConfig as pc
-
-sns.set(style="darkgrid")
-
 def smooth_curve(x, y):
     halfwidth = int(np.ceil(len(x) / 50))  # Halfwidth of our smoothing convolution
     k = halfwidth
@@ -78,81 +74,111 @@ def plot_results(domain_name, learning_name, all_results, outdir="results",
     plt.legend(loc="lower right")
     plt.tight_layout()
     plt.savefig(outfile, dpi=300)
+    plt.close()
     print("Wrote out to {}".format(outfile))
 
+from settings import PlottingConfig as pc
 def main(results_path):
     """Plot the results in results/, specified by settings."""
+    figures = []
+    for domain, methods, seeds in zip(pc.domains, pc.methods, pc.seeds):
+        lines = []
+        for m,s in zip(methods, seeds):
+            learning_name, curiosity_name = m
+            lines.append(PlotLine(curiosity_name, learning_name, s))
+        save_dir = f'plots/{domain}'
+        os.makedirs(save_dir, exist_ok=True)
+        figures.append(Figure(domain, lines, save_dir))
     missing_seeds = set()
-    for domain in pc.domains:
+    for figure in figures:
+        ms = figure.run(results_path)
+        missing_seeds |= ms
+    print(f"Missing seeds:\n\t" + "\n\t".join(sorted(missing_seeds)))
+    
+import dataclasses
+
+@dataclasses.dataclass
+class PlotLine:
+    def __init__(self, curiosity_method, learning_method, seeds):
+        self.curiosity_method = curiosity_method
+        self.learning_method = learning_method
+        self.seeds = seeds
+        
+class Figure:
+    def __init__(self, domain, plotlines:list[PlotLine], save_dir):
+        self.domain = domain
+        self.plotlines = plotlines
+        self.save_dir = save_dir
+
+    def run(self, results_path):
+        domain = self.domain
+        missing_seeds = set()
         outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), results_path)
         domain_path = os.path.join(results_path, domain)
         min_seeds = np.inf
         max_seeds = 0
-        for dist_succ in ["dist", "succ"]:
-            plt.figure()
-            number_of_colors = len(pc.learner_explorer)
-            ax = plt.gca()
-            # colors = ["#"+''.join([random.choice('0123456789ABCDEF') for j in range(6)]) for i in range(number_of_colors)]
-            colors = [next(ax._get_lines.prop_cycler)['color'] for _ in range(number_of_colors)]
-            color_idx = 0
-            for seeds, learner_explorer in zip(pc.seeds, pc.learner_explorer):
-                learner, explorer = learner_explorer
-                seeds_path = os.path.join(domain_path, learner, explorer)
-                results = []
-                min_length = np.inf
+        plt.figure()
+        number_of_colors = len(self.plotlines)
+        ax = plt.gca()
+        colors = [next(ax._get_lines.prop_cycler)['color'] for _ in range(number_of_colors)]
+        color_idx = 0
+        for plotline in self.plotlines:
+            learner = plotline.learning_method
+            if learner == 'LLMWarmStart+LNDR':
+                name = f'{domain}_seeds{plotline.seeds[0]}-{plotline.seeds[-1]}_{plotline.curiosity_method}_succ.png'
+            explorer = plotline.curiosity_method
+            seeds = plotline.seeds
+            seeds_path = os.path.join(domain_path, learner, explorer)
+            results = []
+            min_length = np.inf
+            for seed in seeds:
+                pkl_fname = os.path.join(seeds_path, f'{domain}_{learner}_{explorer}_{str(seed)}.pkl')
+                if not os.path.exists(pkl_fname):
+                    missing_seeds.add(f"\t{domain}\t{learner}\t{explorer} Seed {seed}")
+                    continue
+                with open(pkl_fname, "rb") as f:
+                    saved_results = pickle.load(f)
+                    if len(saved_results) < min_length:
+                        min_length = len(saved_results)
+                results.append(saved_results)
+            min_seeds = min(min_seeds, len(results))
+            max_seeds = max(max_seeds, len(results))
+            if len(results) == 0:
                 for seed in seeds:
-                    pkl_fname = os.path.join(seeds_path, f'{domain}_{learner}_{explorer}_{str(seed)}.pkl')
-                    if not os.path.exists(pkl_fname):
-                        missing_seeds.add(f"\t{domain}\t{learner}\t{explorer} Seed {seed}")
-                        continue
-                    with open(pkl_fname, "rb") as f:
-                        saved_results = pickle.load(f)
-                        if len(saved_results) < min_length:
-                            min_length = len(saved_results)
-                    results.append(saved_results)
-                min_seeds = min(min_seeds, len(results))
-                max_seeds = max(max_seeds, len(results))
-                if len(results) == 0:
-                    raise Exception(f"Data not found: {seeds_path}")
-                for i,r in enumerate(results):
-                    results[i] = r[:min_length]
-                results = np.array(results)
-                label = f"{learner}, {explorer}"
-                xs = results[0,:,0]
-                if dist_succ == "dist":
-                    ys = results[:, :, 2]
-                else:
-                    ys = results[:, :, 1]
-                results_mean = np.mean(ys, axis=0)
-                std = np.std(ys, axis=0)
-                std_top = results_mean + std
-                std_bot = results_mean - std
-                plt.plot(xs, results_mean, label=label.replace("_", " "), color=colors[color_idx])
-                plt.fill_between(xs, std_bot, std_top, alpha=0.3, color=colors[color_idx])
-                color_idx += 1
+                    missing_seeds.add(f"\t{domain}\t{learner}\t{explorer} Seed {seed}")
+                return missing_seeds
+            for i,r in enumerate(results):
+                results[i] = r[:min_length]
+            results = np.array(results)
+            label = f"{learner}, {explorer}"
+            xs = results[0,:,0]
+            ys = results[:, :, 1]
+            results_mean = np.mean(ys, axis=0)
+            std = np.std(ys, axis=0)
+            std_top = results_mean + std
+            std_bot = results_mean - std
+            plt.plot(xs, results_mean, label=label.replace("_", " "), color=colors[color_idx])
+            plt.fill_between(xs, std_bot, std_top, alpha=0.3, color=colors[color_idx])
+            color_idx += 1
 
-            if min_seeds == max_seeds:
-                title = f"{domain} Domain ({min_seeds} seeds)"
-            else:
-                title = f"{domain} Domain, ({min_seeds} to {max_seeds} seeds)"
-            
-            if dist_succ == 'dist':
-                plt.ylabel("Variational distance to 'true' transition model") 
-            if dist_succ == 'succ':
-                plt.ylabel("Success rate on test problems")
-            plt.title(title)
-            plt.ylim((-0.1, 1.1))
-            plt.legend(loc="lower right")
-            plt.tight_layout()
-            plt.xlabel("Iterations")
- 
-            outfile = os.path.join(outdir, "{}_{}.png".format(
-                domain, dist_succ))
-            plt.savefig(outfile, dpi=300)
-            print("Wrote out to {}".format(outfile))
-    print(f"Missing seeds:\n\t" + "\n\t".join(sorted(missing_seeds)))
+        if min_seeds == max_seeds:
+            title = f"{domain} Domain ({min_seeds} seeds)"
+        else:
+            title = f"{domain} Domain, ({min_seeds} to {max_seeds} seeds)"
+        
+        plt.ylabel("Success rate on test problems")
+        plt.title(title)
+        plt.ylim((-0.1, 1.1))
+        plt.legend(loc="lower right")
+        plt.tight_layout()
+        plt.xlabel("Iterations")
 
-    
+        outfile = os.path.join(self.save_dir, name)
+        plt.savefig(outfile, dpi=300)
+        print("Wrote out to {}".format(outfile))
+        plt.close()
+        return missing_seeds
+
 if __name__ == "__main__":
     import argparse
     import shutil
@@ -162,7 +188,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.planning_results:
-        path = 'results/planning_results'
+        path = 'results/planning_ops'
     else:
         path = 'results_openstack/results'
     llm_path = 'results/llm_iterative_log'

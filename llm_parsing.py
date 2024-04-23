@@ -1,5 +1,7 @@
 import logging
-from pddlgym.structs import Anti, Type, LiteralConjunction, Literal,TypedEntity, Not, LiteralDisjunction
+from collections import defaultdict
+import itertools
+from pddlgym.structs import Anti, Type, LiteralConjunction, Literal,TypedEntity, Not, LiteralDisjunction, Predicate
 from pddlgym.parser import Operator
 from ndr.learn import iter_variable_names
 from itertools import product
@@ -31,7 +33,22 @@ class LLM_PDDL_Parser:
             start, end = match.start(), match.end()
             pddl_str = pddl_str[:start]+pddl_str[end-1:]
 
-    def parse_operators(self, llm_response:str) -> Optional[list[Operator]]:
+    def parse_operators(self, llm_response:str, parse_action_using_op_name=True) -> list[Operator]:
+        matches = re.finditer(r"\(:action", llm_response)
+        ops = []
+        for match in matches:
+            start_ind = match.start()
+            op_str = find_closing_paran(llm_response[start_ind:])
+            if op_str is None:
+                continue
+            op_str = op_str.strip()
+            op_str = self._purge_comments(op_str)
+            ops_to_add = self._parse_operators(op_str, parse_action_using_op_name=parse_action_using_op_name)
+            if ops_to_add is not None:
+                ops.extend(ops_to_add)
+        return ops
+ 
+    def _parse_operators(self, operator_str:str, parse_action_using_op_name=True) -> Optional[list[Operator]]:
         """Parse an Operator from the LLM response.
 
         Args:
@@ -43,16 +60,14 @@ class LLM_PDDL_Parser:
         Returns:
             list[Operator] or None: operators that were parsed, or None if not able to parse a non-null-effect operator.
         """
-        # Find the PDDL operator in the response.
-        match = re.search("\(\:action", llm_response)
-        # Count parantheses: look for the closing to "(:action" to get the operator string.
-        operator_str = find_closing_paran(llm_response[match.start():])
-        operator_str = self._purge_comments(operator_str)
-
-        if operator_str is None: raise Exception(f"Parsing error: {llm_response}")
         # Extract operator name.
         match = re.search("\(\:action\s\w+", operator_str)
-        op_name = operator_str[match.start() + len("(:action "):match.end()]
+        patt = r"\(:action(.*):parameters(.*):precondition(.*):effect(.*)\)"
+        op_match = re.match(patt, operator_str, re.DOTALL)
+        if op_match is None:
+            return None
+        op_name, _, _, _ = op_match.groups()
+        op_name = op_name.strip()
 
         # Extract parameters.
         match = re.search("\:parameters[^\)]*\)", operator_str)
@@ -68,50 +83,38 @@ class LLM_PDDL_Parser:
                 param_names.append(name)
                 param_types.append(var_type)
 
-        # NOTE: Propose a single operator for an action. Prompting the action multiple times will result in different operators.
-        if op_name not in self._action_predicates:
-            return None
-        action_pred = self._action_predicates[op_name]
-        args = []
-        param_types_temp = param_types[:]
-        for v_type in action_pred.var_types:
-            if v_type not in param_types_temp:
-                    # Can't form the action from the operator arguments
-                    return None 
-            i = param_types_temp.index(str(v_type))
-            param_types_temp[i] = None
-            v_name = param_names[i]
-            args.append(Type(v_name))
-        action = action_pred(*args)
-
         # Extract preconditions.
         precond_match = re.search(":precondition[\(\s]*\w", operator_str)
         if precond_match is None:
             # No preconditions found.
-            return None
-        # Get rid of space between ":effect (" and the first word such as "and" or a predicate name
-        operator_str = operator_str[:precond_match.end() - 1].strip() + operator_str[precond_match.end() - 1:]
+            precond_list = [[]]
+        else:
+            # Get rid of space between ":effect (" and the first word such as "and" or a predicate name
+            operator_str = operator_str[:precond_match.end() - 1].strip() + operator_str[precond_match.end() - 1:]
 
-        precond_match = re.search(":precondition[\(\s]*\w", operator_str)
-        precond_str = find_closing_paran(operator_str[precond_match.end() - 2:])
-        #NOTE: Supports only LiteralConjunction and Literal for now.
-        precond_list = self._parse_into_cnf(precond_str, param_names, param_types, False)
-        PARSING_LOGGER.debug(f"PRECONDS: {precond_list}")
+            precond_match = re.search(":precondition[\(\s]*\w", operator_str)
+            precond_str = find_closing_paran(operator_str[precond_match.end() - 2:])
+            #NOTE: Supports only LiteralConjunction and Literal for now.
+            precond_list = self._parse_into_cnf(precond_str, param_names, param_types, False)
+            PARSING_LOGGER.debug(f"PRECONDS: {precond_list}")
 
-        if not all(precond_list):
-            return None
+            if not all(precond_list):
+                return None
 
-        for i in range(len(precond_list)):
-            lc = precond_list[i]
-            if isinstance(lc, Literal):
-                precond_list[i] = LiteralConjunction([lc, action])
-            elif isinstance(lc, LiteralConjunction):
-                precond_list[i] = LiteralConjunction(lc.literals + [action])
-            else:
-                raise Exception(f"Unsupported type: {type(lc)}")    
+            for i in range(len(precond_list)):
+                lc = precond_list[i]
+                if isinstance(lc, Literal):
+                    precond_list[i] = LiteralConjunction([lc])
+                elif isinstance(lc, LiteralConjunction):
+                    precond_list[i] = LiteralConjunction(lc.literals)
+                else:
+                    raise Exception(f"Unsupported type: {type(lc)}")    
 
         # Extract effects.
         effect_str_match = re.search(":effect[\(\s]*\w", operator_str)
+        if effect_str_match is None:
+            # Don't consider operators with no effects.
+            return None
         # Get rid of space between ":effect (" and the first word such as "and" or a predicate name
         operator_str = operator_str[:effect_str_match.end() - 1].strip() + operator_str[effect_str_match.end() - 1:]
         effect_str_match = re.search(":effect[\(\s]*\w", operator_str)
@@ -171,6 +174,12 @@ class LLM_PDDL_Parser:
                         
                 operators.append(Operator(op_name, params, preconds_renamed, effects_renamed))
 
+        if parse_action_using_op_name:
+            if op_name not in self._action_predicates:
+                return None
+            # Get several operators with different action groundings
+            operators = create_final_operators([(op, op_name) for op in operators], list(self._action_predicates.values()))
+
         return operators
 
     def _find_all_balanced_expressions(self, string):
@@ -181,8 +190,8 @@ class LLM_PDDL_Parser:
         """
         if not string:
             return []
-        assert string[0] == "("
-        assert string[-1] == ")"
+        if string[0] != "(": return None
+        if string[-1] != ")": return None
         exprs = []
         index = 0
         start_index = index
@@ -221,6 +230,9 @@ class LLM_PDDL_Parser:
         """
         if string.startswith("(and") and string[4] in (" ", "\n", "(", ")"):
             clauses = self._find_all_balanced_expressions(string[4:-1].strip())
+            if clauses is None:
+               return [None]
+            clauses = clauses
             lits_list = [self._parse_into_cnf(clause, param_names, param_types, 
                                         is_effect=is_effect) for clause in clauses]
             clauses_to_and = []
@@ -357,6 +369,7 @@ def find_closing_paran(string:str) -> str:
         string: starts with "(" open paran.
     Returns:
         string: string truncated right after the mirrored closing paran
+        None if closing parantheses is not found.
     """
     assert string[0] == "("
     balance = 0
@@ -367,7 +380,7 @@ def find_closing_paran(string:str) -> str:
             balance += 1
         if balance == 0:
             return string[:i+1]
-    raise Exception("Closing parantheses not found")
+    return None
 
 def rAnti(x):
     if isinstance(x, LiteralConjunction):
@@ -375,6 +388,137 @@ def rAnti(x):
     if isinstance(x, list):
         return LiteralConjunction([rAnti(lit) for lit in x])
     return Anti(x)
+
+def ops_equal(op1, op2):
+    # Check that the # params are equal, of each type.
+    op1_type_to_paramnames:dict[str, list] = defaultdict(list)
+    op2_type_to_paramnames:dict[str, list] = defaultdict(list)
+
+    for param in op1.params:
+        t = param._str.split(':')[-1]
+        op1_type_to_paramnames[t].append(param.split(':')[0])
+    
+    for param in op2.params:
+        t = param._str.split(':')[-1]
+        op2_type_to_paramnames[t].append(param.split(':')[0])
+
+    # If the number of types don't match, return False
+    if len(op2_type_to_paramnames) != len(op1_type_to_paramnames):
+        return False
+
+    # If the number of params of each type don't match, return False
+    for t in op1_type_to_paramnames:
+        if t not in op2_type_to_paramnames:
+            return False
+        if len(op2_type_to_paramnames[t]) != len(op1_type_to_paramnames[t]):
+            return False
+ 
+    # Get all parameterizations of the op1 params.
+        # get all the variable names in a list, and use itertools.permutations(var_names)
+    op1_params_list = []
+    for param in op1.params:
+        op1_params_list.append(param._str.split(':')[0])
+    for perm in itertools.permutations(op1_params_list):
+        # map from the original variable name list to the permutation
+        variables = dict(zip(op1_params_list, perm))
+        # Change the preconds and effects of op1 to the new arg names
+        # Change the name from op1 param to the corresponding op2 param in preconditions and effects
+        preconds = []
+        for l in op1.preconds.literals:
+            args = []
+            for v in l.variables:
+                args.append(variables[v.split(':')[0]])
+            preconds.append(Literal(l.predicate, args))
+        effects = []
+        for l in op1.effects.literals:
+            args = []
+            for v in l.variables:
+                args.append(variables[v.split(':')[0]])
+            effects.append(Literal(l.predicate, args))
+
+        # Check that the preconditions and effects of the changed op1 are the same as in op2
+        if (set(op2.preconds.literals) == set(preconds)) and (set(op2.effects.literals) == set(effects)):
+        # If the preconds and effects match, return True
+            return True
+ 
+    return False
+
+
+def create_final_operators(operators_and_skills:list[tuple[Operator, str]], action_predicates:list[Predicate]) -> list[Operator]:
+    """Adds the skill to the operators, and renames and removes duplicate operators."""
+    # situate the arguments of the skill within the operator, in all possible ways, adding each one.
+    operators = []
+    op_names = defaultdict(lambda: 0)
+    for operator, skill in operators_and_skills:
+        skip_operator = False
+        action_pred = [p for p in action_predicates if p.name == skill][0]
+        # Variable type to parameter name in the operator
+        type_to_op_param_names:dict[str, list[str]] = {}
+        type_to_action_param_names = {}
+        for v in action_pred.pddl_variables():
+            name, var_type = v.split(' - ')
+            type_to_op_param_names[var_type] = []
+            type_to_action_param_names.setdefault(var_type, [])
+            type_to_action_param_names[var_type].append(name)
+        for param in operator.params:
+            name, v_type = param._str.split(':')
+            if v_type in type_to_op_param_names:
+                type_to_op_param_names[v_type].append(name)
+        # Maintain a dict of type => parameter name maps
+        type_to_param_name_maps = defaultdict(list)
+        # For each variable type in the action predicate
+        for v in action_pred.pddl_variables():
+            # Get all combinations of operator params of that variable type
+            name, var_type = v.split(' - ')
+            if len(type_to_op_param_names[var_type]) < len(type_to_action_param_names[var_type]):
+                skip_operator = True
+                break
+                
+            for comb in itertools.combinations(type_to_op_param_names[var_type], len(type_to_action_param_names[var_type])):
+            # For each combination
+                # Get all permutation of the variables in the combination
+                for perm in itertools.permutations(comb):
+                # For each permutation
+                    # Create a mapping from type_to_action_param_names[v_type] to the permutation
+                    # add the map to the maintained dict
+                    type_to_param_name_maps[var_type].append(list(zip(type_to_action_param_names[var_type], perm)))
+        if skip_operator:
+            continue
+        # Take itertools.product on the values of the dict
+        # For each assignment/permutation,
+        for assignment in itertools.product(*list(type_to_param_name_maps.values())):
+            if len(assignment) < len(type_to_param_name_maps):
+                continue
+            # Map the action predicate to the operator parameters
+            args = []
+            # Action name to operator name
+            a = []
+            for l in assignment:
+                a.extend(l) 
+            assignment = dict(a)
+            # print(">")
+            # pprint(assignment)
+            for v in action_pred.pddl_variables():
+                name, v_type = v.split(' - ')
+                args.append(assignment[name])
+            lit = action_pred(*args)
+            # Create the operator with the action predicate in the precondition
+            preconds = operator.preconds.literals + [lit]
+            new_op = Operator(operator.name, operator.params, LiteralConjunction(preconds), operator.effects)
+            # don't add duplicates
+            equal = False
+            for op in operators:
+                if ops_equal(op, new_op):
+                    equal = True
+                    break
+            if not equal:
+                # ensure operators are of different names (append an int to the end of the names)
+                suffix = op_names[new_op.name]
+                op_names[new_op.name] += 1
+                new_op.name = new_op.name.rstrip('0123456789') + str(suffix)
+                operators.append(new_op)
+        
+    return operators
 
 
 if __name__ == "__main__":

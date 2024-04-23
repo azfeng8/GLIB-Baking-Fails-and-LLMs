@@ -35,6 +35,10 @@ def parse_flags() -> None:
     ac.learning_name = args.learning_name
     ac.max_zpk_learning_time = args.max_zpk_learning_time
     ac.max_traj_len = args.max_traj_len
+    ac.operator_fail_limit = int(args.operator_fail_limit)
+    ac.temperature = str(args.temperature)
+    ac.init_ops_method = args.init_ops_method
+    ac.local_minima_method = args.local_minima_method
 
     ec.domain_name = args.domains
 
@@ -66,3 +70,7 @@ def parse_agent_config(parser:argparse.ArgumentParser):
     parser.add_argument('--curiosity_methods', required=True, nargs='+')
     parser.add_argument('--learning_name', required=True, type=str)
     parser.add_argument('--max_zpk_learning_time', type=int, default=180, help='seconds before timeout ZPK')
+    parser.add_argument('--operator_fail_limit', required=False, default=0, help='# times before deleting the operator')
+    parser.add_argument('--temperature', required=False, default=1, help='LLM temperature')
+    parser.add_argument('--init_ops_method', required=False, default='skill-conditioned', choices=['goal-conditioned', 'skill-conditioned', 'combined'])
+    parser.add_argument('--local_minima_method', required=False, default='delete-operator', choices=['precond-relax', 'delete-operator'])

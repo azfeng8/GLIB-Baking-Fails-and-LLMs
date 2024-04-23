@@ -52,6 +52,9 @@ class AgentConfig:
     # learning_name = "LLMWarmStart+LNDR"
     learning_name = "LLM+LNDR"
 
+    operator_fail_limit = 3 
+    init_ops_method = 'skill-conditioned'
+
     planner_name = {
         "Blocks": "ff",
         "Glibblocks": "ff",
@@ -176,7 +179,7 @@ class AgentConfig:
         "NDRBlocks" : 1501,
         "Baking": 1799,
         "Travel": 1501,
-        "Minecraft": 199
+        "Minecraft": 1799
     }
 
     ## Constants for curiosity modules. ##
@@ -290,6 +293,8 @@ class AgentConfig:
         "Travel": False
     }
 
+    local_minima_method = 'delete-operator'
+
     # Major hacks. Only used by oracle_curiosity.py and LLM methods.
     train_env = None
 
@@ -315,31 +320,26 @@ class LLMConfig:
 class PlottingConfig:
     """Plotting from cached results.
     """
-    # learner_explorer = [("LLMIterative+LNDR", "LLM+GLIB_G1"), ("LNDR", "GLIB_G1")]
-    # learner_explorer = [("LLMIterative+LNDR", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2")]
+
+    num_experiment_sets = 3
+
+    # One string per plot
+    domains = []
+    for _ in range(num_experiment_sets):
+        for domain in ["Minecraft", "Baking", "Travel", "Blocks", "Glibdoors", "Easygripper"]:
+            domains.append(domain)
+            domains.append(domain)
     
-    # learner_explorer = [("LLMWarmStart+LNDR", "GLIB_G1"), ("LNDR", "GLIB_G1"), ("LLMWarmStart+LNDR", "GLIB_L2"), ("LNDR", "GLIB_L2"),]
-    # learner_explorer = [("LLMWarmStart+LNDR", "GLIB_L2"), ("LNDR", "GLIB_L2")]
-
-    # learner_explorer = [  ("LNDR", "GLIB_L2"), ("LNDR", "GLIB_G1"), ("LNDR", "random")]
-
-    # learner_explorer = [("LLM+LNDR", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2")]
-    # learner_explorer = [("LLM+LNDR", "LLM+GLIB_L2")]#, ("LNDR", "GLIB_G1")]
-    learner_explorer = [("LLMWarmStart+LNDR", "GLIB_L2"),  ("LNDR", "GLIB_L2")]
-    # learner_explorer = [("LLMWarmStart+LNDR", "GLIB_G1"), ("LNDR", "GLIB_G1")]
-    # seeds = [range(60, 70)]  + [range(1, 11)]
-
-    # learner_explorer= [("LNDR", "GLIB_L2"), ("LNDR", "GLIB_G1"), ("LNDR", "random")]
-    # learner_explorer = [("LNDR", "random")]
-    # seeds = [range(1, 11), range(1,11)]
-    # seeds = [range(50,60), range(50,60)]
-    # seeds = [range(60,70), range(60,70)]
-    # seeds = [range(70,80), range(70,80)]
-    seeds = [range(150, 160)] + [range(100, 110)]
-
-    # learner_explorer = [("LLM+LNDR", "LLM+GLIB_G1"), ("LLM+LNDR", "LLM+GLIB_L2"), ("LNDR", "GLIB_L2"), ("LNDR", "GLIB_G1")]
-    # seeds = [range(12, 22)] * 2 + [range(1, 11)]  * 2
-
-    # domains = ["Baking",  "Minecraft", "Travel"]
-    # domains = ["Baking", "Rearrangement", "Travel", "Minecraft", "Glibblocks", "Doors", "Easygripper"]
-    domains = ["Baking", "Minecraft", "Travel", "Blocks"]
+    # One list of ranges per plot
+    seeds = []
+    for i in range(810, 840, 10):
+        for _ in range(8):
+            seeds.append([range(i, i+10), range(100, 110)])
+        for _ in range(4):
+            seeds.append([(range(i, i+10)), range(110, 120)])
+    
+    # One list of (learning_name, curiosity_name) per plot
+    methods = []
+    for _ in range(6 * num_experiment_sets):
+        methods.append([("LLMWarmStart+LNDR", "GLIB_G1"), ("LNDR", "GLIB_G1")])
+        methods.append([("LLMWarmStart+LNDR", "GLIB_L2"), ("LNDR", "GLIB_L2")])

@@ -46,6 +46,7 @@ class Agent:
         self.planning_module_name = planning_module_name
 
         # The main objective of the agent is to learn good operators
+        self.planning_operators = set()
         self.learned_operators = set()
 
         self.llm = OpenAI_Model()
@@ -54,16 +55,16 @@ class Agent:
         # The operator learning module learns operators. It should update the
         # agent's learned operators set
         self._operator_learning_module = create_operator_learning_module(
-            operator_learning_name, self.learned_operators, self.domain_name, self.llm, self.llm_precondition_goals, log_llm_path)
+            operator_learning_name, self.planning_operators, self.learned_operators, self.domain_name, self.llm, self.llm_precondition_goals, log_llm_path)
         # The planning module uses the learned operators to plan at test time.
         self._planning_module = create_planning_module(
-            planning_module_name, self.learned_operators, domain_name,
+            planning_module_name, self.planning_operators, self.learned_operators, domain_name,
             action_space, observation_space)
         # The curiosity module dictates how actions are selected during training
         # It may use the learned operators to select actions
         self._curiosity_module = create_curiosity_module(
             curiosity_module_name, action_space, observation_space,
-            self._planning_module, self.learned_operators,
+            self._planning_module, self.planning_operators,
             self._operator_learning_module, domain_name, self.llm_precondition_goals)
         
         # Flag to tell if at the episode start. Unset after observing the first effect.
@@ -75,11 +76,24 @@ class Agent:
         """Get an exploratory action to collect more training data.
            Not used for testing. Planner is used for testing."""
         start_time = time.time()
-        action = self._curiosity_module.get_action(state)
+        in_plan, op_name, action = self._curiosity_module.get_action(state)
         self.curiosity_time += time.time()-start_time
+
+        if in_plan:
+            self._action_in_plan = op_name
+        else:
+            self._action_in_plan = False
         return action
 
     def observe(self, state, action, next_state, itr):
+        """Observe a transition.
+
+        Args:
+            state (pddlgym.structs.State): initial state of the transition
+            action (Literal): action taken
+            effects (set[Literal]): effects of the transition
+            itr (int): training iteration #
+        """
         # Get effects
         effects = self._compute_effects(state, next_state)
         # Add data
@@ -90,10 +104,20 @@ class Agent:
         self.curiosity_time += time.time()-start_time
         self.episode_start = False
 
+        # Set the info about the operator executed in the plan for the learning module.
+        # If the action is not in a plan, this is None. Interested when the action is in a plan, and the operator executed has no effects (the operator fails).
+        if (len(effects) == 0) and self._action_in_plan:
+            self._skill_to_edit = (action.predicate, self._action_in_plan)
+        else:
+            self._skill_to_edit = None
+
     def learn(self, itr):
-        # Learn (probably less frequently than observing)
-        some_operator_changed = self._operator_learning_module.learn(itr)
-        self._curiosity_module.learn(itr)
+        # Learn
+        some_operator_changed = self._operator_learning_module.learn(itr, skill_to_edit=self._skill_to_edit)
+
+        # Used in LLMIterative only
+        if self.operator_learning_name in ['LLM+LNDR', 'LLMIterative+LNDR']:
+            self._curiosity_module.learn(itr)
 
         if some_operator_changed:
             start_time = time.time()
@@ -121,6 +145,6 @@ class Agent:
         return positive_effects | negative_effects
 
     ## Test time methods
-    def get_policy(self, problem_fname):
+    def get_policy(self, problem_fname, use_learned_ops=False):
         """Get a plan given the learned operators and a PDDL problem file."""
-        return self._planning_module.get_policy(problem_fname)
+        return self._planning_module.get_policy(problem_fname, use_learned_ops)

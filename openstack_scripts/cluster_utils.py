@@ -8,7 +8,7 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 import yaml
 
 SAVE_DIRS = [
-    "logs", "results", "llm_cache", "llm_iterative_log"
+    "logs", "results",# "llm_cache", "llm_iterative_log"
 ]
 DEFAULT_BRANCH = "master"
 
@@ -58,8 +58,7 @@ def config_to_cmd_flags(cfg: RunConfig) -> str:
                           f"{flag_str} "
                           f"--start_seed {cfg.seed} "
                           f"--num_seeds 1 "
-                          f"--dataset_logging "
-                          f"--debug ")
+                         )
     return args_and_flags_str
 
 
@@ -76,47 +75,48 @@ def parse_configs(config_filename: str) -> Iterator[Dict[str, Any]]:
 def generate_run_configs(config_filename: str,
                          batch_seeds: bool = False) -> Iterator[RunConfig]:
     """Generate run configs from a (local path) config file."""
-    for config in parse_configs(config_filename):
-        start_seed = config["START_SEED"]
-        num_seeds = config["NUM_SEEDS"]
-        args = config["ARGS"]
-        flags = config["FLAGS"]
-        if "USE_GPU" in config.keys():
-            use_gpu = config["USE_GPU"]
-        else:
-            use_gpu = False
-        # Loop over approaches.
-        for approach_exp_id, approach_config in config["APPROACHES"].items():
-            if approach_config.get("SKIP", False):
-                continue
-            approach = approach_config["NAME"]
-            # Loop over envs.
-            for env_exp_id, env_config in config["ENVS"].items():
-                if env_config.get("SKIP", False):
+    for c in parse_configs(config_filename):
+        for config in c['EXPERIMENT_SETS']:
+            start_seed = config["START_SEED"]
+            num_seeds = config["NUM_SEEDS"]
+            args = config["ARGS"]
+            flags = config["FLAGS"]
+            if "USE_GPU" in config.keys():
+                use_gpu = config["USE_GPU"]
+            else:
+                use_gpu = False
+            # Loop over approaches.
+            for approach_exp_id, approach_config in config["APPROACHES"].items():
+                if approach_config.get("SKIP", False):
                     continue
-                env = env_config["NAME"]
-                # Create the experiment ID, args, and flags.
-                experiment_id = f"{env_exp_id}-{approach_exp_id}"
-                run_args = list(args)
-                if "ARGS" in approach_config:
-                    run_args.extend(approach_config["ARGS"])
-                if "ARGS" in env_config:
-                    run_args.extend(env_config["ARGS"])
-                run_flags = flags.copy()
-                if "FLAGS" in approach_config:
-                    run_flags.update(approach_config["FLAGS"])
-                if "FLAGS" in env_config:
-                    run_flags.update(env_config["FLAGS"])
-                # Loop or batch over seeds.
-                if batch_seeds:
-                    yield BatchSeedRunConfig(experiment_id, approach, env,
-                                             run_args, run_flags, use_gpu,
-                                             start_seed, num_seeds)
-                else:
-                    for seed in range(start_seed, start_seed + num_seeds):
-                        yield SingleSeedRunConfig(experiment_id, approach, env,
-                                                  run_args, run_flags, use_gpu,
-                                                  seed)
+                approach = approach_config["NAME"]
+                # Loop over envs.
+                for env_exp_id, env_config in config["ENVS"].items():
+                    if env_config.get("SKIP", False):
+                        continue
+                    env = env_config["NAME"]
+                    # Create the experiment ID, args, and flags.
+                    experiment_id = f"{env_exp_id}-{approach_exp_id}"
+                    run_args = list(args)
+                    if "ARGS" in approach_config:
+                        run_args.extend(approach_config["ARGS"])
+                    if "ARGS" in env_config:
+                        run_args.extend(env_config["ARGS"])
+                    run_flags = flags.copy()
+                    if "FLAGS" in approach_config:
+                        run_flags.update(approach_config["FLAGS"])
+                    if "FLAGS" in env_config:
+                        run_flags.update(env_config["FLAGS"])
+                    # Loop or batch over seeds.
+                    if batch_seeds:
+                        yield BatchSeedRunConfig(experiment_id, approach, env,
+                                                run_args, run_flags, use_gpu,
+                                                start_seed, num_seeds)
+                    else:
+                        for seed in range(start_seed, start_seed + num_seeds):
+                            yield SingleSeedRunConfig(experiment_id, approach, env,
+                                                    run_args, run_flags, use_gpu,
+                                                    seed)
 
 
 def get_cmds_to_prep_repo(branch: str) -> List[str]:
