@@ -170,8 +170,10 @@ class Runner:
                     if log_ops:
                         path = os.path.join('results', 'LNDR', self.domain_name, self.agent.operator_learning_name, self.agent.curiosity_module_name, str(ec.seed), f'iter_{itr}' )
                         os.makedirs(path, exist_ok=True)
-                        with open(os.path.join(path, 'operators.pkl'), 'wb') as f:
-                            pickle.dump(list(self.agent._operator_learning_module._planning_operators), f)
+                        with open(os.path.join(path, 'planning_operators.pkl'), 'wb') as f:
+                            pickle.dump(list(self.agent.planning_operators), f)
+                        with open(os.path.join(path, 'learned_operators.pkl'), 'wb') as f:
+                            pickle.dump(list(self.agent.learned_operators), f)
                         with open(os.path.join(path, 'ndrs.pkl'), 'wb') as f:
                             pickle.dump(self.agent._operator_learning_module._ndrs, f)
                     if log_data:

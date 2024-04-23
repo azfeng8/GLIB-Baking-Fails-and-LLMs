@@ -1,6 +1,6 @@
 import abc
 import os
-from typing import List
+from typing import List, Tuple
 import openai
 import hashlib
 import logging
@@ -32,7 +32,7 @@ class OpenAI_Model:
             self._tokenizer = GPT2TokenizerFast.from_pretrained("gpt2")
             
 
-    def sample_completions(self, conversation, temperature, seed, num_completions, disable_cache=False) -> tuple[List[str], str]:
+    def sample_completions(self, conversation, temperature, seed, num_completions, disable_cache=False) -> Tuple[List[str], str]:
         """Cached LLM query.
 
         Args:
@@ -97,7 +97,7 @@ def str_to_identifier(x: str) -> str:
         https://stackoverflow.com/questions/45015180
         https://stackoverflow.com/questions/5297448
 
-    TODO: this doesn't work sometimes
+    TODO: this sometimes hashes the same string to different smaller strings.
     """
     return hashlib.md5(x.encode('utf-8')).hexdigest()
 

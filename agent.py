@@ -116,7 +116,8 @@ class Agent:
         some_operator_changed = self._operator_learning_module.learn(itr, skill_to_edit=self._skill_to_edit)
 
         # Used in LLMIterative only
-        self._curiosity_module.learn(itr)
+        if self.operator_learning_name in ['LLM+LNDR', 'LLMIterative+LNDR']:
+            self._curiosity_module.learn(itr)
 
         if some_operator_changed:
             start_time = time.time()

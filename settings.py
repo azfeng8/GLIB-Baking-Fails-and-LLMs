@@ -321,16 +321,18 @@ class PlottingConfig:
     """Plotting from cached results.
     """
 
+    num_experiment_sets = 3
+
     # One string per plot
     domains = []
-    for _ in range(1):
+    for _ in range(num_experiment_sets):
         for domain in ["Minecraft", "Baking", "Travel", "Blocks", "Glibdoors", "Easygripper"]:
             domains.append(domain)
             domains.append(domain)
     
     # One list of ranges per plot
     seeds = []
-    for i in range(800, 810, 10):
+    for i in range(810, 840, 10):
         for _ in range(8):
             seeds.append([range(i, i+10), range(100, 110)])
         for _ in range(4):
@@ -338,6 +340,6 @@ class PlottingConfig:
     
     # One list of (learning_name, curiosity_name) per plot
     methods = []
-    for _ in range(6 * 1):
+    for _ in range(6 * num_experiment_sets):
         methods.append([("LLMWarmStart+LNDR", "GLIB_G1"), ("LNDR", "GLIB_G1")])
         methods.append([("LLMWarmStart+LNDR", "GLIB_L2"), ("LNDR", "GLIB_L2")])

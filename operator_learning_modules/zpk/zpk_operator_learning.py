@@ -399,7 +399,7 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         """Deletes the LLM-proposed operator if it fails more than AgentConfig.operator_fail_limit (see settings.py) times.
 
         Args:
-            same_precond_ops: operators with the same precondition as the operator that was executed in the plan with no effects.
+            same_precond_ops: operators with the same precondition and skill as the operator that was executed in the plan with no effects.
             action_pred (pddlgym.structs.Predicate): skill that was executed in the plan with no effects.
         Returns:
             is_updated (bool): True if the operators changed, False otherwise.
@@ -408,7 +408,6 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         for op in same_precond_ops:
             # if the operator has exceeded the hyperparam:
                 if self._llm_op_fail_counts[op.name] > ac.operator_fail_limit:
-                # if the precond has only 1 lit: delete the operator
                     self._llm_ops[action_pred].remove(op)
                     self._planning_operators.remove(op)
                     del self._llm_op_fail_counts[op.name]
@@ -435,7 +434,7 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         """Relaxes the precondition of the LLM-derived operator if it fails more than AgentConfig.operator_fail_limit (see settings.py) times. If the precondition is empty, delete the operator.
 
         Args:
-            same_precond_ops: operators with the same precondition as the operator that was executed in the plan with no effects.
+            same_precond_ops: operators with the same precondition and skill as the operator that was executed in the plan with no effects.
             action_pred (pddlgym.structs.Predicate): skill that was executed in the plan with no effects.
         Returns:
             is_updated: True if operators changed
