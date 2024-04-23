@@ -189,8 +189,6 @@ class Runner:
                     if log_data:
                         path = os.path.join('results', 'LNDR', self.domain_name, self.agent.operator_learning_name, self.agent.curiosity_module_name, str(ec.seed), f'iter_{itr}' )
                         os.makedirs(path, exist_ok=True)
-                        with open(os.path.join(path, 'transition_data.pkl'), 'wb') as f:
-                            pickle.dump(self.agent._operator_learning_module._transitions, f)
                         np.savetxt(os.path.join(path, 'test_cases.txt'), np.array(successes), fmt='%1.3f')
 
 
@@ -203,6 +201,11 @@ class Runner:
                 np.savetxt(os.path.join(path, 'learned_ops_change_iters.txt'), np.array(ops_changed_itrs), fmt='%d')
                 np.savetxt(os.path.join(path, 'planning_ops_change_iters.txt'), np.array(planning_ops_changed_itrs), fmt='%d')
                 np.savetxt(os.path.join(path, 'first_nonNOP_iters.txt'), np.array(self.agent._operator_learning_module._first_nonNOP_itrs), fmt='%d')
+                os.makedirs(os.path.join(path, f'iter_{itr}'), exist_ok=True)
+
+                with open(os.path.join(path, f'iter_{itr}', 'transition_data.pkl'), 'wb') as f:
+                    pickle.dump(self.agent._operator_learning_module._transitions, f)
+ 
 
                 with open(os.path.join(path, 'skill_sequence.pkl'), 'wb') as f:
                     pickle.dump(self.agent._operator_learning_module._actions, f)

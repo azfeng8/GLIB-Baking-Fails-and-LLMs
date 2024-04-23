@@ -908,10 +908,9 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
     iter_dirs = sorted(iter_dirs, key=lambda x: int(x[5:]))
 
     #spin up a figure for each skill eventually seen
-    idx = len(iter_dirs) - 1
-    while not os.path.exists(os.path.join(path, iter_dirs[idx], 'transition_data.pkl')):
-        idx -= 1
-    with open(os.path.join(path, iter_dirs[idx], 'transition_data.pkl'),'rb')  as f:
+    assert os.path.exists(os.path.join(path, iter_dirs[-1], 'transition_data.pkl')), "transition data not found"
+
+    with open(os.path.join(path, iter_dirs[-1], 'transition_data.pkl'),'rb')  as f:
         transition_data = pickle.load(f)
     actions = []
     figs = {}
@@ -955,6 +954,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
             global curr_pos_views
             global nops_view
             nonlocal iter_dirs
+            nonlocal transition_data
 
             if e.key == "right":
                 curr_pos_views = curr_pos_views + 1
@@ -1066,36 +1066,29 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
             iter_save_path = os.path.join(SAVE_PATH, domain_name, curiosity_name, seed, iter_dir)
     
             curr = curr_pos_views
-            transition_data_itr = None
-            while curr < len(iter_dirs):
-                if os.path.exists(os.path.join(path, iter_dirs[curr], 'transition_data.pkl')):
-                    transition_data_itr = curr
-                    break
-                curr += 1
-            curr = curr_pos_views
             ops_itr = None
             while curr >= 0:
                 if os.path.exists(os.path.join(path, iter_dirs[curr], 'learned_operators.pkl')) :
                     ops_itr = curr
                     break
                 curr -= 1
-            if ops_itr is None and transition_data_itr is None:
-                return
 
-            if transition_data_itr is not None:
-                with open(os.path.join(path, iter_dirs[transition_data_itr], 'transition_data.pkl'), 'rb') as f:
-                    transition_data = pickle.load(f)
-                # use skill sequence to create the right dataset
-                action_end = int(iter_dirs[transition_data_itr][5:])
-                action_start = iter_num
-                for action in skill_seq[action_start + 1 : action_end + 1][::-1]:
-                    # LIFO
-                    transition_data[action.predicate].pop()
-                    if len(transition_data[action.predicate]) == 0:
-                        del transition_data[action.predicate]
-            else:
-                transition_data = {}
+            transition_data_itr = int(iter_dirs[-1][5:])
 
+            # use skill sequence to create the right dataset
+            action_end = int(iter_dirs[transition_data_itr][5:])
+            action_start = iter_num
+            transition_data_count_indices = defaultdict(lambda: 0)
+            t_data = {}
+            # Remove actions that occur after #`action_start` iteration
+            for action in skill_seq[action_start + 1 : action_end + 1]:
+                transition_data_count_indices[action.predicate] += 1
+            for action_pred in transition_data:
+                if transition_data_count_indices[action_pred] == 0:
+                    t_data[action_pred] = transition_data[action_pred][:]
+                else:
+                    t_data[action_pred] = transition_data[action_pred][:-transition_data_count_indices[action_pred]]
+            
             with open(os.path.join(path, iter_dirs[ops_itr], 'learned_operators.pkl'), 'rb') as f:
                 ops = pickle.load(f)
 
@@ -1105,7 +1098,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
                 for lit in o.preconds.literals:
                     if lit.predicate in env.action_space.predicates:
                         actions_to_plot.add(lit.predicate.name)
-            for action in transition_data:
+            for action in t_data:
                 actions_to_plot.add(action.name)
             create_view2 = False
             create_view3 = False
@@ -1122,9 +1115,9 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
                 with open(os.path.join(path, iter_dirs[ops_itr], 'ndrs.pkl'), 'rb') as f:
                     ndrs = pickle.load(f)
             if create_view2:
-                view2(iter_save_path, ops, transition_data, ndrs, domain_name)
+                view2(iter_save_path, ops, t_data, ndrs, domain_name)
             if create_view3:
-                view3(iter_save_path, ops, transition_data, ndrs, domain_name)
+                view3(iter_save_path, ops, t_data, ndrs, domain_name)
 
             if skill in actions_to_plot:
                 fig, ax = figax
@@ -1154,8 +1147,6 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
     iter_dir = iter_dirs[0]
     iter_save_path = os.path.join(SAVE_PATH, domain_name, curiosity_name, seed, iter_dir)
 
-    with open(os.path.join(path, iter_dirs[0], 'transition_data.pkl'),'rb')  as f:
-        transition_data = pickle.load(f)
     ops_path_iter0 = os.path.join(path, iter_dirs[0], 'learned_operators.pkl')
     if os.path.exists(ops_path_iter0):
         with open(ops_path_iter0,'rb')  as f:
@@ -1172,7 +1163,12 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
     create_view2 = False
     create_view3 = False
     init_actions = []
-    for act in transition_data:
+
+    # Get just the first action for the initial plots
+    t_data_first_iter = {}
+    t_data_first_iter[skill_seq[0].predicate] = [transition_data[skill_seq[0].predicate][0]]
+
+    for act in t_data_first_iter:
         filepath = os.path.join(iter_save_path, f'{act.name}.png')
         view3_filepath = os.path.join(iter_save_path, f'{act.name}-NOPs.png')
         init_actions.append(act.name)
@@ -1181,9 +1177,9 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
         if not os.path.exists(view3_filepath):
             create_view3 = True
     if create_view2:
-        view2(iter_save_path, ops, transition_data, ndrs, domain_name)
+        view2(iter_save_path, ops, t_data_first_iter, ndrs, domain_name)
     if create_view3:
-        view3(iter_save_path, ops, transition_data, ndrs, domain_name)
+        view3(iter_save_path, ops, t_data_first_iter, ndrs, domain_name)
 
     for act, figax in figs.items():
         fig, ax = figax
@@ -1204,6 +1200,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
         global curr_pos_views
         global planning_ops_view
         nonlocal iter_dirs
+        nonlocal transition_data
 
         if e.key == "right":
             curr_pos_views = curr_pos_views + 1
@@ -1363,16 +1360,6 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
         if not os.path.exists(filepath):
             # Look ahead for the transition data, and look behind for operators and NDRs.
             curr = curr_pos_views
-            transition_data_itr = None
-            while curr < len(iter_dirs):
-                if os.path.exists(os.path.join(path, iter_dirs[curr], 'transition_data.pkl')):
-                    transition_data_itr = curr
-                    break
-                curr += 1
-            if transition_data_itr is None:
-                print("No transition data available")
-                return
-            curr = curr_pos_views
             ops_itr = None
             while curr >= 0:
                 if os.path.exists(os.path.join(path, iter_dirs[curr], 'planning_operators.pkl')) :
@@ -1383,23 +1370,29 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
                 print("No operators available")
                 return
 
-            with open(os.path.join(path, iter_dirs[transition_data_itr], 'transition_data.pkl'), 'rb') as f:
-                transition_data = pickle.load(f)
             # use skill sequence to create the right dataset
-            action_end = int(iter_dirs[transition_data_itr][5:])
+            action_end = int(iter_dirs[-1][5:])
             action_start = int(iter_dir[5:])
-            for action in skill_seq[action_start + 1 : action_end + 1][::-1]:
-                # LIFO
-                transition_data[action.predicate].pop()
+            # action pred to count
+            transition_data_count_indices = defaultdict(lambda: 0)
+            t_data = {}
+            # Remove actions that occur after #`action_start` iteration
+            for action in skill_seq[action_start + 1 : action_end + 1]:
+                transition_data_count_indices[action.predicate] += 1
+            for action_pred in transition_data:
+                if transition_data_count_indices[action_pred] == 0:
+                    t_data[action_pred] = transition_data[action_pred][:]
+                else:
+                    t_data[action_pred] = transition_data[action_pred][:-transition_data_count_indices[action_pred]]
             
             if planning_ops_view:
                 with open(os.path.join(path, iter_dirs[ops_itr], 'planning_operators.pkl'), 'rb') as f:
                     ops = pickle.load(f)
-                view1(iter_save_path, ops, transition_data, domain_name, is_learned_ops=False)
+                view1(iter_save_path, ops, t_data, domain_name, is_learned_ops=False)
             else:
                 with open(os.path.join(path, iter_dirs[ops_itr], 'learned_operators.pkl'), 'rb') as f:
                     ops = pickle.load(f)
-                view1(iter_save_path, ops, transition_data, domain_name, is_learned_ops=True)
+                view1(iter_save_path, ops, t_data, domain_name, is_learned_ops=True)
 
 
         img = mpimg.imread(filepath)
@@ -1418,18 +1411,15 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
 
     # Initialize the plot at iter=0
     iter_dir = iter_dirs[0]
-    iter_path = os.path.join(path, iter_dir)
     iter_save_path = os.path.join(SAVE_PATH, domain_name, curiosity_name, seed, iter_dir)
-    with open(os.path.join(iter_path, 'transition_data.pkl'), 'rb') as f:
-        transition_data = pickle.load(f)
     if planning_ops_view:
         filepath = os.path.join(iter_save_path, 'nops_plot_planning_ops.png')
         if not os.path.exists(filepath):
-            view1(iter_save_path, ops, transition_data, domain_name, is_learned_ops=False)
+            view1(iter_save_path, ops, t_data_first_iter, domain_name, is_learned_ops=False)
     else:
         filepath = os.path.join(iter_save_path, 'nops_plot_learned_ops.png')
         if not os.path.exists(filepath):
-            view1(iter_save_path, ops, transition_data, domain_name, is_learned_ops=True)
+            view1(iter_save_path, ops, t_data_first_iter, domain_name, is_learned_ops=True)
 
 
     fig = plt.figure()
@@ -1465,7 +1455,7 @@ if __name__ == "__main__":
     seeds = [str(s) for s in range(162, 170)]
     
     curiosity_name = 'GLIB_G1'
-    seeds = [str(s) for s in range(431, 432)]
+    seeds = [str(s) for s in range(432, 433)]
 
     for seed in seeds:
         interactive_view_123(domain_name, curiosity_name, learning_name, seed)
