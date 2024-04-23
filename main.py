@@ -89,6 +89,7 @@ class Runner:
         success_rates = []
         episode_start_itrs = []
         ops_changed_itrs = []
+        planning_ops_changed_itrs = []
         for itr in range(self.num_train_iters):
             logging.info("\nIteration {} of {}".format(itr, self.num_train_iters))
 
@@ -124,7 +125,7 @@ class Runner:
                 if self.domain_name == "PybulletBlocks" and self.curiosity_name == "oracle":
                     operators_changed = True
                 else:
-                    operators_changed = self.agent.learn(itr)
+                    operators_changed, planning_operators_changed = self.agent.learn(itr)
 
                 # Only rerun tests if operators have changed, or stochastic env
                 if operators_changed or ac.planner_name[self.domain_name] == "ffreplan" or \
@@ -133,7 +134,6 @@ class Runner:
                     logging.debug("Testing...")
 
                     test_solve_rate, variational_dist, successes = self._evaluate_operators(use_learned_ops=True)
-                    plan_ops_solve_rate, v_dist, plan_ops_successes = self._evaluate_operators(use_learned_ops=False)
 
                     logging.info(f"Result: {test_solve_rate} {variational_dist}")
                     # logging.debug("Testing took {} seconds".format(time.time()-start))
@@ -155,6 +155,7 @@ class Runner:
 
                     prev_test_solve_rate = test_solve_rate
 
+
                 else:
                     assert results, "operators_changed is False but never learned any operators..."
                     logging.debug("No operators changed, continuing...")
@@ -163,8 +164,17 @@ class Runner:
                     variational_dist = results[-1][2]
                     logging.info(f"Result: {test_solve_rate} {variational_dist}")
 
+
+                if planning_operators_changed or \
+                   itr + ac.learning_interval[self.domain_name] >= self.num_train_iters:
+                    # logging.debug("Testing planning operators...")
+                    # plan_ops_solve_rate, v_dist, plan_ops_successes = self._evaluate_operators(use_learned_ops=False)
+                    # logging.info(f"Planning Ops Result: {plan_ops_solve_rate}")
+                    log_ops = True
+                    planning_ops_changed_itrs.append(itr)
+ 
                 results.append((itr, test_solve_rate, variational_dist))
-                plan_ops_results.append((itr, plan_ops_solve_rate, v_dist))
+                # plan_ops_results.append((itr, plan_ops_solve_rate, v_dist))
 
                 if gc.dataset_logging:
                     if log_ops:
@@ -190,7 +200,8 @@ class Runner:
                 os.makedirs(path, exist_ok=True)
                 np.savetxt(os.path.join(path, 'success_increases.txt'), np.array(success_rates), fmt='%1.3f')
                 np.savetxt(os.path.join(path, 'episode_start_iters.txt'), np.array(episode_start_itrs), fmt="%d")
-                np.savetxt(os.path.join(path, 'ops_change_iters.txt'), np.array(ops_changed_itrs), fmt='%d')
+                np.savetxt(os.path.join(path, 'learned_ops_change_iters.txt'), np.array(ops_changed_itrs), fmt='%d')
+                np.savetxt(os.path.join(path, 'planning_ops_change_iters.txt'), np.array(planning_ops_changed_itrs), fmt='%d')
                 np.savetxt(os.path.join(path, 'first_nonNOP_iters.txt'), np.array(self.agent._operator_learning_module._first_nonNOP_itrs), fmt='%d')
 
                 with open(os.path.join(path, 'skill_sequence.pkl'), 'wb') as f:

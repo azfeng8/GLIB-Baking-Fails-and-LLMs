@@ -7,6 +7,9 @@ from pddlgym.parser import PDDLDomainParser
 import gym, pddlgym
 from collections import defaultdict
 
+# How many operators to show on view1 before run out of visual space for displaying them, and instead write the operators to separate files.
+OPERATOR_SPACE_LIMIT = 4
+
 # SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results_openstack/results/LNDR'
 # RESULTS_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results_openstack/results'
 # BABBLING_SOURCE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results_openstack/results/GLIB'
@@ -22,8 +25,9 @@ curr_pos_view_1 = 0
 curr_pos_view_2 = 0
 curr_pos_views = 0
 nops_view = 0
+planning_ops_view = 0
 
-def view1(save_path, operators, transition_data, domain_name):
+def view1(save_path, operators, transition_data, domain_name, is_learned_ops):
     """Create and write the view1 plot from the logs to the `save_path` folder as `nops_plot.png`.
     """
     env = pddlgym.make(f"PDDLEnv{domain_name}-v0")
@@ -37,7 +41,7 @@ def view1(save_path, operators, transition_data, domain_name):
         
     for act_pred in transition_data:
         cols.add(act_pred)
-    cols = list(cols)
+    cols = sorted(cols)
     ncols = len(cols)
     col_names = [t.name for t in cols]
     row_names = ["NOPs ratio", "", "Operators"]
@@ -88,14 +92,23 @@ def view1(save_path, operators, transition_data, domain_name):
             for o in operators:
                 for lit in o.preconds.literals:
                     if lit.predicate.name == action_pred.name:
-                        ops.append(o.pddl_str())
+                        ops.append(o.pddl_str() + '\n')
             
-            props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
-            ops_ax.text(0,1, '\n'.join(ops),  fontsize=8, verticalalignment='top', bbox=props, wrap=True)
+            if len(ops) < OPERATOR_SPACE_LIMIT:
+                props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+                ops_ax.text(0,1, ''.join(ops),  fontsize=8, verticalalignment='top', bbox=props, wrap=True)
+            else:
+                fname = os.path.join(save_path, f'ops_{action_pred.name}.txt')
+                with open(fname, 'w') as f:
+                    f.writelines(ops)
+                print(f"Saved ops for action {action_pred.name} to: ", fname)
 
     plt.gcf().set_size_inches(28, 14)
     os.makedirs(save_path, exist_ok=True)
-    plt.savefig(os.path.join(save_path, 'nops_plot.png'), dpi=300)
+    if is_learned_ops:
+        plt.savefig(os.path.join(save_path, 'nops_plot_learned_ops.png'), dpi=300)
+    else:
+        plt.savefig(os.path.join(save_path, 'nops_plot_planning_ops.png'), dpi=300)
     plt.close()
 
 def view2(save_path, operators, transition_data, ndrs, domain_name):
@@ -330,7 +343,7 @@ def view4(save_path, domain_name, curiosity_name, learning_name, seed):
                 num_fallback += 1
         plt.scatter(following_plan_itrs, following_plan_ys, color='#008000')
     # Plot vertical orange line where operator changes
-    ops_change_itrs = np.loadtxt(os.path.join(SOURCE_PATH, domain_name, learning_name, curiosity_name, seed, 'ops_change_iters.txt'))
+    ops_change_itrs = np.loadtxt(os.path.join(SOURCE_PATH, domain_name, learning_name, curiosity_name, seed, 'learned_ops_change_iters.txt'))
     for itr in ops_change_itrs:
         plt.axvline(x=itr, color='#FFA500')
     
@@ -881,6 +894,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
     use 't/y' to jump between first nonNOPs.
     use left/right to scroll.
     use 'n' to change between NOPs and nonNOPs views.
+    use 'p' to toggle between planning and learned operators in view1.
     use 'r' to render the screen.
      
     The view1 plot is independent of the view2 plots, which all change from one keystroke (but only rendered when press 'r').
@@ -912,7 +926,8 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
         success_increases = success_increases[np.newaxis, :]
     success_itrs = success_increases[:, 0].tolist()
 
-    ops_change_itrs = np.loadtxt(os.path.join(SOURCE_PATH, domain_name, learning_name, curiosity_name, seed, 'ops_change_iters.txt'))
+    ops_change_itrs = np.loadtxt(os.path.join(SOURCE_PATH, domain_name, learning_name, curiosity_name, seed, 'learned_ops_change_iters.txt'))
+    # planning_ops_change_itrs = np.loadtxt(os.path.join(SOURCE_PATH, domain_name, learning_name, curiosity_name, seed, 'planning_ops_change_iters.txt'))
 
     results_path = os.path.join(RESULTS_PATH, domain_name, learning_name, curiosity_name, f'{domain_name}_{learning_name}_{curiosity_name}_{seed}.pkl')
     with open(results_path, 'rb') as f:
@@ -1060,7 +1075,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
             curr = curr_pos_views
             ops_itr = None
             while curr >= 0:
-                if os.path.exists(os.path.join(path, iter_dirs[curr], 'operators.pkl')) :
+                if os.path.exists(os.path.join(path, iter_dirs[curr], 'learned_operators.pkl')) :
                     ops_itr = curr
                     break
                 curr -= 1
@@ -1081,7 +1096,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
             else:
                 transition_data = {}
 
-            with open(os.path.join(path, iter_dirs[ops_itr], 'operators.pkl'), 'rb') as f:
+            with open(os.path.join(path, iter_dirs[ops_itr], 'learned_operators.pkl'), 'rb') as f:
                 ops = pickle.load(f)
 
             env = pddlgym.make(f'PDDLEnv{domain_name}-v0')
@@ -1141,7 +1156,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
 
     with open(os.path.join(path, iter_dirs[0], 'transition_data.pkl'),'rb')  as f:
         transition_data = pickle.load(f)
-    ops_path_iter0 = os.path.join(path, iter_dirs[0], 'operators.pkl')
+    ops_path_iter0 = os.path.join(path, iter_dirs[0], 'learned_operators.pkl')
     if os.path.exists(ops_path_iter0):
         with open(ops_path_iter0,'rb')  as f:
             ops = pickle.load(f)
@@ -1187,6 +1202,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
  
     def key_event_view_1(e):
         global curr_pos_views
+        global planning_ops_view
         nonlocal iter_dirs
 
         if e.key == "right":
@@ -1328,6 +1344,8 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
                 curr_pos_views += 1
                 curr_pos_views = curr_pos_views % len(iter_dirs)
                 curr_itr = int(iter_dirs[curr_pos_views][5:])
+        elif e.key == 'p':
+            planning_ops_view = 1 - planning_ops_view
         else:
             return
         curr_pos_views = curr_pos_views % len(iter_dirs)
@@ -1337,7 +1355,10 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
         iter_dir = iter_dirs[curr_pos_views]
         itr_num = int(iter_dir[5:])
         iter_save_path = os.path.join(SAVE_PATH, domain_name, curiosity_name, seed, iter_dir)
-        filepath = os.path.join(iter_save_path, 'nops_plot.png')
+        if planning_ops_view:
+            filepath = os.path.join(iter_save_path, 'nops_plot_planning_ops.png')
+        else:
+            filepath = os.path.join(iter_save_path, 'nops_plot_learned_ops.png')
         print(filepath)
         if not os.path.exists(filepath):
             # Look ahead for the transition data, and look behind for operators and NDRs.
@@ -1354,7 +1375,7 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
             curr = curr_pos_views
             ops_itr = None
             while curr >= 0:
-                if os.path.exists(os.path.join(path, iter_dirs[curr], 'operators.pkl')) :
+                if os.path.exists(os.path.join(path, iter_dirs[curr], 'planning_operators.pkl')) :
                     ops_itr = curr
                     break
                 curr -= 1
@@ -1364,8 +1385,6 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
 
             with open(os.path.join(path, iter_dirs[transition_data_itr], 'transition_data.pkl'), 'rb') as f:
                 transition_data = pickle.load(f)
-            with open(os.path.join(path, iter_dirs[ops_itr], 'operators.pkl'), 'rb') as f:
-                ops = pickle.load(f)
             # use skill sequence to create the right dataset
             action_end = int(iter_dirs[transition_data_itr][5:])
             action_start = int(iter_dir[5:])
@@ -1373,7 +1392,15 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
                 # LIFO
                 transition_data[action.predicate].pop()
             
-            view1(iter_save_path, ops, transition_data, domain_name)
+            if planning_ops_view:
+                with open(os.path.join(path, iter_dirs[ops_itr], 'planning_operators.pkl'), 'rb') as f:
+                    ops = pickle.load(f)
+                view1(iter_save_path, ops, transition_data, domain_name, is_learned_ops=False)
+            else:
+                with open(os.path.join(path, iter_dirs[ops_itr], 'learned_operators.pkl'), 'rb') as f:
+                    ops = pickle.load(f)
+                view1(iter_save_path, ops, transition_data, domain_name, is_learned_ops=True)
+
 
         img = mpimg.imread(filepath)
         ax.set_title(f"{iter_dir} : success rate {succ[int(iter_dir[5:])]}")
@@ -1393,11 +1420,16 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
     iter_dir = iter_dirs[0]
     iter_path = os.path.join(path, iter_dir)
     iter_save_path = os.path.join(SAVE_PATH, domain_name, curiosity_name, seed, iter_dir)
-    filepath = os.path.join(iter_save_path, 'nops_plot.png')
     with open(os.path.join(iter_path, 'transition_data.pkl'), 'rb') as f:
         transition_data = pickle.load(f)
-    if not os.path.exists(filepath):
-        view1(iter_save_path, ops, transition_data, domain_name)
+    if planning_ops_view:
+        filepath = os.path.join(iter_save_path, 'nops_plot_planning_ops.png')
+        if not os.path.exists(filepath):
+            view1(iter_save_path, ops, transition_data, domain_name, is_learned_ops=False)
+    else:
+        filepath = os.path.join(iter_save_path, 'nops_plot_learned_ops.png')
+        if not os.path.exists(filepath):
+            view1(iter_save_path, ops, transition_data, domain_name, is_learned_ops=True)
 
 
     fig = plt.figure()
@@ -1432,8 +1464,8 @@ if __name__ == "__main__":
     # curiosity_name = 'random'
     seeds = [str(s) for s in range(162, 170)]
     
-    curiosity_name = 'GLIB_L2'
-    seeds = [str(s) for s in range(532, 533)]
+    curiosity_name = 'GLIB_G1'
+    seeds = [str(s) for s in range(431, 432)]
 
     for seed in seeds:
         interactive_view_123(domain_name, curiosity_name, learning_name, seed)

@@ -56,10 +56,10 @@ class ZPKOperatorLearningModule:
         # Logging
         self._actions.append(action)
 
-    def learn(self, iter=-1, **kwargs):
+    def learn(self, iter, **kwargs):
 
         if not self._learning_on:
-            return False
+            return False, False
 
         # Check whether we have NDRs that need to be relearned
         is_updated = False
@@ -118,7 +118,7 @@ class ZPKOperatorLearningModule:
 
             # print_rule_set(self._ndrs)
 
-        return is_updated
+        return is_updated, is_updated
 
     def turn_off(self):
         self._learning_on = False
@@ -295,11 +295,15 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         Args:
             itr (int): training iteration #.
             skill_to_edit (Optional[tuple[action predicate : pddlgym.structs.Predicate, operator_name : str]]): None if the operator was executed with effects. Otherwise, a tuple of the operator and skill executed in the plan which resulted in a No-Op.
+
+        Returns:
+            learned_ops_changed (bool)
+            planning_ops_changed (bool)
         """
         if not self._learning_on:
-            return False
+            return False, False
 
-        is_updated = False
+        planning_ops_changed = False
 
         ### Update self._llm_ops
         
@@ -320,9 +324,9 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         # loop thru the operators with the same preconditions
         if same_precond_ops is not None:
             if ac.local_minima_method == 'delete-operator':
-                is_updated = is_updated or self._delete_operator_update(same_precond_ops, action_pred)
+                planning_ops_changed = planning_ops_changed or self._delete_operator_update(same_precond_ops, action_pred)
             elif ac.local_minima_method == 'precond-relax':
-                is_updated = is_updated or self._precond_relax_update(same_precond_ops, action_pred)
+                planning_ops_changed = planning_ops_changed or self._precond_relax_update(same_precond_ops, action_pred)
             else:
                 raise Exception(f"Method {ac.local_minima_method} not found")
 
@@ -330,6 +334,7 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
                 assert len(set([o.name for o in self._llm_ops[a]])) == len(self._llm_ops[a]), 'operator names are not all different'
         ################################################################################################################
 
+        learned_ops_changed = False
         ### Call LNDR: Check whether we have NDRs that need to be relearned
         for action_predicate in self._fits_all_data:
             if not self._fits_all_data[action_predicate]:
@@ -361,11 +366,11 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
                 self._ndrs[action_predicate] = ndrs_for_action
 
                 self._fits_all_data[action_predicate] = True
-                is_updated = True 
+                learned_ops_changed = True
         ################################################################################################################
 
         ### Update all learned and planning operators
-        if is_updated:
+        if planning_ops_changed or learned_ops_changed:
             self._planning_operators.clear()
             self._learned_operators.clear()
 
@@ -391,9 +396,9 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
 
         # Need to add this to evaluate LLM operators on the first learning iteration (is_updated is False).
         if itr == 0:
-            return True
+            return True, True
 
-        return is_updated
+        return learned_ops_changed, planning_ops_changed
 
     def _delete_operator_update(self, same_precond_ops:Iterable[Operator], action_pred):
         """Deletes the LLM-proposed operator if it fails more than AgentConfig.operator_fail_limit (see settings.py) times.

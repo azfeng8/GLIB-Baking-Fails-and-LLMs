@@ -113,13 +113,13 @@ class Agent:
 
     def learn(self, itr):
         # Learn
-        some_operator_changed = self._operator_learning_module.learn(itr, skill_to_edit=self._skill_to_edit)
+        some_learned_operator_changed, some_planning_operator_changed = self._operator_learning_module.learn(itr, skill_to_edit=self._skill_to_edit)
 
         # Used in LLMIterative only
         if self.operator_learning_name in ['LLM+LNDR', 'LLMIterative+LNDR']:
             self._curiosity_module.learn(itr)
 
-        if some_operator_changed:
+        if some_learned_operator_changed:
             start_time = time.time()
             self._curiosity_module.learning_callback()
             self.curiosity_time += time.time()-start_time
@@ -130,7 +130,7 @@ class Agent:
         # for k, v in self._operator_learning_module._ndrs.items():
         #     print(k)
         #     print(str(v))
-        return some_operator_changed
+        return some_learned_operator_changed, some_planning_operator_changed
 
     def reset_episode(self, state):
         start_time = time.time()
