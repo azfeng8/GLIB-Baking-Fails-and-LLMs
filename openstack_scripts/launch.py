@@ -16,6 +16,7 @@ The default branch can be overridden with the --branch flag.
 
 import argparse
 import os
+import numpy as np
 
 from cluster_utils import DEFAULT_BRANCH, SingleSeedRunConfig, \
     config_to_cmd_flags, config_to_logfile, generate_run_configs, \
@@ -40,6 +41,7 @@ def _main() -> None:
         assert os.path.exists(args.sshkey)
     # Generate all of the run configs.
     run_configs = list(generate_run_configs(args.config))
+    run_configs =  np.random.permutation(run_configs)
     num_machines = len(machines)
 
     if len(run_configs) > num_machines:
