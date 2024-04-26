@@ -321,7 +321,7 @@ class PlottingConfig:
     """Plotting from cached results.
     """
 
-    num_experiment_sets = 3
+    num_experiment_sets = 10 
 
     # One string per plot
     domains = []
@@ -332,7 +332,7 @@ class PlottingConfig:
     
     # One list of ranges per plot
     seeds = []
-    for i in range(810, 840, 10):
+    for i in range(570, 670, 10):
         for _ in range(8):
             seeds.append([range(i, i+10), range(100, 110)])
         for _ in range(4):

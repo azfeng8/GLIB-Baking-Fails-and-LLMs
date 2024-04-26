@@ -570,7 +570,6 @@ def get_ops_with_same_preconds(op, ops) -> list[Operator]:
         # if the number of literals is different, continue
         if len(o.preconds.literals) != len(op.preconds.literals):
             continue
-        # if the num predicates are different (count # of each predicate), continue
         counts = {}
         params = set()
         for lit in o.preconds.literals:
@@ -581,11 +580,16 @@ def get_ops_with_same_preconds(op, ops) -> list[Operator]:
                 v_name = v._str.split(':')[0]
                 params.add(v_name)
 
+        # if the num predicates are different (count # of each predicate), continue
         if op_counts != counts:
             continue
             
         # Get a list of parameter names that exist in the preconditions
         params = list(params)
+
+        # if the number of arguments in the preconditions don't match, continue
+        if len(params) != len(op_params):
+            continue
  
         # Get all permutations of them, using each as a new mapping to the list of param names for `op`
         for perm in itertools.permutations(params):
