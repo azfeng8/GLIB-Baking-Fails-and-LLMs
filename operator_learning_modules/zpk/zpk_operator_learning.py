@@ -212,7 +212,7 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         for op in all_ops:
             action = [p for p in op.preconds.literals if p.predicate in ac.train_env.action_space.predicates][0]
             i = len(self._llm_ops[action.predicate])
-            op.name = op.name.rstrip('0123456789') + str(i)
+            op.name = op.name.rstrip('0123456789') + "_" + action.predicate.name + "_" + str(i)
             not_equal = True
             for o in self._llm_ops[action.predicate]:
                 if ops_equal(op, o):

@@ -1,5 +1,6 @@
 from pddlgym.structs import Predicate, Exists, State
 from pddlgym.parser import PDDLProblemParser
+from settings import AgentConfig as ac
 
 import random
 import abc
@@ -118,18 +119,20 @@ class Planner:
         return "\n\t\t\t".join(precond_strs)
 
     def _create_domain_file_from_str(self, dom_str):
-        filename = "/tmp/learned_dom_{}_{}.pddl".format(
-            self.domain_name, random.randint(0, 9999999))
+        seed = str(ac.seed)
+        filename = "/tmp/learned_dom_{}_{}_{}.pddl".format(
+            seed, self.domain_name, random.randint(0, 9999999))
         with open(filename, 'w') as f:
             f.write(dom_str)
         return filename
 
     def _create_problem_file(self, raw_problem_fname, use_cache=True):
         if (not use_cache) or (raw_problem_fname not in self._problem_files):
+            seed = str(ac.seed)
             problem_fname = os.path.split(raw_problem_fname)[-1]
             problem_fname = problem_fname.split('.pddl')[0]
-            problem_fname += '_{}_with_diffs_{}.pddl'.format(
-                self.domain_name, random.randint(0, 9999999))
+            problem_fname += '_{}_{}_with_diffs_{}.pddl'.format(
+                seed, self.domain_name, random.randint(0, 9999999))
             problem_fname = os.path.join('/tmp', problem_fname)
 
             # Parse raw problem
