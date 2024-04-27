@@ -9,6 +9,7 @@ import os
 import re
 import subprocess
 import time
+import logging
 
 
 def parse_plan_step(plan_step, operators, action_predicates, objects):
@@ -22,7 +23,7 @@ def parse_plan_step(plan_step, operators, action_predicates, objects):
             break
     assert operator is not None, "Unknown operator '{}'".format(plan_step_split[0])
 
-    assert len(plan_step_split) == len(operator.params) + 1
+    assert len(plan_step_split) == len(operator.params) + 1, f"{operator.pddl_str()}\nplan:{plan_step_split}"
     object_names = plan_step_split[1:]
     args = []
     for name in object_names:
@@ -75,6 +76,7 @@ class FastForwardPlanner(Planner):
         except Exception as e:
             self.delete_cached_plan_files(domain_fname, problem_fname, use_cache)
             raise e 
+        logging.info(domain_fname)
         actions, operator_names = self._plan_to_actions(plan, objects)
         self.delete_cached_plan_files(domain_fname, problem_fname, use_cache)
         return actions, operator_names
