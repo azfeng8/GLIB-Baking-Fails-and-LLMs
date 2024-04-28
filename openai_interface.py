@@ -49,6 +49,11 @@ class OpenAI_Model:
             prompts_id += str_to_identifier(prompt["content"])
         config_id = f"{temperature}_{seed}_{num_completions}"
         cache_filename = f"{prompts_id}_{config_id}.pkl"
+        if len(cache_filename) > 255:
+            # Truncate the prompt id
+            length = 255 - len(config_id) - 5
+            prompts_id = prompts_id[len(prompts_id) - length:]
+            cache_filename = f"{prompts_id}_{config_id}.pkl"
         cache_filepath = os.path.join(self._cache_dir, cache_filename)
         if not os.path.exists(cache_filepath) or disable_cache:
             completions = self._sample_completions(conversation, temperature, seed, num_completions)

@@ -184,7 +184,13 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
                 ops = self._llm_parser.parse_operators(response)
                 for op in ops:
                     all_ops.append(op)
-        elif ac.init_ops_method == 'combined':
+        elif ac.init_ops_method == 'skill-conditioned-two-stage':
+            dir = f'skill_conditioned_2stage_temp0/{self._domain_name}'
+            file = 'ops.pkl'
+            with open(os.path.join(dir, file), 'rb') as f:
+                ops = pickle.load(f)
+            all_ops.extend(ops)
+        elif ac.init_ops_method == 'combined-todo-goal':
             dir = f'todo_prompt_responses_temperature{ac.temperature}/{self._domain_name.lower()}_llm_responses'
             for file in os.listdir(dir):
                 with open(os.path.join(dir, file), 'rb') as f:
@@ -192,7 +198,6 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
                 ops = self._llm_parser.parse_operators(response)
                 for op in ops:
                     all_ops.append(op)
- 
             dir = f'ada_init_operators/{self._domain_name}'
             file = 'manually_labeled_ops_fulltrainset.pkl'
             with open(os.path.join(dir, file), 'rb') as f:
@@ -200,6 +205,27 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
             for op_set in trainset_ops:
                 for op in op_set:
                     all_ops.append(op)
+        elif ac.init_ops_method == 'combined-all':
+            dir = f'todo_prompt_responses_temperature{ac.temperature}/{self._domain_name.lower()}_llm_responses'
+            for file in os.listdir(dir):
+                with open(os.path.join(dir, file), 'rb') as f:
+                    response = pickle.load(f)[0]
+                ops = self._llm_parser.parse_operators(response)
+                for op in ops:
+                    all_ops.append(op)
+            dir = f'ada_init_operators/{self._domain_name}'
+            file = 'manually_labeled_ops_fulltrainset.pkl'
+            with open(os.path.join(dir, file), 'rb') as f:
+                trainset_ops = pickle.load(f)
+            for op_set in trainset_ops:
+                for op in op_set:
+                    all_ops.append(op)
+            dir = f'skill_conditioned_2stage_temp0/{self._domain_name}'
+            file = 'ops.pkl'
+            with open(os.path.join(dir, file), 'rb') as f:
+                ops = pickle.load(f)
+            all_ops.extend(ops)
+
         else:
             raise Exception(f'Not an option: {ac.init_ops_method}')
 

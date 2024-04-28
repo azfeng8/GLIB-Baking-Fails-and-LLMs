@@ -72,5 +72,5 @@ def parse_agent_config(parser:argparse.ArgumentParser):
     parser.add_argument('--max_zpk_learning_time', type=int, default=180, help='seconds before timeout ZPK')
     parser.add_argument('--operator_fail_limit', required=False, default=0, help='# times before deleting the operator')
     parser.add_argument('--temperature', required=False, default=1, help='LLM temperature')
-    parser.add_argument('--init_ops_method', required=False, default='skill-conditioned', choices=['goal-conditioned', 'skill-conditioned', 'combined'])
+    parser.add_argument('--init_ops_method', required=False, default='skill-conditioned', choices=['goal-conditioned', 'skill-conditioned', 'combined-todo-goal', 'skill-conditioned-two-stage', 'combined-all'])
     parser.add_argument('--local_minima_method', required=False, default='delete-operator', choices=['precond-relax', 'delete-operator'])
