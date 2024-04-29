@@ -333,7 +333,8 @@ class PlottingConfig:
     # One list of ranges per plot
     seeds = []
     # for i in range(570, 670, 10):
-    for i in range(690, 790, 10):
+    for i in range(790, 850, 10):
+    # for i in range(690, 790, 10):
         for _ in range(8):
             seeds.append([range(i, i+10), range(100, 110)])
         for _ in range(4):

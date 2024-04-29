@@ -185,7 +185,7 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
                 for op in ops:
                     all_ops.append(op)
         elif ac.init_ops_method == 'skill-conditioned-two-stage':
-            dir = f'skill_conditioned_2stage_temp0/{self._domain_name}'
+            dir = f'skill_conditioned_2stage_temp{ac.temperature}/{self._domain_name}'
             file = 'ops.pkl'
             with open(os.path.join(dir, file), 'rb') as f:
                 ops = pickle.load(f)
@@ -220,7 +220,7 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
             for op_set in trainset_ops:
                 for op in op_set:
                     all_ops.append(op)
-            dir = f'skill_conditioned_2stage_temp0/{self._domain_name}'
+            dir = f'skill_conditioned_2stage_temp{ac.temperature}/{self._domain_name}'
             file = 'ops.pkl'
             with open(os.path.join(dir, file), 'rb') as f:
                 ops = pickle.load(f)

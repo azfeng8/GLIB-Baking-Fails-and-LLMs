@@ -13,11 +13,11 @@ from pddlgym.parser import Operator
 from collections import defaultdict
 
 # domain_name = "Easygripper"
-domain_name = "Minecraft"
+# domain_name = "Minecraft"
 # domain_name = "Blocks"
 # domain_name = "Glibdoors"
 # domain_name = "Travel"
-# domain_name = "Baking"
+domain_name = "Baking"
 train_env = gym.make("PDDLEnv{}-v0".format(domain_name))
 types = set()
 ap = {p.name: p for p in train_env.action_space.predicates}
@@ -149,7 +149,7 @@ def get_op_definitions(convos, temp, n):
     
 
 if __name__ == '__main__':
-    temp = 0
+    temp = 1
     n=4
 
     dir = f'skill_conditioned_2stage_temp{temp}'
@@ -157,7 +157,7 @@ if __name__ == '__main__':
     os.makedirs(os.path.join(dir, domain_name), exist_ok=True)
 
     # d = get_op_descriptions(n)
-    with open(f'skill_conditioned_2stage_temp{temp}/{domain_name}/op_descriptions.pkl', 'rb') as f:
+    with open(f'skill_conditioned_2stage_temp0/{domain_name}/op_descriptions.pkl', 'rb') as f:
         # pickle.dump(d, f)
         d = pickle.load(f)
 

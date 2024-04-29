@@ -76,7 +76,6 @@ class FastForwardPlanner(Planner):
         except Exception as e:
             self.delete_cached_plan_files(domain_fname, problem_fname, use_cache)
             raise e 
-        # logging.info(domain_fname)
         actions, operator_names = self._plan_to_actions(plan, objects)
         self.delete_cached_plan_files(domain_fname, problem_fname, use_cache)
         return actions, operator_names
