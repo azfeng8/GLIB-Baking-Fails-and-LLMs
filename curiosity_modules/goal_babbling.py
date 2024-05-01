@@ -72,11 +72,11 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
                 if len(self._plan) == 1:
                     self.line_stats.append('FINISHED PLAN - babbled')
                 else:
-                    self.line_stats.append((self._goal, deepcopy(self._plan[:-1])))
+                    self.line_stats.append((self._goal, deepcopy(self._plan[:-1]), deepcopy(self._operators)))
                     in_plan = True
             else:
                 # in GLIB-lifted, the last item in the plan is not the babbled action
-                self.line_stats.append((self._goal, deepcopy(self._plan)))
+                self.line_stats.append((self._goal, deepcopy(self._plan), deepcopy(self._operators)))
                 in_plan = True
             if self._goal_from_llm:
                 self.llm_line_stats.append(1)
@@ -121,7 +121,7 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
             if self._plan_is_good():
                 if len(self._plan) != 0:
                     in_plan = True
-                    self.line_stats.append((goal, deepcopy(self._plan)))
+                    self.line_stats.append((goal, deepcopy(self._plan), deepcopy(self._operators)))
                     GOAL_BABBLING_LOGGER.debug(f"\tGOAL: {goal}")
                     GOAL_BABBLING_LOGGER.debug(f"\tPLAN: {self._plan}")
                     if self._goal_from_llm:
