@@ -1,3 +1,8 @@
+"""Interactive visualization of initial states in the dataset + actions taken + planning ops + learned ops.
+
+Iteration # slide shows data after the action displayed was taken.
+
+"""
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import matplotlib.image  as mpimg
@@ -98,6 +103,9 @@ def view1(save_path, operators, transition_data, domain_name, is_learned_ops):
                 props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
                 ops_ax.text(0,1, ''.join(ops),  fontsize=8, verticalalignment='top', bbox=props, wrap=True)
             else:
+                props = dict(boxstyle='round', facecolor='wheat', alpha=0.5)
+                ops_ax.text(0,1, 'overflow. See terminal for filepath to ops.',  fontsize=8, verticalalignment='top', bbox=props, wrap=True)
+ 
                 fname = os.path.join(save_path, f'ops_{action_pred.name}.txt')
                 os.makedirs(save_path, exist_ok=True)
                 with open(fname, 'w') as f:
@@ -602,6 +610,20 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
                 if "GLIB" in curiosity_name:
                     if not (('babbled' in babbling_seq[iter_num]) or ('fallback' in babbling_seq[iter_num])):
                         goal, plan, operators = babbling_seq[iter_num]
+
+                        # Capitalize LLM-derived operators in the plan.
+                        with open(os.path.join(path, iter_dirs[ops_itr], 'learned_operators.pkl'), 'rb') as f:
+                            learned_ops = pickle.load(f)
+                        for i in range(len(operators)):
+                            is_learned = False
+                            for op in learned_ops:
+                                if operators[i] == op.name:
+                                    is_learned = True
+                            if not is_learned:
+                                operators[i] = operators[i].upper()
+                            else:
+                                operators[i] = operators[i].lower()
+
                         ax.set_xlabel(f'goal: {goal}\naction plan: {plan}\noperators plan: {operators}\naction: {skill_seq[iter_num]}')
                     else:
                         ax.set_xlabel(f'{babbling_seq[iter_num]} action: {skill_seq[iter_num]}')
@@ -816,7 +838,6 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
         else:
             return
         curr_pos_views = curr_pos_views % len(iter_dirs)
-        # print(iter_dirs[curr_pos_views: curr_pos_views + 10], iter_dirs[curr_pos_views - 10: curr_pos_views])
 
         ax.cla()
         iter_dir = iter_dirs[curr_pos_views]
@@ -827,15 +848,30 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
         else:
             filepath = os.path.join(iter_save_path, 'nops_plot_learned_ops.png')
         print(filepath)
+
+        # Find the directory to pull operators from
+        if curr_pos_views == 0:
+            prev_ops_ptr = curr_pos_views
+        else:
+            # The operator executed at this iteration may be modified by the transition observation, so look at the previous iteration's logged operators for the operator executed at this iteration.
+            prev_ops_ptr = curr_pos_views - 1
+        curr = curr_pos_views
+        prev_ops_itr = None
+        ops_itr = None
+        while curr >= 0:
+            if os.path.exists(os.path.join(path, iter_dirs[curr], 'planning_operators.pkl')) :
+                ops_itr = curr
+                break
+            curr -= 1
+
+        while prev_ops_ptr >= 0:
+            if os.path.exists(os.path.join(path, iter_dirs[prev_ops_ptr], 'planning_operators.pkl')) :
+                prev_ops_itr = prev_ops_ptr
+                break
+            prev_ops_ptr -= 1
+
         if not os.path.exists(filepath):
             # Look ahead for the transition data, and look behind for operators and NDRs.
-            curr = curr_pos_views
-            ops_itr = None
-            while curr >= 0:
-                if os.path.exists(os.path.join(path, iter_dirs[curr], 'planning_operators.pkl')) :
-                    ops_itr = curr
-                    break
-                curr -= 1
             if ops_itr is None:
                 print("No operators available")
                 return
@@ -870,6 +906,20 @@ def interactive_view_123(domain_name, curiosity_name, learning_name, seed):
         if "GLIB" in curiosity_name:
             if not (('babbled' in babbling_seq[itr_num]) or ('fallback' in babbling_seq[itr_num])):
                 goal, plan, operators = babbling_seq[itr_num]
+
+                # Capitalize LLM-derived operators in the plan.
+                with open(os.path.join(path, iter_dirs[prev_ops_itr], 'learned_operators.pkl'), 'rb') as f:
+                    learned_ops = pickle.load(f)
+                for i in range(len(operators)):
+                    is_learned = False
+                    for op in learned_ops:
+                        if operators[i] == op.name:
+                            is_learned = True
+                    if not is_learned:
+                        operators[i] = operators[i].upper()
+                    else:
+                        operators[i] = operators[i].lower()
+
                 ax.set_xlabel(f'goal: {goal}\naction plan: {plan}\nops plan: {operators}\naction: {skill_seq[itr_num]}')
             else:
                 ax.set_xlabel(f'{babbling_seq[itr_num]} action: {skill_seq[itr_num]}')
