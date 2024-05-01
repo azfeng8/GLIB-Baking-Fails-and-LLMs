@@ -254,6 +254,9 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         # A dict from operator name to the number of times it was executed in a plan and had no effects. This is continuously updated as planning operators are deleted / added.
         self._llm_op_fail_counts = defaultdict(lambda: 0)
 
+        # State to say if the planning operators have changed from the observe() step.
+        self._planning_ops_updated = False
+
     def observe(self, state, action, effects, itr, **kwargs):
         """Observe a transition.
 
@@ -296,6 +299,11 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
                         effects_hold = True
             if not effects_hold:
                 removes.append(op)
+
+        if removes:
+            self._planning_ops_updated = True
+        else:
+            self._planning_ops_updated = False
 
         for r in removes:
             self._llm_ops[action.predicate].remove(r)
@@ -423,6 +431,8 @@ class LLMZPKWarmStartOperatorLearningModule(ZPKOperatorLearningModule):
         # Need to add this to evaluate LLM operators on the first learning iteration (is_updated is False).
         if itr == 0:
             return True, True
+
+        planning_ops_changed = planning_ops_changed or self._planning_ops_updated
 
         return learned_ops_changed, planning_ops_changed
 
