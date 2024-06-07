@@ -134,8 +134,8 @@ class AgentConfig:
         "River": 25,
         "PybulletBlocks" : 10,
         "NDRBlocks" : 25,
-        "Baking": 25,
-        "Minecraft": 30,
+        "Baking": 8, #25,
+        "Minecraft": 35,
         "Travel": 35
     }
     # Max test episode length.
@@ -177,7 +177,7 @@ class AgentConfig:
         "River": 1001,
         "PybulletBlocks" : 501,
         "NDRBlocks" : 1501,
-        "Baking": 1799,
+        "Baking": 500,#1799,
         "Travel": 1501,
         "Minecraft": 1799
     }
