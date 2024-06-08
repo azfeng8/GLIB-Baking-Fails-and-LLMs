@@ -208,9 +208,18 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
         Returns:
             goal
             from_llm (bool): whether the goal is from the LLM"""
+        
         # Note that these are already in random order as per _iw_reset
         if len(self._untried_episode_goal_actions) > 0:
-            goal, action, from_llm = self._untried_episode_goal_actions.pop(0)
+            # goal, action, from_llm = self._untried_episode_goal_actions.pop(0)
+            # Random sample goals according to how often we've seen them before.
+            # Here, _goal_to_successful_plan_count is being used as a 'weight' for
+            # each goal
+            freq_weights = [self._goal_to_successful_plan_count[self._structify_goal(untried_ega[0])] + 1.0 for untried_ega in self._untried_episode_goal_actions]
+            inverse_freq_weights = np.reciprocal(freq_weights)            
+            inverse_freq_probs = inverse_freq_weights / np.sum(inverse_freq_weights)
+            untried_goal_idx = np.random.choice(np.arange(len(self._untried_episode_goal_actions)), p=inverse_freq_probs)
+            goal, action, from_llm = self._untried_episode_goal_actions.pop(untried_goal_idx)
             self._current_goal_action = (goal, action)
             # GLIB_L_LOGGER.debug(f"set self._current_goal_action in sampling goal-action {self._current_goal_action}")
             return self._structify_goal(goal), from_llm

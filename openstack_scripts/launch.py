@@ -14,6 +14,7 @@ Usage example:
 The default branch can be overridden with the --branch flag.
 """
 
+from typing import List
 import argparse
 import os
 import numpy as np
@@ -90,7 +91,7 @@ def _launch_experiment(cmd: str, machine: str, logfile: str, ssh_key: str,
     server_cmds.append(f"{cmd} &> {logfile} &")
     run_cmds_on_machine(server_cmds, "ubuntu", machine, ssh_key=ssh_key)
 
-def _launch_batched_experiment(cmds: list[str], machine: str, logfiles: list[str], ssh_key: str,
+def _launch_batched_experiment(cmds: List[str], machine: str, logfiles: List[str], ssh_key: str,
                        branch: str) -> None:
     print(f"Launching on machine {machine}:\n\t" +  "\n\t".join(cmds))
     # Enter the repo and activate conda.

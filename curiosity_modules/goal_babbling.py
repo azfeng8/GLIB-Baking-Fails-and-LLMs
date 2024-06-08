@@ -3,7 +3,7 @@ achieve them with the current operators.
 """
 
 import logging
-import os
+from collections import defaultdict
 from planning_modules.base_planner import PlannerTimeoutException, \
     NoPlanFoundException
 from settings import AgentConfig as ac
@@ -11,7 +11,6 @@ from curiosity_modules import BaseCuriosityModule
 from pddlgym.parser import Operator
 from pddlgym.structs import Type, TypedEntity, Literal, LiteralConjunction
 from itertools import combinations
-from pddlgym.parser import PDDLDomainParser
 from copy import deepcopy
 
 GOAL_BABBLING_LOGGER = logging.getLogger("GOAL_BABBLING")
@@ -28,10 +27,14 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
         self.line_stats = []
         # Keep track of the number of times that we follow a plan using the LLM
         self.llm_line_stats = []
+        # Also keep track of the number of times we've sampled a goal
+        # and *found* a plan to it.
+        self._goal_to_successful_plan_count = defaultdict(lambda: 0)
 
     def reset_episode(self, state):
         self._last_state = set()
         self._plan = []
+        self._goal = None
 
     def _sample_goal(self, state):
         return self._observation_space.sample_literal(state)
@@ -71,6 +74,9 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
                 # in GLIB-G, the last item in the plan is the babbled action
                 if len(self._plan) == 1:
                     self.line_stats.append('FINISHED PLAN - babbled')
+                    if ac.use_successful_plan_counts:
+                        # Update the goal to successful plan count!
+                        self._goal_to_successful_plan_count[self._goal] += 1
                 else:
                     self.line_stats.append((self._goal, deepcopy(self._plan[:-1]), deepcopy(self._operators)))
                     in_plan = True
@@ -88,6 +94,15 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
                 return in_plan, self._operators.pop(0), self._plan.pop(0)
             else:
                 return in_plan, None, self._plan.pop(0)
+        # We want to check whether we've achieved the goal. This occurs
+        # under a bunch of conditions listed below for GLIBL (we already
+        # handle things correctly for glibg above).
+        elif 'glibg' not in self._name and self._goal is not None and len(self._plan) == 0 and (last_state != state) and not isinstance(self.line_stats[-1], str):
+            assert self.line_stats[-1][0] == self._goal
+            if ac.use_successful_plan_counts:
+                # We achieved the last goal we set for ourselves! Update the
+                # goal counter dict accordingly.
+                self._goal_to_successful_plan_count[self._goal] += 1
 
         # Try to sample a goal for which we can find a plan
         sampling_attempts = planning_attempts = 0
@@ -131,7 +146,6 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
     
                 self._plan = self._finish_plan(self._plan)
                 self._goal = goal
-                # import ipdb; ipdb.set_trace()
                 # Take the first step in the plan
                 if len(self._operators) > 0:
                     return in_plan, self._operators.pop(0), self._plan.pop(0)
@@ -141,6 +155,8 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
 
         # No plan found within budget; take a random action
         # print("falling back to random")
+        # In this case, set the current goal to None.
+        self._goal = None
         return in_plan, None, self._get_fallback_action(state)
 
     def _get_fallback_action(self, state):

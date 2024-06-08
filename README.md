@@ -9,6 +9,7 @@ Instructions for running:
 * Create an environment variable "FF_PATH" pointing to this `ff` executable.
 * Follow the steps under the 'Setup OpenAI key' section below.
 * Back in the GLIB directory, you can now run `python main.py`.
+
 # Steps to run LLM methods
 
 ## Setup OpenAI key
