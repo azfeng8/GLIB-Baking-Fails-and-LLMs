@@ -47,7 +47,6 @@ class ZPKOperatorLearningModule:
         self._transitions[action.predicate].append((state.literals, action, effects))
 
         # Check whether we'll need to relearn
-        logging.info(self._fits_all_data)
         if self._fits_all_data[action.predicate]:
             ndr = self._ndrs[action.predicate]
             if not self._ndr_fits_data(ndr, state, action, effects):

@@ -1,0 +1,44 @@
+{
+    "system_prompt": "In the domain, the robot is tasked to bake desserts, starts in front of the kitchen counter, where the following raw ingredients are prepared on the counter, and the following kitchen appliances and tools are available in the kitchen.",
+    "objects":
+        {
+            "pan-0": "A medium-sized orange nonstick pan.",
+            "pan-1": "A medium-sized blue nonstick pan.",
+            "bowl-0": "A medium-sized ceramic green bowl.",
+            "bowl-1": "A medium-sized ceramic yellow bowl.",
+            "plate-0": "A medium-sized plate, able to fit only one dessert.",
+            "measuring-cup-0": "A glass measuring cup.",
+            "measuring-cup-1": "A glass measuring cup.",
+            "measuring-cup-2": "A glass measuring cup.",
+            "measuring-cup-3": "A glass measuring cup.",
+            "measuring-cup-4": "A glass measuring cup.",
+            "measuring-cup-5": "A glass measuring cup.",
+            "oven-0": "A conventional oven, with capacity to hold one medium-sized item.",
+            "mixer-0": "An electric stand mixer with a metal whisk.",
+            "spatula-0": "A stainless steel spatula.",
+            "dessert-0": "A dessert placeholder object.",
+            "egg-0": "An egg placeholder object.",
+            "egg-1": "An egg placeholder object.",
+            "egg-2":"An egg placeholder object.",
+            "egg-3": "An egg placeholder object.",
+            "flour-0": "A placeholder object for some all-purpose wheat flour.",
+            "flour-1": "A placeholder object for some all-purpose wheat flour.",
+            "baking-powder-0": "A placeholder object for some baking powder.",
+            "sugar-0": "A placeholder object for some white sugar.",
+            "butter-0": "A placeholder object for some butter.",
+            "mixture-0": "A placeholder object for some mixture.",
+            "mixture-1": "A placeholder object for some mixture.",
+            "mixture-2": "A placeholder object for some mixture.",
+            "mixture-3": "A placeholder object for some mixture.",
+            "mixture-4": "A placeholder object for some mixture.",
+            "mixture-5": "A placeholder object for some mixture.",
+            "mixture-6": "A placeholder object for some mixture.",
+            "mixture-7": "A placeholder object for some mixture.",
+            "mixture-8": "A placeholder object for some mixture."
+       },
+    "predicates":
+        {
+            "is-whole-raw-egg": "The egg object {arg1} is out of its shell and is a whole raw egg, with the egg whites and yolk not separated.",
+            "TODO": ""
+        } 
+}

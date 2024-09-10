@@ -1,0 +1,753 @@
+Example domain description:
+
+In the domain, the robot is tasked to bake desserts, starts in front of the kitchen counter, where the following raw ingredients are prepared on the counter:
+
+- A stick of butter, unwrapped, and cut into chunks by tablespoon, sitting on a piece of parchment paper.
+- A quarter tablespoon of cream of tartar, a white powder used for baking, in a small cup.
+- Two cups of all-purpose wheat flour in a measuring cup.
+- A large purple mug with 1 cup of white sugar.
+- A large yellow mug with 1 cup of white sugar.
+- One whole, organic, brown raw egg in its shell in the egg carton.
+- One whole, organic, white raw egg in its shell in the egg carton.
+
+The following kitchen items are also on the counter:
+
+- A medium-sized red ceramic bowl.
+- A medium-sized blue ceramic bowl.
+- A medium-sized nonstick orange pan.
+- A medium-sized nonstick green pan.
+- A stand mixer.
+
+Next to the sink, there are cleaning items:
+- A small bottle of dish soap, containing just enough soap to wash {insert number} medium-sized items.
+- A stack of disposable paper towels (each towel needs to be an object).
+
+The following kitchen appliances are nearby:
+- A conventional oven, located behind and to the right of the counter.
+- An electric stove, located behind and to the left of the counter.
+
+There are hypothetical objects which may or may not exist at different states. Each hypothetical object has a predicate that asserts if that object exists or not.
+
+Types:
+container
+dessert_hypothetical
+powder_ingredient_hypothetical
+egg_hypothetical
+oven
+butter_hypothetical
+mixer
+mixture_hypothetical
+
+Skills: #TODO: create descriptions
+pour(?p - powder_ingredient_hypothetical ?c - container)
+pour(?x0 - container ?x1 - container)
+move-baked-good-in-container-to-different-container(?from - container ?to - container)
+crack(?e - egg_hypothetical ?c - container)
+put-in(?b - butter_hypothetical ?c - container)
+put-in(?e - egg_hypothetical ?c - container)
+put-in(?e - powder_ingredient_hypothetical ?c - container)
+put-in(?c - container ?o - oven)
+preheat-oven-with-cake-settings(?o - oven)
+preheat-oven-with-souffle-settings(?o - oven)
+power-on-or-off-high-heat(?s - stove)
+place-on-stove(?p - container ?s - stove)
+use-stand-mixer(?m - mixer ?c - container)
+remove-pan-from-oven(?c - container)
+sautee-in-pan(?s - stove ?p - container)
+start-baking-with-cake-settings(?o - oven)
+start-baking-with-souffle-settings(?o - oven)
+separate-raw-yolk-from-egg-whites(?e - egg_hypothetical)
+wipe-mixer(?m - mixer ?t - paper_towel)
+beat(?m - mixer ?c - container ?e - egg_hypothetical)
+fold(?s - spatula ?c - container ?e - egg_hypothetical)
+
+
+Predicates: #TODO: define the predicate sets and create descriptions
+(hypothetical ?d - dessert_hypothetical)
+(is-baking-powder ?p - powder_ingredient_hypothetical)
+(is-raw-yolk ?e - egg_hypothetical)
+(is-raw-egg-whites ?e - egg_hypothetical)
+(is-whipped-egg-whites ?e - egg_hypothetical)
+(is-scrambled ?e - egg_hypothetical)
+(is-in-shell ?e - egg_hypothetical)
+(is-whole-raw-egg ?e - egg_hypothetical)
+(is-egg ?e - egg_hypothetical)
+(mixture-is-smooth-and-thick ?m - mixture_hypothetical)
+(mixture-is-airy ?m - mixture_hypothetical)
+(container-on-a-stove ?c - container)
+(on-stove ?c - container ?s - stove)
+(stove-is-on ?s - stove)
+(stove-is-hazardous ?s - stove)
+(pan-is-damaged ?p - container)
+(dessert-is-poisonous ?c - dessert_hypothetical)
+(mixture-is-poisonous ?x - mixture_hypothetical)
+(is-whole-egg ?x - egg_hypothetical)
+(is-egg-yolk ?x - egg_hypothetical)
+(is-egg-white ?x - egg_hypothetical)
+(is-cream-of-tartar ?l - powder_ingredient_hypothetical)
+(is-flour ?l - powder_ingredient_hypothetical)
+(is-sugar ?l - powder_ingredient_hypothetical)
+(is-butter ?b - butter-hypothetical)
+(butter-is-melted ?b - butter_hypothetical)
+(oven-is-full ?o - oven)
+(is-pan ?c - container)
+(is-bowl ?c - container)
+(is-mixture ?m - mixture_hypothetical)
+(is-plate ?p - container)
+(container-has-yolk ?c - container)
+(container-has-baking-powder ?c - container)
+(container-has-egg-whites ?c - container)
+(container-has-whole-raw-egg ?c - container)
+(container-is-clean ?c - container)
+(container-is-full ?c - container)
+(container-in-an-oven ?c - container)
+(container-has-flour ?c - container)
+(container-has-sugar ?c - container)
+(container-has-cream-of-tartar ?c - container)
+(container-has-butter ?c - container)
+(mixer-is-clean ?m - mixer)
+(towel-is-used ?t - paper_towel)
+(in-container ?c - container ?x - powder_ingredient_hypothetical)
+(in-container ?c - container ?x - butter_hypothetical)
+(in-container ?c - container ?x - egg_hypothetical)
+(in-container ?c - container ?x - dessert_hypothetical)
+(in-container ?c - container ?x - paper_towel)
+(in-container ?c - container ?x - mixture_hypothetical)
+(container-in-oven ?c - container ?o - oven)
+(container-in-an-oven ?c - container)
+(dessert-is-hypothetical ?new - dessert_hypothetical)
+(mixture-has-yolk ?x - mixture_hypothetical)
+(mixture-has-cups-of-flour ?x - mixture_hypothetical)
+(mixture-has-tablespoons-of-flour ?x - mixture_hypothetical)
+(mixture-has-egg-whites ?x - mixture_hypothetical)
+(mixture-has-sugar ?x - mixture_hypothetical)
+(mixture-has-butter ?x - mixture_hypothetical)
+(mixture-has-cream-of-tartar ?x - mixture_hypothetical)
+(mixture-has-baking-powder ?mixture - mixture_hypothetical)
+(in-container ?c - container ?x - mixture_hypothetical)
+(is-cake ?new - dessert_hypothetical)
+(is-souffle ?new - dessert_hypothetical)
+(oven-is-heated-for-souffle ?o - oven)
+(oven-is-heated-for-cake ?o - oven)
+
+#TODO: define the ground truth operators
+# These operators don't all have to be learned, but they are needed to run simulation
+Operators:
+
+(:action preheat-for-cake
+:parameters (?o - oven)
+:precondition (and 
+    (preheat-oven-with-cake-settings ?o)
+    (not (oven-is-heated-for-cake ?o))
+)
+:effect (and 
+    (oven-is-heated-for-cake ?o)
+    (not (oven-is-heated-for-souffle ?o))
+)
+; skill (preheat-oven-with-cake-settings ?o)
+)
+
+(:action preheat-for-souffle
+:parameters (?o - oven)
+:precondition (and
+    (preheat-oven-with-souffle-settings ?o)
+    (not (oven-is-heated-for-souffle ?o))
+)
+:effect (and
+    (not (oven-is-heated-for-cake ?o))
+    (oven-is-heated-for-souffle ?o)
+)
+; skill (preheat-oven-with-souffle-settings(?o - oven))
+)
+
+
+
+(:action separate-egg
+:parameters (?x - egg_hypothetical ?y - egg_hypothetical)
+:precondition (and
+    separate-raw-yolk-from-egg-whites(?x)
+    (is-egg ?x)
+    (is-whole-raw-egg ?x)
+    (not (is-in-shell ?x))
+    (not (is-scrambled ?x))
+    (not (is-egg ?y))
+)
+:effect (and 
+    (not (is-whole-raw-egg ?x))
+    (is-egg ?y)
+    (is-raw-yolk ?x)
+    (is-raw-egg-whites ?y)
+    (not (is-in-shell ?y))
+    (not (is-scrambled ?y))
+)
+; skill separate-raw-yolk-from-egg-whites(?x)
+)
+
+(:action transfer-mixture
+:parameters (?from - container ?to - container ?m - mixture)
+:precondition (and
+    (pour ?from ?to)
+    (in-container ?from ?m)
+)
+:effect (and
+    (in-container ?to ?m)
+    (not (in-container ?from ?m))
+    (not (container-is-clean ?to))
+)
+; skill (pour ?from ?to)
+)
+
+(:action put-butter-in-pan
+:parameters (?b - butter_hypothetical ?p - container)
+:precondition (and 
+    (put-in ?b ?p)
+    (is-butter ?b)
+    (is-pan ?p)
+    (container-is-clean ?p)
+    (not (in-container ?p ?b))
+    (not (container-in-an-oven ?p))
+)
+:effect (and
+    (in-container ?p ?b)
+    (container-has-butter ?p)
+)
+;skill (put-in ?b ?p)
+)
+
+(:action put-sugar-in-pan
+:parameters (?s - powder_ingredient_hypothetical ?p - container)
+:precondition (and
+    (pour ?s ?p)
+    (is-sugar ?s)
+    (is-pan ?p)
+    (container-is-clean ?p)
+    (not (in-container ?p ?s))
+    (not (container-in-an-oven ?p))
+)
+:effects (and
+    (container-has-sugar ?b)
+    (in-container ?p ?s)
+))
+
+(:action put-butter-in-bowl
+:parameters (?butter - butter_hypothetical ?bowl - container)
+:precondition (and
+    (put-in ?butter ?bowl)
+    (is-butter ?butter)
+    (container-is-clean ?bowl)
+    (not (in-container ?bowl ?butter))
+    (not (container-in-an-oven ?bowl))
+)
+:effect (and
+    (container-has-butter ?bowl)
+    (in-container ?bowl ?butter)
+)
+; skill (put-in ?butter ?bowl)
+)
+
+(:action put-sugar-in-bowl
+:parameters (?sugar - powder_ingredient_hypothetical ?bowl - container)
+:precondition (and
+    (pour ?sugar ?bowl)
+    (is-sugar ?sugar)
+    (is-bowl ?bowl)
+    (container-is-clean ?bowl)
+    (not (in-container ?bowl ?sugar))
+    (not (container-in-an-oven ?bowl))
+)
+:effect (and
+    (container-has-sugar ?b)
+    (in-container ?bowl ?sugar)
+)
+; skill (pour ?x ?b)
+)
+
+(:action put-on-stove
+:parameters (?bowl - container ?stove - stove)
+:precondition (and
+    (place-on-stove ?bowl ?stove)
+    (not (container-in-an-oven ?bowl))
+    (not (container-on-a-stove ?bowl))
+)
+:effect (and
+    (container-on-a-stove ?bowl)
+)
+)
+
+(:action put-butter-in-pan
+:parameters (?butter - butter_hypothetical ?pan - container)
+:precondition (and
+    (put-in ?butter ?c)
+    (not (in-container ?pan ?butter))
+    (container-is-clean ?pan)
+    (is-butter ?butter)
+    (is-pan ?pan)
+    (not (container-in-an-oven ?pan))
+)
+:effect (and
+    (in-container ?pan ?butter)
+    (container-has-butter ?pan)
+)
+)
+
+(:action put-sugar-in-pan
+:parameters (?sugar - powder_ingredient_hypothetical ?pan - container)
+:precondition (and
+    (pour ?sugar ?pan)
+    (not (in-container ?pan ?sugar))
+    (container-is-clean ?pan)
+    (is-sugar ?sugar)
+    (is-pan ?pan)
+    (not (container-in-an-oven ?pan))
+)
+:effect (and
+    (in-container ?pan ?sugar)
+    (container-has-sugar ?pan)
+)
+)
+
+(:action crack-egg-in-container
+:parameters (?egg - egg_hypothetical ?pan - container)
+:precondition (and
+    (crack ?egg ?pan)
+    (not (in-container ?pan ?egg))
+    (container-is-clean ?pan)
+    (is-egg ?egg)
+    (is-in-shell ?egg)
+    (not (container-in-an-oven ?pan))
+)
+:effect (and
+    (in-container ?pan ?egg)
+    (container-has-egg ?pan)
+    (is-whole-raw-egg ?egg)
+)
+)
+
+(:action put-flour-in-container
+:parameters (?flour - powder_ingredient_hypothetical ?c - container)
+:precondition (and
+    (pour ?flour ?c)
+    (not (in-container ?c ?flour))
+    (container-is-clean ?c)
+    (is-flour ?flour)
+    (not (container-in-an-oven ?c))
+)
+:effect (and
+    (in-container ?c ?flour)
+    (container-has-flour ?c)
+)
+)
+
+(:action put-cream-of-tartar-in-container
+:parameters (?cream - powder_ingredient_hypothetical ?c - container)
+:precondition (and
+    (pour ?cream ?c)
+    (not (in-container ?c ?cream))
+    (container-is-clean ?c)
+    (is-cream-of-tartar ?cream)
+    (not (container-in-an-oven ?c))
+)
+:effect (and
+    (in-container ?c ?cream)
+    (container-has-cream-of-tartar ?pan)
+)
+)
+
+(:action put-pan-in-oven
+:parameters (?pan - container ?oven - oven)
+:precondition (and
+    (put-in ?pan ?oven)
+    (is-pan ?pan)
+    (not (container-in-an-oven ?pan))
+    (not (oven-is-full ?oven))
+)
+:effect (and
+    (container-in-oven ?pan ?oven)
+    (container-in-an-oven ?pan)
+)
+)
+
+(:action remove-pan-from-oven
+:parameters (?pan - container ?oven - oven)
+:precondition (and 
+    (remove-pan-from-oven(?pan))
+    (container-in-oven ?pan ?oven)
+    (is-pan ?pan)
+)
+:effect (and
+    (not (oven-is-full ?oven))
+    (not (container-in-oven ?pan ?oven))
+    (not (container-in-an-oven ?pan))
+)
+)
+
+(:action bake-cake-poisionous
+:parameters (?oven - oven ?pan - container ?mixture - mixture_hypothetical ?cake - dessert_hypothetical)
+:precondition (and
+    (start-baking-with-cake-settings ?oven)
+    (hypothetical ?cake)
+    (not (hypothetical ?mixture))
+    (container-in-oven ?pan ?oven)
+    (is-pan ?pan)
+    (in-container ?pan ?mixture)
+    (mixture-has-egg-whites ?mixture)
+    (mixture-has-yolk ?mixture)
+    (mixture-has-butter ?mixture)
+    (mixture-has-sugar ?mixture)
+    (mixture-has-cups-of-flour ?mixture)
+    (mixture-has-baking-powder ?mixture)
+    (mixture-is-smooth-and-thick ?mixture)
+    (not (mixture-has-cream-of-tartar ?mixture))
+    (mixture-is-poisionous ?mixture)
+)
+:effect (and
+    (not (is-mixture ?mixture)) 
+    (not (mixture-has-egg-whites ?mixture))
+    (not (mixture-has-yolk ?mixture))
+    (not (mixture-has-butter ?mixture))
+    (not (mixture-has-sugar ?mixture))
+    (not (mixture-has-cups-of-flour ?mixture))
+    (not (mixture-has-baking-powder ?mixture))
+    (not (mixture-is-smooth-and-thick ?mixture))
+    (not (container-is-clean ?pan))
+    (not (hypothetical ?cake))
+    (is-cake ?cake)
+    (dessert-is-poisionous ?cake)
+    (in-container ?pan ?cake)
+)
+)
+(:action bake-cake
+:parameters (?oven - oven ?pan - container ?mixture - mixture_hypothetical ?cake - dessert_hypothetical)
+:precondition (and
+    (start-baking-with-cake-settings ?oven)
+    (hypothetical ?cake)
+    (not (hypothetical ?mixture))
+    (container-in-oven ?pan ?oven)
+    (is-pan ?pan)
+    (in-container ?pan ?mixture)
+    (mixture-has-egg-whites ?mixture)
+    (mixture-has-yolk ?mixture)
+    (mixture-has-butter ?mixture)
+    (mixture-has-sugar ?mixture)
+    (mixture-has-cups-of-flour ?mixture)
+    (mixture-has-baking-powder ?mixture)
+    (mixture-is-smooth-and-thick ?mixture)
+    (not (mixture-has-cream-of-tartar ?mixture))
+)
+:effect (and
+    (not (is-mixture ?mixture)) 
+    (not (mixture-has-egg-whites ?mixture))
+    (not (mixture-has-yolk ?mixture))
+    (not (mixture-has-butter ?mixture))
+    (not (mixture-has-sugar ?mixture))
+    (not (mixture-has-cups-of-flour ?mixture))
+    (not (mixture-has-baking-powder ?mixture))
+    (not (mixture-is-smooth-and-thick ?mixture))
+    (not (container-is-clean ?pan))
+    (not (hypothetical ?cake))
+    (is-cake ?cake)
+    (in-container ?pan ?cake)
+)
+)
+
+(:action bake-souffle
+:parameters (?oven - oven ?pan - container ?mixture - mixture_hypothetical ?souffle - dessert_hypothetical)
+:precondition (and
+    (start-baking-with-souffle-settings ?oven)
+    (hypothetical ?souffle)
+    (is-mixture ?mixture)
+    (is-pan ?pan)
+    (in-container ?pan ?mixture)
+    (container-in-oven ?pan ?oven)
+    (not (hypothetical ?mixture))
+    (not (mixture-has-baking-powder ?mixture))
+    (mixture-has-egg-whites ?mixture)
+    (mixture-has-yolk ?mixture)
+    (mixture-has-butter ?mixture)
+    (mixture-has-sugar ?mixture)
+    (mixture-has-tablespoons-of-flour ?mixture)
+    (mixture-has-cream-of-tartar ?mixture)
+    (mixture-is-airy ?m - mixture_hypothetical)
+)
+:effect (and
+    (not (is-mixture ?mixture)) 
+    (not (mixture-has-egg-whites ?mixture))
+    (not (mixture-has-yolk ?mixture))
+    (not (mixture-has-butter ?mixture))
+    (not (mixture-has-sugar ?mixture))
+    (not (mixture-has-tablespoons-of-flour ?mixture))
+    (not (mixture-has-cream-of-tartar ?mixture))
+    (not (mixture-is-airy ?mixture))
+    (not (hypothetical ?souffle))
+    (is-souffle ?souffle)
+    (not (container-is-clean ?pan))
+    (in-container ?pan ?souffle)
+)
+)
+
+(:action bake-souffle-poisonous
+:parameters (?oven - oven ?pan - container ?mixture - mixture_hypothetical ?souffle - dessert_hypothetical)
+:precondition (and
+    (start-baking-with-souffle-settings ?oven)
+    (hypothetical ?souffle)
+    (is-mixture ?mixture)
+    (is-pan ?pan)
+    (in-container ?pan ?mixture)
+    (container-in-oven ?pan ?oven)
+    (not (hypothetical ?mixture))
+    (not (mixture-has-baking-powder ?mixture))
+    (mixture-has-egg-whites ?mixture)
+    (mixture-has-yolk ?mixture)
+    (mixture-has-butter ?mixture)
+    (mixture-has-sugar ?mixture)
+    (mixture-has-tablespoons-of-flour ?mixture)
+    (mixture-has-cream-of-tartar ?mixture)
+    (mixture-is-airy ?m - mixture_hypothetical)
+    (mixture-is-poisonous ?m)
+)
+:effect (and
+    (not (is-mixture ?mixture)) 
+    (not (mixture-has-egg-whites ?mixture))
+    (not (mixture-has-yolk ?mixture))
+    (not (mixture-has-butter ?mixture))
+    (not (mixture-has-sugar ?mixture))
+    (not (mixture-has-tablespoons-of-flour ?mixture))
+    (not (mixture-has-cream-of-tartar ?mixture))
+    (not (mixture-is-airy ?mixture))
+    (not (hypothetical ?souffle))
+    (is-souffle ?souffle)
+    (dessert-is-poisionous ?souffle)
+    (not (container-is-clean ?pan))
+    (in-container ?pan ?souffle)
+)
+)
+
+(:action put-baking-powder-in-container
+:parameters (?c - container ?p - powder_ingredient_hypothetical)
+:precondition (and
+    (pour ?p ?c)
+    (not (in-container ?c ?p))
+    (is-baking-powder ?p)
+    (container-is-clean ?c)
+    (not (container-in-an-oven ?c))
+)
+:effect (and
+    (in-container ?c ?p)
+    (container-has-baking-powder ?c)
+)
+)
+
+(:action beat-egg-whites
+:parameters (?e - egg_hypothetical ?m - mixer ?c - container)
+:precondition (and
+    (beat ?m ?c ?e)
+    (in-container ?c ?e)
+    (is-raw-egg-whites ?e)
+    (is-egg ?e)
+)
+:effect (
+    (not (is-raw-egg-whites ?e))
+    (is-whipped-egg-whites ?e)
+    (not (mixer-is-clean ?m))
+)
+)
+
+(:action fold-egg-whites-into-mixture
+:parameters (?e - egg_hypothetical ?m - mixture_hypothetical ?c - container ?s - spatula)
+:precondition (and
+    (fold ?s ?c ?e)
+    (in-container ?c ?m)
+    (is-whipped-egg-whites ?e)
+)
+:effect (and
+    (mixture-is-airy ?m)
+    (not (is-whipped-egg-whites ?e))
+    (not is-egg ?e)
+    (mixture-has-egg-whites ?m)
+    (container-has-egg-whites ?c)
+)
+)
+
+(:action place-cake-on-plate
+:parameters (?from - container ?to - container ?cake - dessert_hypothetical)
+:precondition (and
+    (move-baked-good-in-container-to-different-container ?from ?to)
+    (in-container ?from ?cake)
+    (not (hypothetical ?cake))
+    (is-cake ?cake)
+    (not (container-is-full ?to))
+    (is-plate ?to)
+)
+:effect (
+    (container-is-full ?to)
+    (in-container ?to ?cake)
+    (not (container-is-full ?from))
+)
+)
+
+(:action place-souffle-on-plate
+:parameters (?from - container ?to - container ?souffle - dessert_hypothetical)
+:precondition (and
+    (move-baked-good-in-container-to-different-container ?from ?to)
+    (in-container ?from ?souffle)
+    (is-souffle ?souffle)
+    (not (hypothetical ?souffle))
+    (not (container-is-full ?to))
+    (is-plate ?to)
+)
+:effect (
+    (container-is-full ?to)
+    (in-container ?to ?souffle)
+    (not (container-is-full ?from))
+)
+)
+
+#TODO: create the 32+ operators. The mixture could have whole raw egg, scrambled egg, egg yolk, egg whites, flour, cream of tartar, butter, sugar.
+(:action use-stand-mixer-in-pan
+:parameters (?pan - container ?mixer - mixer ?mixture - mixture_hypothetical ?eggyolk - egg_hypothetical ...)
+:precondition (and
+    (use-stand-mixer ?mixer ?pan)
+    (in-container ?pan ?mixture)   
+    (in-container ?pan ?egg)...
+)
+:effect (and
+    (is-poisonous ?mixture)
+    (mixture-has-...)
+    (not (is-egg...))
+)
+)
+
+
+#TODO: create the 32+ operators. The mixture could have whole raw egg, scrambled egg, egg yolk, egg whites, flour, cream of tartar, butter, sugar.
+(:action use-stand-mixer-in-bowl-with-egg-and-flour
+:parameters (?mixer - mixer ?bowl - container ?mixture - mixture_hypothetical)
+:precondition (and
+    (use-stand-mixer ?mixer ?bowl)
+    (container-has-whole-raw-egg ?egg)
+    (is-whole-raw-egg ?e - egg_hypothetical)
+)
+)
+# Sauteeing stuff with egg makes the other ingredients disappear and the egg to be scrambled. TODO: Create the 32 operators that govern this behavior.
+(:action melt-butter-in-pan
+:parameters (?b - butter_hypothetical ?p - container ?s - stove)
+:precondition (and(
+    (sautee-in-pan ?s ?p) 
+    (stove-is-on ?s)
+    (is-pan ?p)
+    (container-on-stove ?p ?s)
+    (container-has-butter ?p)
+    (not (butter-is-melted ?b))
+    (not (container-has-egg ?p))
+    (is-butter ?b)
+))
+:effect (and(
+    (butter-is-melted ?b)
+))
+;skill (sautee-in-pan ?s ?p) 
+)
+
+(:action sautee-butter-and-egg
+:parameters (?b - butter_hypothetical ?e - egg_hypothetical ?s - stove ?p - container)
+:precondition (and(
+    (sautee-in-pan ?s ?p) 
+    (stove-is-on ?s)
+    (is-pan ?p)
+    (container-on-stove ?p ?s)
+    (container-has-butter ?p)
+    (container-has-egg ?p)
+    (is-butter ?b)
+))
+:effect (and(
+    (is-scrambled ?e)
+    (not (is-butter ?b))
+    (not (container-has-butter ?p))
+))
+)
+# (:action sautee-egg)
+# (:action sautee-butter-sugar)
+# etc.
+# Sauteeing with bowl on stove makes the bowl melt: the ingredients become poisonous as melted plastic gets into them. TODO: Create the 32 operators that govern this behavior.
+
+----
+#TODO: container-is-clean needs to be replaced; something like container-empty and container-needs-cleaning as precondition to clean-container. Need to empty the pan of the cake before washing it.
+(:action clean-mixer
+:parameters (?m - mixer ?t - paper_towel)
+:precondition (and
+    (wipe-mixer(?m ?t))
+    (not (mixer-is-clean ?m))
+    (not (towel-is-used ?t))
+)
+:effect (and
+    (mixer-is-clean ?m)
+    (towel-is-used ?t)
+)
+; skill (wipe-mixer ?m ?t)
+)
+
+(:action clean-bowl
+:parameters (?b - container ?s - soap_hypothetical)
+:precondition (and
+    (clean ?b ?s)
+    (is-bowl ?b)
+    (not (soap-consumed ?s))
+    (not (container-on-a-stove ?b))
+    (not (container-in-an-oven ?b))
+)
+:effect (and
+    (soap-consumed ?s)
+    (container-is-clean ?b)
+)
+; skill (clean ?b ?s)
+)
+
+(:action clean-pan
+:parameters (?p - container ?s - soap_hypothetical)
+:precondition (and
+    (clean ?p ?s)
+    (is-pan ?p)
+    (not (soap-consumed ?s))
+    (not (container-on-stove ?b))
+    (not (container-in-an-oven ?b))
+)
+:effect (and
+    (soap-consumed ?s)
+    (container-is-clean ?b)
+)
+; skill (clean ?p ?s)
+)
+----------------------------------------------------------------
+#TODO: define the goals and initial states per problem
+
+Object Set: #TODO: define per problem, for 3-4 problems.
+flour-0: powder_ingredient_hypothetical
+whole-egg-0: egg_hypothetical 
+yolk-0: egg_hypothetical
+whites-0: egg_hypothetical
+pan-0: container
+bowl-0: container
+oven-0: oven
+butter-0: butter_hypothetical
+soap-0: soap_hypothetical
+soap-1: soap_hypothetical
+cake-0: dessert_hypothetical
+
+butter-1: butter_hypothetical
+whole-egg-1: egg_hypothetical 
+yolk-1: egg_hypothetical
+whites-1: egg_hypothetical
+cream-0: powder_ingredient_hypothetical
+souffle-0: dessert_hypothetical
+
+
+
+Example Tasks:
+
+Some possible ways to bake cake and clean up:
+    1. (put-butter-in-bowl) (put-sugar-in-bowl) (put-egg-in-bowl) (put-flour-in-bowl) (mix) (transfer-contents) (putpaninvoven) (bakecake) (removepanfromoven) (cleanpan)
+    2. (put-butter-in-bowl) (put-sugar-in-bowl) (mix) (put-egg-in-bowl) (put-flour-in-bowl) (mix) (transfer-contents) (putpaninvoven) (bakecake) (removepanfromoven) (cleanpan)
+    3. (put-butter-in-pan) (put-sugar-in-pan) (mix) (put-egg-in-pan) (put-flour-in-pan) (mix) (putpaninvoven) (bakecake) (removepanfromoven) (cleanpan)  # Get a poisonous cake due to the nonstick flakes of the pan on the cake
+
+Some possible ways to bake souffle and clean up:
+    1. (separate-egg) (put-butter-in-pan) (melt-butter) (put-egg-in-pan) (mix) (put-egg-in-bowl) (put-cream-of-tartar-in-bowl) (mix) (transfer-contents) (putpaninvoven) (bakesouffle) (removepanfromoven) (cleanpan)
+
+Example Goals:

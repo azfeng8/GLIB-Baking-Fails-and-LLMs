@@ -328,21 +328,23 @@ class PlottingConfig:
     for _ in range(num_experiment_sets):
         for domain in ["Minecraft", "Baking", "Travel", "Blocks", "Glibdoors", "Easygripper"]:
             domains.append(domain)
-            domains.append(domain)
+            # domains.append(domain)
     
     # One list of ranges per plot
     seeds = []
-    # for i in range(570, 670, 10):
-    # for i in range(790, 850, 10):
-    for i in range(1000, 1030, 10):
-    # for i in range(690, 790, 10):
-        for _ in range(8):
-            seeds.append([range(i, i+10), range(100, 110)])
+    for i in range(920, 930, 10):
         for _ in range(4):
-            seeds.append([(range(i, i+10)), range(110, 120)])
+        # for _ in range(8):
+            seeds.append([range(100, 110)] * 2)
+            # seeds.append([range(i, i+10), range(100, 110)])
+        for _ in range(2):
+        # for _ in range(4):
+            seeds.append([range(110, 120)] * 2)
+            # seeds.append([(range(i, i+10)), range(110, 120)])
     
     # One list of (learning_name, curiosity_name) per plot
     methods = []
     for _ in range(6 * num_experiment_sets):
-        methods.append([("LLMWarmStart+LNDR", "GLIB_G1"), ("LNDR", "GLIB_G1")])
-        methods.append([("LLMWarmStart+LNDR", "GLIB_L2"), ("LNDR", "GLIB_L2")])
+        methods.append([("LNDR", "GLIB_L2"), ("LNDR", "GLIB_G1")])
+        # methods.append([("LLMWarmStart+LNDR", "GLIB_G1"), ("LNDR", "GLIB_G1")])
+        # methods.append([("LLMWarmStart+LNDR", "GLIB_L2"), ("LNDR", "GLIB_L2")])

@@ -1,0 +1,47 @@
+5 train problems, 10 test problems.
+
+Train goals:
+1. (is-cake dessert-0) (not (pan-is-damaged pan-0))
+2. (is-souffle dessert-0) (not (pan-is-damaged pan-1)) (not (pan-is-damaged pan-0))
+3. (is-cake dessert-0) (in-container plate-0 dessert-0)
+4. (is-cake dessert-0) (is-souffle dessert-1)
+5. (is-souffle dessert-0) (is-souffle dessert-1)
+
+Test goals: # ordered from hardest to easiest
+1. (is-souffle dessert-0) (in-container plate-1 dessert-0) (is-cake dessert-1) (in-container plate-1 dessert-1) (not (pan-is-damaged pan-0)) (not (pan-is-damaged pan-1))
+2. (is-cake dessert-0) (is-cake dessert-1)
+3. (is-souffle dessert-0) (in-container plate-1 dessert-0)
+# This is a souffle mixture
+4. (mixture-is-airy mixture-1) (mixture-has-egg-whites mixture-1) (mixture-has-raw-yolk mixture-1) (mixture-has-butter mixture-1) (mixture-has-sugar mixture-1) (mixture-has-tablespoons-of-flour mixture-1)
+# This is a cake mixture
+5. (not (mixture-is-airy mixture-0)) (mixture-has-raw-egg-yolk mixture-0) (mixture-has-butter mixture-0) (mixture-has-sugar mixture-0) (mixture-has-cups-of-flour mixture-0) (mixture-has-baking-powder mixture-0)
+# Need to crack egg, separate egg, and mix
+6. (mixture-has-raw-yolk mixture-0) (not (mixture-has-raw-egg-whites mixture-0))
+# Crack egg
+7. (in-container pan-0 egg-0) (not (is-in-shell egg-0)) (is-whole-raw-egg egg-0)
+8. (oven-is-full oven-0) (oven-is-full oven-1)
+9. (oven-is-heated-for-souffle oven-0)
+10. (in-container bowl-0 flour-0)
+
+---
+Note, if the train goals are too hard for the LLM, then define instead subgoals that would make it easier for the LLM:
+5. (mixture-is-smooth-and-thick ?mixture-0)
+6. (is-mixture-airy ?mixture-0)
+7. (container-in-an-oven ?pan-0)
+8. (mixture-has-raw-egg-yolk ?mixture-0) (mixture-has-raw-egg-whites ?mixture-0) (mixture-has-cups-of-flour ?mixture-0)
+
+
+
+Example Tasks:
+# For different tasks, the predicate and object descriptions could be different, so that a simplified domain could work.
+
+Some possible ways to bake cake and clean up:
+    1. (put-butter-in-bowl) (put-sugar-in-bowl) (put-egg-in-bowl) (put-flour-in-bowl) (mix) (transfer-contents) (putpaninvoven) (bakecake) (removepanfromoven) (cleanpan)
+    2. (put-butter-in-bowl) (put-sugar-in-bowl) (mix) (put-egg-in-bowl) (put-flour-in-bowl) (mix) (transfer-contents) (putpaninvoven) (bakecake) (removepanfromoven) (cleanpan)
+    3. (put-butter-in-pan) (put-sugar-in-pan) (mix) (put-egg-in-pan) (put-flour-in-pan) (mix) (putpaninvoven) (bakecake) (removepanfromoven) (cleanpan)  # Get a poisonous cake due to the nonstick flakes of the pan on the cake
+
+Some possible ways to bake souffle and clean up:
+    1. (separate-egg) (put-butter-in-pan) (melt-butter) (put-egg-in-pan) (mix) (put-egg-in-bowl) (put-cream-of-tartar-in-bowl) (mix) (transfer-contents) (putpaninvoven) (bakesouffle) (removepanfromoven) (cleanpan)
+
+Example Goals:
+

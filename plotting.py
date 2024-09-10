@@ -124,8 +124,8 @@ class Figure:
         color_idx = 0
         for plotline in self.plotlines:
             learner = plotline.learning_method
-            if learner == 'LLMWarmStart+LNDR':
-                name = f'{domain}_seeds{plotline.seeds[0]}-{plotline.seeds[-1]}_{plotline.curiosity_method}_succ.png'
+            # if learner == 'LLMWarmStart+LNDR':
+            name = f'{domain}_seeds{plotline.seeds[0]}-{plotline.seeds[-1]}_{plotline.curiosity_method}_succ.png'
             explorer = plotline.curiosity_method
             seeds = plotline.seeds
             seeds_path = os.path.join(domain_path, learner, explorer)

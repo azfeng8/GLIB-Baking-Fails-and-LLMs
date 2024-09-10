@@ -1,0 +1,99 @@
+
+----
+#TODO: container-is-clean needs to be replaced; something like container-empty and container-needs-cleaning as precondition to clean-container. Need to empty the pan of the cake before washing it.
+(:action clean-mixer
+:parameters (?m - mixer ?t - paper_towel)
+:precondition (and
+    (wipe-mixer(?m ?t))
+    (not (mixer-is-clean ?m))
+    (not (towel-is-used ?t))
+)
+:effect (and
+    (mixer-is-clean ?m)
+    (towel-is-used ?t)
+)
+; skill (wipe-mixer ?m ?t)
+)
+
+(:action clean-bowl
+:parameters (?b - container ?s - soap_hypothetical)
+:precondition (and
+    (clean ?b ?s)
+    (is-bowl ?b)
+    (not (soap-consumed ?s))
+    (not (container-on-a-stove ?b))
+    (not (container-in-an-oven ?b))
+)
+:effect (and
+    (soap-consumed ?s)
+    (container-is-clean ?b)
+)
+; skill (clean ?b ?s)
+)
+
+(:action clean-pan
+:parameters (?p - container ?s - soap_hypothetical)
+:precondition (and
+    (clean ?p ?s)
+    (is-pan ?p)
+    (not (soap-consumed ?s))
+    (not (container-on-stove ?b))
+    (not (container-in-an-oven ?b))
+)
+:effect (and
+    (soap-consumed ?s)
+    (container-is-clean ?b)
+)
+; skill (clean ?p ?s)
+)
+----------------------------------------------------------------
+# Sauteeing stuff with egg makes the other ingredients disappear and the egg to be scrambled. TODO: Create the operators that govern this behavior.
+(:action melt-butter-in-pan
+:parameters (?b - butter_hypothetical ?p - container ?s - stove)
+:precondition (and(
+    (sautee-in-pan ?s ?p) 
+    (stove-is-on ?s)
+    (is-pan ?p)
+    (container-on-stove ?p ?s)
+    (container-has-butter ?p)
+    (not (butter-is-melted ?b))
+    (not (container-has-egg ?p))
+    (is-butter ?b)
+))
+:effect (and(
+    (butter-is-melted ?b)
+))
+;skill (sautee-in-pan ?s ?p) 
+)
+
+(:action sautee-butter-and-egg
+:parameters (?b - butter_hypothetical ?e - egg_hypothetical ?s - stove ?p - container)
+:precondition (and(
+    (sautee-in-pan ?s ?p) 
+    (stove-is-on ?s)
+    (is-pan ?p)
+    (container-on-stove ?p ?s)
+    (container-has-butter ?p)
+    (container-has-egg ?p)
+    (is-butter ?b)
+))
+:effect (and(
+    (is-scrambled ?e)
+    (not (is-butter ?b))
+    (not (container-has-butter ?p))
+))
+)
+# (:action sautee-egg)
+# (:action sautee-butter-sugar)
+# etc.
+
+Additional preds:
+(container-on-a-stove ?c - container)
+(on-stove ?c - container ?s - stove)
+(stove-is-on ?s - stove)
+(stove-is-hazardous ?s - stove)
+
+Additional skills:
+power-on-or-off-high-heat(?s - stove)
+place-on-stove(?p - container ?s - stove)
+-
