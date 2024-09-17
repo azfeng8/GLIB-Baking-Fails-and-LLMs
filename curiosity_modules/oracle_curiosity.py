@@ -30,7 +30,7 @@ class OracleCuriosityModule(BaseCuriosityModule):
     def get_action(self, state):
         action = self._get_action(state, depth=0, max_depth=ac.oracle_max_depth)[0]
         self._num_steps += 1
-        return action
+        return False, None, action
 
     def _get_action(self, state, depth, max_depth):
         """Returns tuple of (action, is_interesting).

@@ -39,18 +39,18 @@ class AgentConfig:
     """Agent-specific constants.
     """
     curiosity_methods_to_run = [
-        "LLM+GLIB_L2",
-        "LLM+GLIB_G1",
+        # "LLM+GLIB_L2",
+        # "LLM+GLIB_G1",
         # "GLIB_L2",
         # "GLIB_G1",
-        # "oracle",
-        # "random",
+        "oracle",
+        "random",
     ]
 
-    # learning_name = "LNDR"
+    learning_name = "LNDR"
     # learning_name = "LLMIterative+LNDR"
     # learning_name = "LLMWarmStart+LNDR"
-    learning_name = "LLM+LNDR"
+    # learning_name = "LLM+LNDR"
 
     operator_fail_limit = 3 
     init_ops_method = 'skill-conditioned'
@@ -70,6 +70,7 @@ class AgentConfig:
         "Explodingblocks": "ffreplan",
         "River": "ffreplan",
         "Baking": "ff",
+        "Bakingrealistic": "fd",
         "Minecraft": "ff",
         "Travel": "ff"
     }
@@ -94,7 +95,8 @@ class AgentConfig:
         "NDRBlocks": 25,
         "Baking": 1,
         "Minecraft": 1,
-        "Travel": 1
+        "Travel": 1,
+        "Bakingrealistic": 1
     }
 
     # How often to use the LLM to learn operators. Interval units are iterations.
@@ -136,7 +138,8 @@ class AgentConfig:
         "NDRBlocks" : 25,
         "Baking": 25,
         "Minecraft": 30,
-        "Travel": 35
+        "Travel": 35,
+        "Bakingrealistic": 50,
     }
     # Max test episode length.
     max_test_episode_length = {
@@ -156,7 +159,8 @@ class AgentConfig:
         "NDRBlocks" : 25,
         "Baking": 25,
         "Travel": 25,
-        "Minecraft": 25
+        "Minecraft": 25,
+        "Bakingrealistic": 50
     }
     # Timeout for planner.
     planner_timeout = None  # set in main.py
@@ -179,11 +183,12 @@ class AgentConfig:
         "NDRBlocks" : 1501,
         "Baking": 1799,
         "Travel": 1501,
-        "Minecraft": 1799
+        "Minecraft": 1799,
+        "Bakingrealistic": 3000
     }
 
     ## Constants for curiosity modules. ##
-    max_sampling_tries = 100
+    max_sampling_tries = 50
     max_planning_tries = 50
     oracle_max_depth = 2
 
@@ -205,7 +210,8 @@ class AgentConfig:
         "NDRBlocks": 35,
         "Baking": 35,
         "Travel": 35,
-        "Minecraft": 35
+        "Minecraft": 35,
+        "Bakingrealistic": 50
     }
     mutex_episode_len = {
         "Blocks": 35,
@@ -224,7 +230,8 @@ class AgentConfig:
         "NDRBlocks": 35,
         "Baking": 35,
         "Minecraft": 35,
-        "Travel": 35
+        "Travel": 35,
+        "Bakingrealistic": 50
     }
     mutex_num_action_samples = 10
 
@@ -252,7 +259,8 @@ class AgentConfig:
         "NDRBlocks": float("inf"),
         "Baking": 25,
         "Minecraft": 25,
-        "Travel": 25
+        "Travel": 25,
+        "Bakingrealistic": 50
     }
     max_zpk_action_batch_size = {
         "Blocks": None,
@@ -271,7 +279,8 @@ class AgentConfig:
         "NDRBlocks": None,
         "Baking": None,
         "Minecraft": None,
-        "Travel": None
+        "Travel": None,
+        "Bakingrealistic": None
     }
     zpk_initialize_from_previous_rule_set = {
         "Blocks": False,
@@ -290,7 +299,8 @@ class AgentConfig:
         "NDRBlocks": False,
         "Baking": False,
         "Minecraft": False,
-        "Travel": False
+        "Travel": False,
+        "Bakingrealistic": False
     }
 
     local_minima_method = 'delete-operator'

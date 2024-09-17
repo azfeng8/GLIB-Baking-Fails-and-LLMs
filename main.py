@@ -91,15 +91,17 @@ class Runner:
         ops_changed_itrs = []
         planning_ops_changed_itrs = []
         for itr in range(self.num_train_iters):
-            logging.info("\nIteration {} of {}".format(itr, self.num_train_iters))
+            logging.info("Iteration {} of {}".format(itr, self.num_train_iters))
 
             if episode_done or episode_time_step > ac.max_train_episode_length[self.domain_name]:
                 obs, _ = self.train_env.reset()
                 self.agent.reset_episode(obs)
                 episode_time_step = 0
 
+            logging.debug("Getting action...")
             action = self.agent.get_action(obs)
 
+            logging.debug("Executing action...")
             next_obs, _, episode_done, _ = self.train_env.step(action)
 
             # # Exclude no-ops

@@ -64,7 +64,7 @@ class Agent:
         # It may use the learned operators to select actions
         self._curiosity_module = create_curiosity_module(
             curiosity_module_name, action_space, observation_space,
-            self._planning_module, self.planning_operators,
+            self._planning_module, self.planning_operators, self.learned_operators,
             self._operator_learning_module, domain_name, self.llm_precondition_goals)
         
         # Flag to tell if at the episode start. Unset after observing the first effect.

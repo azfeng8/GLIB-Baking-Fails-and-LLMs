@@ -177,7 +177,7 @@ class Planner:
                 problem_parser.objects.append("DUMMY")
 
             # Write out new temporary problem file
-            problem_parser.write(problem_fname)
+            problem_parser.write(problem_fname, fast_downward_order=True)
 
             # Add to cache
             self._problem_files[raw_problem_fname] = (problem_fname, problem_parser.objects)
