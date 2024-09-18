@@ -3,43 +3,6 @@
 To use, replace the objects string with an object - object_type per line. Replace the skill strings as the declaration of the action predicates in the PDDL domain file.
 """
 
-objects_string = \
-"""
-pan-0 - container
-pan-1 - container
-bowl-0 - container
-bowl-1 - container
-plate-0 - container
-measuring-cup-0 - measuring_cup
-measuring-cup-1 - measuring_cup
-measuring-cup-2 - measuring_cup
-measuring-cup-3 - measuring_cup
-measuring-cup-4 - measuring_cup
-measuring-cup-5 - measuring_cup
-oven-0 - oven
-mixer-0 - electric_stand_mixer
-spatula-0 - spatula
-dessert-0 - dessert_hypothetical
-egg-0 - egg_hypothetical
-egg-1 - egg_hypothetical
-egg-2 - egg_hypothetical
-egg-3 - egg_hypothetical
-flour-0 - powder_ingredient_hypothetical
-flour-1 - powder_ingredient_hypothetical
-baking-powder-0 - powder_ingredient_hypothetical
-sugar-0 - powder_ingredient_hypothetical
-butter-0 - butter_hypothetical
-mixture-0 - mixture_hypothetical
-mixture-1 - mixture_hypothetical
-mixture-2 - mixture_hypothetical     
-mixture-3 - mixture_hypothetical
-mixture-4 - mixture_hypothetical
-mixture-5 - mixture_hypothetical
-mixture-6 - mixture_hypothetical     
-mixture-7 - mixture_hypothetical
-mixture-8 - mixture_hypothetical
-"""
-
 skills_strings = \
 """
 (pour-powdery-ingredient-from-measuring-cup ?p - powder_ingredient_hypothetical ?cup - measuring_cup ?c - container)
@@ -49,17 +12,17 @@ skills_strings = \
 (transfer-egg-only ?from - container ?into - container ?m - egg_hypothetical)
 (move-baked-good-in-container-to-different-container ?from - container ?to - container)
 (crack-egg-and-put-in-container ?e - egg_hypothetical ?c - container)
-(put-butter-in-container ?b - butter_hypothetical ?c - container)
+(put-butter-in-container-from-measuring-cup ?b - butter_hypothetical ?c - container)
 (put-container-in-oven ?c - container ?o - oven)
 (preheat-oven-with-cake-settings ?o - oven)
 (preheat-oven-with-souffle-settings ?o - oven)
-(use-stand-mixer ?m - electric_stand_mixer ?c - container)
+(use-stand-mixer ?m - electric_stand_mixer ?c - container ?m - mixture_hypothetical)
 (remove-pan-from-oven ?c - container)
 (start-baking-with-cake-settings ?o - oven)
 (start-baking-with-souffle-settings ?o - oven)
 (separate-raw-yolk-from-egg-whites ?e - egg_hypothetical ?new - egg_hypothetical)
-(beat ?m - electric_stand_mixer ?c - container ?e - egg_hypothetical)
-(fold ?s - spatula ?from - container ?to - container ?e - egg_hypothetical)
+(beat-egg-whites ?m - electric_stand_mixer ?c - container ?e - egg_hypothetical)
+(fold-stiff-egg-whites-into-mixture ?s - spatula ?from - container ?to - container ?e - egg_hypothetical)
 """
 
 import argparse
