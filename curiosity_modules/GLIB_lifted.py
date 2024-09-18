@@ -52,6 +52,7 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
             Pairs of (goal literals, action).
         """
         unseen_goal_actions = set()
+        import ipdb; ipdb.set_trace()
         for action_pred in action_predicates:
             for num_lits in range(1, max_num_lits+1):
                 for goal_preds in itertools.combinations(observation_predicates, num_lits):
