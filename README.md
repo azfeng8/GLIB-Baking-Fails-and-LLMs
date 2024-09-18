@@ -7,6 +7,8 @@ Instructions for running:
 -> Mac: https://github.com/ronuchit/FF
 * From the FF directory you just created, run `make` to build FF, producing the executable `ff`.
 * Create an environment variable "FF_PATH" pointing to this `ff` executable.
+* Download the FastDownward planner repo. https://github.com/aibasel/downward, run `python build.py` in the Github repo.
+* From the repo, create an environment variable "FD_PATH" pointing to the `fast-downward.py` file in that Github repo.
 * Follow the steps under the 'Setup OpenAI key' section below.
 * Back in the GLIB directory, you can now run `python main.py`.
 # Steps to run LLM methods
