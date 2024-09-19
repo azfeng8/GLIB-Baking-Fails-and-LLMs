@@ -101,7 +101,7 @@ class Runner:
             logging.debug("Getting action...")
             action = self.agent.get_action(obs)
 
-            logging.debug("Executing action...")
+            logging.debug(f"Executing action {action}...")
             next_obs, _, episode_done, _ = self.train_env.step(action)
 
             # # Exclude no-ops

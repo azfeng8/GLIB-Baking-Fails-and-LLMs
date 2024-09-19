@@ -27,20 +27,20 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
         self._rand_state = np.random.RandomState(seed=ac.seed)
         self._name = "newiw"
         self._episode_start_state = None
+        self._seen_state_actions = set()
 
-        # Initialize all possible goal-actions up to the max num of lits.
-        # This is a set of (goal literals, action literal) pairs.
-        self._unseen_goal_actions = self._init_unseen_goal_actions(
-            self._action_space.predicates, self._observation_space.predicates, 
-            self._k)
+        self._sampling_iterator = self._yield_goal_action(self._action_space.predicates, self._observation_space.predicates, self._k)
+
 
     @classmethod
     def _use_goal_preds(cls, goal_preds):
         return True
 
-    @classmethod
-    def _init_unseen_goal_actions(cls, action_predicates, observation_predicates, max_num_lits):
-        """Initialize all possible goal-actions up to the max num of lits.
+    def _yield_goal_action(self, action_predicates, observation_predicates, max_num_lits):
+        """Returns a generator that samples a pair of (goal_literal, action) uniformly at random and yields
+        it, until all lifted goals have been yielded. Useful for generating goals to try to plan towards for the
+        purpose of exploration.
+
         Parameters
         ----------
         action_predicates : { Predicate }
@@ -49,18 +49,16 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
         Returns
         -------
         unseen_goal_actions : (tuple(Literal), Literal)
-            Pairs of (goal literals, action).
+            Tuples of (goal literals, action, from_LLM). Note that the
+            final element (from_LLM) will always be false in this case.
         """
-        unseen_goal_actions = set()
-        for action_pred in action_predicates:
-            for num_lits in range(1, max_num_lits+1):
-                for goal_preds in itertools.combinations(observation_predicates, num_lits):
-                    # Lump together goal and action for now; will separate at the end
-                    # if num_lits == 1:
-                    #     if not goal_preds[0]=="robotat":continue
-                    # else:
-                    #     if not (goal_preds[1] == "robotat" and goal_preds[0].name.startswith("locprize")):continue
-                    if not cls._use_goal_preds(goal_preds):
+        # When all of the lifted goals are visited, there needs to be a way to stop this loop.
+        for num_lits in np.random.permutation(np.arange(1, max_num_lits+1)):
+            goal_preds_generator = generator_goal_literals(observation_predicates, num_lits)
+            for goal_preds in goal_preds_generator:
+                for action_pred_index in np.random.permutation(np.arange(len(action_predicates))):
+                    action_pred = action_predicates[action_pred_index]
+                    if not self._use_goal_preds(goal_preds):
                         continue
                     goal_action_preds = list(goal_preds) + [action_pred]
                     # Find all possible variable assortments for the goal action predicates
@@ -77,52 +75,46 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
                         ph_lit = pred(*ph_for_lit)
                         goal_action_lits_with_phs.append(ph_lit)
                     phs = sorted(ph_to_pred_slot.keys())
-                    # Consider all substitutions of placeholders to variables
-                    for vs in cls._iter_vars_from_phs(phs):
-                        goal_vs = {v.name for i, v in enumerate(vs) if
-                                   ph_to_pred_slot[phs[i]][0] != len(goal_action_preds)-1}
-                        action_vs = {v.name for i, v in enumerate(vs) if
-                                     ph_to_pred_slot[phs[i]][0] == len(goal_action_preds)-1}
-                        if goal_vs and action_vs-goal_vs and min(action_vs-goal_vs) < max(goal_vs):
-                            continue
-                        goal_action_lits = [copy.deepcopy(lit) for lit in goal_action_lits_with_phs]
-                        # Perform substitution
-                        for k, v in enumerate(vs):
-                            ph = phs[k]
-                            (i, j) = ph_to_pred_slot[ph]
-                            goal_action_lits[i].update_variable(j, v)
-                        # Goal lits cannot have repeated vars
-                        goal_action_valid = True
-                        for lit in goal_action_lits:
-                            if len(set(lit.variables)) != len(lit.variables):
-                                goal_action_valid = False
-                                break
-                        # Finish the goal and add it
-                        if goal_action_valid:
-                            goal = tuple([l for l in goal_action_lits if l.predicate != action_pred])
-                            action = [l for l in goal_action_lits if l.predicate == action_pred][0]
-                            unseen_goal_actions.add((goal, action, False))
-        return unseen_goal_actions
+                    # Consider a random substitution of placeholders to variables.
+                    tuple_of_phs = tuple(self._iter_vars_from_phs(phs))
+                    vs = tuple_of_phs[np.random.choice(len(tuple_of_phs))]
+                    goal_vs = {v.name for i, v in enumerate(vs) if
+                            ph_to_pred_slot[phs[i]][0] != len(goal_action_preds)-1} # len(goal_action_preds) - 1 indexes the action, so exclude those variables.
+                    action_vs = {v.name for i, v in enumerate(vs) if
+                                ph_to_pred_slot[phs[i]][0] == len(goal_action_preds)-1}
+                    # If there are different variables in the action literal than the goal literals, 
+                    # then the variables in the action literal that don't exist in the goal literals
+                    # must take on a greater or equal index ?x# than the maximum index variable in the goal literals.
+                    if goal_vs and action_vs-goal_vs and min(action_vs-goal_vs) < max(goal_vs):
+                        continue
+                    goal_action_lits = [copy.deepcopy(lit) for lit in goal_action_lits_with_phs]
+                    # Perform substitution
+                    for k, v in enumerate(vs):
+                        ph = phs[k]
+                        (i, j) = ph_to_pred_slot[ph]
+                        goal_action_lits[i].update_variable(j, v)
+                    # Goal lits cannot have repeated vars
+                    goal_action_valid = True
+                    for lit in goal_action_lits:
+                        if len(set(lit.variables)) != len(lit.variables):
+                            goal_action_valid = False
+                            break
+                    # Finish the goal and add it
+                    if goal_action_valid:
+                        goal = tuple([l for l in goal_action_lits if l.predicate != action_pred])
+                        action = [l for l in goal_action_lits if l.predicate == action_pred][0]
+                        yield goal, action, False
+
 
     ### Reset ###
 
     def _iw_reset(self):
-        # Want to retry goal-actions if a new episode or new operators learned
-        self._untried_episode_goal_actions = copy.deepcopy(self._unseen_goal_actions)
-        # Randomly shuffle within num_lits
-        self._untried_episode_goal_actions = sorted(self._untried_episode_goal_actions,
-            key=self._get_goal_action_priority)
         if self._ignore_statics:  # ignore static goals
-            static_preds = self._compute_static_preds()
-            self._untried_episode_goal_actions = list(filter(
-                lambda ga: any(lit.predicate not in static_preds for lit in ga[0]),
-                self._untried_episode_goal_actions))
+            self._goal_static_preds = self._compute_static_preds()
         if self._ignore_mutex:  # ignore mutex goals
-            mutex_pairs = self._compute_lifted_mutex_literals(self._episode_start_state)
-            self._untried_episode_goal_actions = list(filter(
-                lambda ga: frozenset(ga[0]) not in mutex_pairs,
-                self._untried_episode_goal_actions))
+            self._goal_mutex_pairs = self._compute_lifted_mutex_literals(self._episode_start_state)
         # Forget the goal-action that was going to be taken at the end of the plan in progress
+        self._sampling_iterator = self._yield_goal_action(self._action_space.predicates, self._observation_space.predicates, self._k)
         self._current_goal_action = None
 
     def _get_goal_action_priority(self, goal_action):
@@ -208,15 +200,31 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
         Returns:
             goal
             from_llm (bool): whether the goal is from the LLM"""
-        # Note that these are already in random order as per _iw_reset
-        if len(self._untried_episode_goal_actions) > 0:
-            goal, action, from_llm = self._untried_episode_goal_actions.pop(0)
-            self._current_goal_action = (goal, action)
-            # GLIB_L_LOGGER.debug(f"set self._current_goal_action in sampling goal-action {self._current_goal_action}")
-            return self._structify_goal(goal), from_llm
-        # No goals left to try
-        # print("no goals left")
-        return None, False
+        goal_action_val = None
+        # Sample all of the lifted (goal, action) pairs in random order, until they run out.
+        while goal_action_val is None:
+            try:
+                goal_action_val = next(self._sampling_iterator)
+            except StopIteration:
+                # Sampled all of the lifted goals, so stop sampling.
+                self._current_goal_action = None 
+                return None, False
+            goal, lifted_action, from_llm = goal_action_val
+            # Ignore static
+            if self._ignore_statics and any(lit.predicate in self._goal_static_preds for lit in goal):
+                continue
+            # Ignore mutex
+            if self._ignore_mutex and goal in self._goal_mutex_pairs:
+                continue
+            for state, action in self._seen_state_actions:
+                goal_assignments = find_satisfying_assignments(state.literals, tuple([l for l in goal]), allow_redundant_variables=False)
+                action_assignment = find_satisfying_assignments([action], [lifted_action], allow_redundant_variables=False)
+                if len(goal_assignments) != 0 and len(action_assignment) != 0:
+                    goal_action_val = None
+                    break
+                
+        self._current_goal_action = (goal, lifted_action)
+        return self._structify_goal(goal), from_llm
 
     def _finish_plan(self, plan):
         # If the plan is empty, then we want to immediately take the action.
@@ -249,72 +257,66 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
     ### Update caches based on new observation ###
 
     def observe(self, state, action, _effects):
-        # Find goal-actions that we're seeing for the first time
-        newly_seen_goal_actions = []
-        for goal_action in self._unseen_goal_actions:
-            # Check whether goal-action is satisfied by new state and action
-            conds = list(goal_action[0]) + [goal_action[1]]
-            assignments = find_satisfying_assignments(state.literals | {action}, conds,
-                allow_redundant_variables=False)
-            if len(assignments) > 0:
-                newly_seen_goal_actions.append(goal_action)
-        for new_goal_action in newly_seen_goal_actions:
-            # print("Removing goal-action:", new_goal_action)
-            self._unseen_goal_actions.remove(new_goal_action)
+        self._seen_state_actions.add((state, action))
 
 class GLIBL1CuriosityModule(GLIBLCuriosityModule):
     _k = 1
 class GLIBL2CuriosityModule(GLIBLCuriosityModule):
     _k = 2
 
-class LLMGLIBL2CuriosityModule(GLIBL2CuriosityModule):
+def generator_goal_literals(obs_predicates: list, num_lits: int):
+    """Yields the cartesian product of predicates in a random order."""
+    n = len(obs_predicates)
+    for random_indices in itertools.product(*[np.random.permutation(np.arange(n)) for _ in range(num_lits)]):
+        yield [obs_predicates[i] for i in random_indices]
+# class LLMGLIBL2CuriosityModule(GLIBL2CuriosityModule):
 
-    def _initialize(self):
-        self.llm_line_stats = []
-        super()._initialize()
+#     def _initialize(self):
+#         self.llm_line_stats = []
+#         super()._initialize()
 
-    ### Update goals with LLM proposed operator preconditions
+#     ### Update goals with LLM proposed operator preconditions
     
-    def learn(self, itr):
-        """Set self._llm_goal_actions with the LLM and learner operators."""
-        j = (itr - ac.LLM_start_interval[self._domain_name])
-        if (j>=0) and (j % ac.LLM_learn_interval[self._domain_name] == 0):
-            self._recompute_llm_goal_actions()
-            self._unseen_goal_actions.update(self._llm_goal_actions)
-            self._untried_episode_goal_actions.extend(self._llm_goal_actions)
-            self._untried_episode_goal_actions = sorted(self._untried_episode_goal_actions, key=self._get_goal_action_priority)
-            if self._ignore_statics:  # ignore static goals
-                static_preds = self._compute_static_preds()
-                self._untried_episode_goal_actions = list(filter(
-                    lambda ga: any(lit.predicate not in static_preds for lit in ga[0]),
-                    self._untried_episode_goal_actions))
-            if self._ignore_mutex:  # ignore mutex goals
-                mutex_pairs = self._compute_lifted_mutex_literals(self._episode_start_state)
-                self._untried_episode_goal_actions = list(filter(
-                    lambda ga: frozenset(ga[0]) not in mutex_pairs,
-                    self._untried_episode_goal_actions))   
+#     def learn(self, itr):
+#         """Set self._llm_goal_actions with the LLM and learner operators."""
+#         j = (itr - ac.LLM_start_interval[self._domain_name])
+#         if (j>=0) and (j % ac.LLM_learn_interval[self._domain_name] == 0):
+#             self._recompute_llm_goal_actions()
+#             self._unseen_goal_actions.update(self._llm_goal_actions)
+#             self._untried_episode_goal_actions.extend(self._llm_goal_actions)
+#             self._untried_episode_goal_actions = sorted(self._untried_episode_goal_actions, key=self._get_goal_action_priority)
+#             if self._ignore_statics:  # ignore static goals
+#                 static_preds = self._compute_static_preds()
+#                 self._untried_episode_goal_actions = list(filter(
+#                     lambda ga: any(lit.predicate not in static_preds for lit in ga[0]),
+#                     self._untried_episode_goal_actions))
+#             if self._ignore_mutex:  # ignore mutex goals
+#                 mutex_pairs = self._compute_lifted_mutex_literals(self._episode_start_state)
+#                 self._untried_episode_goal_actions = list(filter(
+#                     lambda ga: frozenset(ga[0]) not in mutex_pairs,
+#                     self._untried_episode_goal_actions))   
 
-    def _get_goal_action_priority(self, goal_action):
-        tiebreak = self._rand_state.uniform()
-        if goal_action in self._llm_goal_actions:
-            return (-1, len(goal_action[0]), tiebreak)
-        return (1, len(goal_action[0]), tiebreak)
+#     def _get_goal_action_priority(self, goal_action):
+#         tiebreak = self._rand_state.uniform()
+#         if goal_action in self._llm_goal_actions:
+#             return (-1, len(goal_action[0]), tiebreak)
+#         return (1, len(goal_action[0]), tiebreak)
     
-    def _recompute_llm_goal_actions(self):
-        """Get the (goal, action) tuples from the LLM proposed operators.
-        """
-        self._llm_goal_actions = []
-        for o in self._llm_learned_ops:
-            if self._llm_learned_ops[o] is not None:
-                combined_preconds = self.mix_lifted_preconditions(o, self._llm_learned_ops[o])
+#     def _recompute_llm_goal_actions(self):
+#         """Get the (goal, action) tuples from the LLM proposed operators.
+#         """
+#         self._llm_goal_actions = []
+#         for o in self._llm_learned_ops:
+#             if self._llm_learned_ops[o] is not None:
+#                 combined_preconds = self.mix_lifted_preconditions(o, self._llm_learned_ops[o])
 
-                for precond in combined_preconds:
-                    action = [p for p in precond
-                                    if p.predicate in self._action_space.predicates][0]
-                    precond.remove(action) 
-                    self._llm_goal_actions.append((tuple(precond), action))
-            else:
-                action = [p for p in o.preconds.literals
-                        if p.predicate in self._action_space.predicates][0]
-                goal = tuple(sorted(set(o.preconds.literals) - {action}))
-                self._llm_goal_actions.append((goal, action, True))
+#                 for precond in combined_preconds:
+#                     action = [p for p in precond
+#                                     if p.predicate in self._action_space.predicates][0]
+#                     precond.remove(action) 
+#                     self._llm_goal_actions.append((tuple(precond), action))
+#             else:
+#                 action = [p for p in o.preconds.literals
+#                         if p.predicate in self._action_space.predicates][0]
+#                 goal = tuple(sorted(set(o.preconds.literals) - {action}))
+#                 self._llm_goal_actions.append((goal, action, True))
