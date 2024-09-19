@@ -16,8 +16,8 @@ GLIB_L_LOGGER = logging.getLogger("GLIB_Lifted")
 class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
 
     _k = None # Must be set by subclasses
-    _ignore_statics = False #True
-    _ignore_mutex = False #True
+    _ignore_statics = True
+    _ignore_mutex = True
 
     ### Initialization ###
 
