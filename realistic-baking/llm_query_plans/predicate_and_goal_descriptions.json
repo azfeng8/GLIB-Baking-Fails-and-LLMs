@@ -2,9 +2,9 @@
    "train_goals":
         {
             "problem1": "dessert-0 is not hypothetical, and is a real, physical cake.\npan-0 is not damaged.",
-            "problem2": "dessert-0 is not hypothetical, and is a real, physical souffle.\npan-0 is not damaged.\npan-1 is not damaged.",
+            "problem2": "dessert-0 is not hypothetical, and is a sweet, light, and airy souffle that is not cake-like.\npan-0 is not damaged.\npan-1 is not damaged.",
             "problem3": "dessert-0 is not hypothetical, and is a real, physical cake.\nThe container plate-0 has dessert-0 in it.",
-            "problem4": "dessert-0 is not hypothetical, and is a real, physical cake.\ndessert-1 is not hypothetical, and is a real, physical souffle."
+            "problem4": "dessert-0 is not hypothetical, and is a real, physical cake.\ndessert-1 is not hypothetical, and is a sweet, light, and airy souffle that is not cake-like."
         },
     "predicates":
             {
@@ -13,7 +13,7 @@
             "powder-ingredient-in-measuring-cup": "{} is in the measuring cup {}. #01",
             "butter-in-measuring-cup": "{} is in the measuring cup {}. #01",
             "dessert-is-hypothetical": "{} is a hypothetical dessert that has not been made yet. #0",
-            "egg-is-hypothetical": "{} references a hypothetical mixture that has not been made yet. #0",
+            "egg-is-hypothetical": "{} references a hypothetical egg (partial egg or whole) that has not been made yet. #0",
             "is-baking-powder": "{} is chemically and physically identifiable as baking powder. #0",
             "is-raw-egg-yolk": "{} is a raw egg yolk out of the shell. #0",
             "is-raw-egg-whites": "{} is raw egg whites out of the shell. #0",
@@ -48,48 +48,48 @@
             "mixture-has-butter": "The mixture {} contains butter. #0",
             "mixture-has-baking-powder": "The mixture {} contains baking powder. #0",
             "is-cake": "{} is not hypothetical, and is a real, physical cake. #0",
-            "is-souffle": "{} is not hypothetical, and is a real, physical souffle. #0",
+            "is-souffle": "{} is not hypothetical, and is a light and airy souffle. #0",
             "oven-is-heated-for-souffle": "The oven {} is preheated for a souffle. #0",
             "oven-is-heated-for-cake": "The oven {} is preheated for a cake. #0",
-            "pour-powdery-ingredient-from-measuring-cup": "Pour the {} in {} into {}. #012",
-            "pour-mixture-only": "Pour the mixture {} from {} into {}. #201",
-            "pour-powdery-ingredient-from-container": "Pour the {} from {} into {}. #201",
-            "transfer-butter-only": "Move the butter {} from container {} into container {}. #201",
-            "transfer-egg-only": "Move the egg object {} from container {} into container {}. #201",
+            "pour-powdery-ingredient-from-measuring-cup": "Pour the entire {} in {} into {}. #012",
+            "pour-mixture-only": "Pour the entire mixture {} from {} into {}. #201",
+            "pour-powdery-ingredient-from-container": "Pour all of the {} from {} into {}. #201",
+            "transfer-butter-from-pan-or-bowl": "Move all of the butter {} from container {} into container {}. #201",
+            "transfer-egg-from-pan-or-bowl": "Move the egg object {} from container {} into container {}. #201",
             "move-baked-good-in-container-to-different-container": "Move the dessert from {} into {}. #01",
             "crack-egg-and-put-in-container": "Crack the egg {} into {} and discard the eggshell. #01",
             "put-butter-in-container-from-measuring-cup": "Put the butter {} in the measuring cup into {}. #01",
             "put-container-in-oven": "Put the {} in the {}. #01",
             "preheat-oven-with-cake-settings": "Close the oven door if it's open, and preheat the oven {} at 350 degrees Fahrenheit, the temperature at which to bake cakes. #0",
             "preheat-oven-with-souffle-settings":  "Close the oven door if it's open, and preheat the oven {} at 375 degrees Fahrenheit, the temperature at which to bake souffles. #0",
-            "use-stand-mixer": "Use the electric stand mixer {} on the contents inside {} to create a new mixture {}. #012",
+            "use-stand-mixer": "Mix the ingredients in {} with the mixer {} to create a new mixture {} with all the ingredients fused together. #102",
             "remove-pan-from-oven": "Remove the pan {} from the oven it is in and place it on the counter to cool, leaving the oven door open. #0",
             "start-baking-with-cake-settings": "Set the amount of time to bake a cake and press 'start' on {} to begin baking. #0",
             "start-baking-with-souffle-settings": "Set the amount of time to bake a souffle and press 'start' on {} to begin baking. #0",
-            "separate-raw-yolk-from-egg-whites": "Separate the egg {} into an egg yolk, now called {}, and egg whites called {}. #001",
-            "beat-egg": "Beat the egg {} with the mixer {} in the {}. #201",
+            "separate-raw-yolk-from-egg-whites": "Separate the egg {} into an egg yolk, now called {} and in the container {}, and egg whites called {} and in the container {}. #00213",
+            "beat-egg-whites": "Beat the egg {} with the mixer {} in the {}. #201",
             "fold-stiff-egg-whites-into-mixture": "Fold the egg whites {} in {} into the contents of {}, using the {}. #3120"
        },
        "lifted_skill_descriptions":
             {
-            "pour-powdery-ingredient-from-measuring-cup": "Pour a powdery ingredient in a measuring cup into a container.",
-            "pour-mixture-only": "Pour the mixture that is inside a container into another container.",
-            "pour-powdery-ingredient-from-container": "Pour the powdery ingredient inside a container into another container.",
-            "transfer-butter-only": "Move the butter from a container into another container.",
-            "transfer-egg-only": "Move the egg object from a container into another container.",
+            "pour-powdery-ingredient-from-measuring-cup": "Pour all of a powdery ingredient in a measuring cup into a container.",
+            "pour-mixture-only": "Pour the entire mixture that is inside a container into another container.",
+            "pour-powdery-ingredient-from-container": "Pour all of the powdery ingredient inside a container into another container.",
+            "transfer-butter-from-pan-or-bowl": "Move all of the butter from a container into another container.",
+            "transfer-egg-from-pan-or-bowl": "Move the egg object from a container into another container.",
             "move-baked-good-in-container-to-different-container": "Move a dessert from a container into another container.",
             "crack-egg-and-put-in-container": "Crack a raw egg into a container and discard its eggshell.",
-            "put-butter-in-container-from-measuring-cup": "Put some butter in the measuring cup into the container.",
+            "put-butter-in-container-from-measuring-cup": "Put all of the butter in the measuring cup into the container.",
             "put-container-in-oven": "Put the container in the oven.",
             "preheat-oven-with-cake-settings": "Close the oven door if it's open, and preheat the oven at 350 degrees Fahrenheit, the temperature at which to bake cakes.",
             "preheat-oven-with-souffle-settings":  "Close the oven door if it's open, and preheat the oven at 375 degrees Fahrenheit, the temperature at which to bake souffles.",
-            "use-stand-mixer": "Use the electric stand mixer on the contents inside the container to create a smooth mixture containing all the ingredients in the container. These ingredients are no longer separable.",
+            "use-stand-mixer": "Mix the ingredients in the container to create a smooth mixture. These ingredients in the container are no longer separable.",
             "remove-pan-from-oven": "Remove a pan from the oven it is in and place it on the counter to cool, leaving the oven door open.",
             "start-baking-with-cake-settings": "Set the amount of time to bake a cake and press 'start' on the oven to begin baking.",
             "start-baking-with-souffle-settings": "Set the amount of time to bake a souffle and press 'start' on the oven to begin baking.",
-            "separate-raw-yolk-from-egg-whites": "Separate a whole raw egg into an egg yolk and egg whites.",
+            "separate-raw-yolk-from-egg-whites": "Separate a whole raw egg into an egg yolk and egg whites and place them in containers.",
             "beat-egg-whites": "Beat the egg whites in the container with the electric mixer until stiff.",
-            "fold-stiff-egg-whites-into-mixture": "Fold the stiff, beaten egg whites in the container into the mixture in the container, using the spatula."
+            "fold-stiff-egg-whites-into-mixture": "Fold the stiff egg whites in the container into the mixture in the container, using the spatula."
             },
         "skill_variable_descriptions":
             {
@@ -108,12 +108,12 @@
                 "the container to pour the powdery ingredient into",
                 "the powdery ingredient to be poured between the containers"
             ],
-            "transfer-butter-only": [
+            "transfer-butter-from-pan-or-bowl": [
                 "the container that the butter is in initially",
                 "the container to put the butter in",
                 "the butter that will be moved"
             ],
-            "transfer-egg-only": [
+            "transfer-egg-from-pan-or-bowl": [
                 "the container that the egg is in initially",
                 "the container to put the egg in",
                 "the egg that will be moved"
@@ -157,7 +157,9 @@
             ],
             "separate-raw-yolk-from-egg-whites": [
                 "the name of the whole raw egg to do the separation on, whose name will represent the egg yolk after separation",
-                "the hypothetical egg object that will represent the egg whites after separation"
+                "the hypothetical egg object that will represent the egg whites after separation",
+                "the name of the container that will contain the raw egg yolk after separation",
+                "the name of the container that will contain the raw egg whites after separation"
             ],
             "beat-egg-whites": [
                 "the electric stand mixer to use to beat the egg whites",

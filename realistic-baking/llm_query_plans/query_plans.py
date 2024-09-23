@@ -3,11 +3,13 @@
 Agenda:
 DONE 1. Create the prompting program usign ChatGPT website so that OpenAI GPT-4o can get the correct ground plan for problem 1.
 
-2. Refactor the JSON for predicate descriptions and create a problems.json for each train goal description. 
+DONE 2. Refactor the JSON for predicate descriptions and create a problems.json for each train goal description. 
 
-3. Use the API instead of ChatGPT website to get plans for all the other train goals.
+3. Use the ChatGPT website to get plans for all the other train goals.
 
-3. Test the prompting program with other LLMs. Try to get a set of prompts that get the correct plan for each LLM. 
+4. Use the API to get the plans.
+
+5. Test the prompting program with other LLMs. Try to get a set of prompts that get the correct plan for each LLM. 
 
 """
 def get_facts(descriptions, state_string):
@@ -30,6 +32,7 @@ def get_facts(descriptions, state_string):
         true_facts += (description.format(*fstring_object_order)) + '\n'
     return true_facts.strip()
 
+from pprint import pprint
 def get_example_ground_actions(descriptions, ground_actions_string):
     max_num_examples_per_action = 2
 
@@ -46,6 +49,7 @@ def get_example_ground_actions(descriptions, ground_actions_string):
             ground_action_examples.append(line)
         else:
             examples.extend([ground_action_examples[i] for i in np.random.choice(len(ground_action_examples), min(max_num_examples_per_action, len(ground_action_examples)), replace=False)])
+            ground_action_examples = [line]
         current_action_name = pred_name
     examples.extend([ground_action_examples[i] for i in np.random.choice(len(ground_action_examples), min(max_num_examples_per_action, len(ground_action_examples)), replace=False)])
 
@@ -67,9 +71,11 @@ def get_example_ground_actions(descriptions, ground_actions_string):
 
 # Parse the objects and initial state from the problem pddl file.
 import argparse
+import os
 parser = argparse.ArgumentParser()
 parser.add_argument('--problem_file', type=str)
 args = parser.parse_args()
+problem_name = os.path.basename(args.problem_file)[:-len('.pddl')]
 with open(args.problem_file, 'r') as f:
     lines = f.readlines()
 line_start_idx = None
@@ -102,21 +108,26 @@ for line in lines:
     i+=1
 import numpy as np
 import json
-with open('predicate_and_goal-descriptions.json', 'r') as f:
+with open('predicate_and_goal_descriptions.json', 'r') as f:
     descriptions = json.load(f)
  
 initial_state_predicate_fstrings = get_facts(descriptions, initial_state)
 
-goal_state_predicate_fstrings = descriptions['goal']
+goal_state_predicate_fstrings = descriptions['train_goals'][problem_name]
 
-action_predicate_fstrings = get_example_ground_actions(descriptions, ground_actions_string)
+action_predicate_fstrings = [f'{k}: {v}' for k, v in descriptions["lifted_skill_descriptions"].items()] #get_example_ground_actions(descriptions, ground_actions_string)
 
 intro_prompt = \
 f"""
 You are a household robot in a kitchen. You are in front of the kitchen counter, where there are some prepared ingredients. Your task is to decide the sequence of actions to bake desserts.
 
 More specifically, you will be given a set of facts that are currently true in the world, and a set of facts that is your goal to make true in the world. With my step-by-step guidance, you will think through how to act to achieve the goal.
+
+Since you are baking desserts, first determine what are the differences between a cake and sweet, light, and airy souffle. Please rationalize what are the essential ingredients and their amounts to make those desserts and use only those.
 """
+print("**********************PROMPT********************")
+print(intro_prompt)
+input()
 problem_setting_prompt = \
 f"""
 In the kitchen, there different kinds of objects that you can interact with. The different kind of objects that you see are categorized into the following:
@@ -140,130 +151,119 @@ These are the things that you would like to become true:
 {goal_state_predicate_fstrings}
 
 Getting to this state is your goal. We will spend the rest of the conversation trying to find the correct sequence of actions to get here.
+
 """
+print("**********************PROMPT********************")
+print(problem_setting_prompt)
+input()
 
 actions_prompt = \
 f"""Now that you know where you are starting from and where you'd like to get to, I'll tell you about the possible things you can do in the kitchen. Then, your job will be to find a sequence of these things that takes you from the start to the goal.
 
 Here are examples of the actions you know how to do. These are pre-defined atomic actions that you can execute.
 
-{action_predicate_fstrings}
-"""
+""" + '\n'.join(action_predicate_fstrings) + '\n\n'
 
 start_thinking_prompt = \
-f"""Now that you know what actions you can take to manipulate the environment, let's think through some plans that will get us to the goal from our initial state.
+f"""Now that you know what actions you can take to manipulate the environment, let's think through some plans that will get us to the goal from our initial state. If you are baking desserts, please rationalize what are the essential ingredients and their amounts to make those desserts and use only those. Please provide the full plan.
 """
 
 #[Optional]: optionally give more details at the starting state than the predicate descriptions: e.g. the butter is one lump of how many tablespoons, etc.
 
 intro = ""
-for prompt in [intro_prompt, problem_setting_prompt, start_thinking_prompt]:
+for prompt in [actions_prompt, start_thinking_prompt]:
     intro += prompt
 print("**********************PROMPT********************")
 print(intro)
 input()
 
-import json
-with open('problem1-descriptions.json', 'r') as f:
-    descriptions = json.load(f)
+print("**********************PROMPT********************")
+print("""At each step that you use the mixer, please list the ingredients that you will use in the mixing. If you don't need to use the mixer, then ignore this prompt. Make sure to not introduce any new actions that weren't in the list provided.""")
+input()
 
 action_description_string = ""
+action_names_string = ""
 for k, v in descriptions["lifted_skill_descriptions"].items():
     action_description_string += k + ": " + v + '\n'
+    action_names_string += k  + '\n'
 formalizing_intro = \
 f"""Now that we have a high level sketch of how to get to our goal, let's formalize these steps into a formatted plan.
 
 These are the names of the atomic actions that we can perform, along with their descriptions:
 {action_description_string}
 
-Can you please give a sequence of these phrases that will get us to the goal? Format it using a numbered list with one line per step, starting with "1.".
+Can you please give a sequence of these phrases that will get us to the goal? Format it using a numbered list with one line per step, starting with "1. Give a little explanation of each step underneath each bullet point.".
 """
 
 print("**********************PROMPT********************")
 print(formalizing_intro)
+input()
+print("**********************OPTIONAL PROMPT********************")
+#TODO: parse the actions, and if any of them can't be looked up, prompt again with the following:
+print(f"Step i doesn't use any of the phrases below. Could you please revise the plan using only phrases from the following list?\n{action_names_string}")
 input("Paste the parsed plan steps / actions into the script")
 
 #TODO: parse the plan
 parsed_plan = \
 """
-1. pour-powdery-ingredient-from-measuring-cup
+1. crack-egg-and-put-in-container
 
-Objects involved: flour-0, measuring-cup-0, bowl-0
-Flour-0 is transferred from measuring-cup-0 to bowl-0.
-2. pour-powdery-ingredient-from-measuring-cup
+Crack egg-0 into a container, discarding the eggshell to separate it into its components (yolk and whites).
+2. separate-raw-yolk-from-egg-whites
 
-Objects involved: flour-1, measuring-cup-1, bowl-0
-Flour-1 is transferred from measuring-cup-1 to bowl-0.
+Separate the egg into yolk and egg whites, placing the yolk in bowl-0 and the whites in bowl-1.
 3. pour-powdery-ingredient-from-measuring-cup
 
-Objects involved: baking-powder-0, measuring-cup-2, bowl-0
-Baking-powder-0 is transferred from measuring-cup-2 to bowl-0.
+Pour flour-0 from measuring-cup-0 into bowl-0 to add structure to the soufflé base.
 4. pour-powdery-ingredient-from-measuring-cup
 
-Objects involved: sugar-0, measuring-cup-3, bowl-0
-Sugar-0 is transferred from measuring-cup-3 to bowl-0.
+Pour sugar-0 from measuring-cup-3 into bowl-0 for sweetness.
 5. put-butter-in-container-from-measuring-cup
 
-Objects involved: butter-0, measuring-cup-4, bowl-0
-Butter-0 is transferred from measuring-cup-4 to bowl-0.
-6. crack-egg-and-put-in-container
+Transfer butter-0 from measuring-cup-4 into bowl-0 to enhance richness and moisture in the mixture.
+6. use-stand-mixer
 
-Objects involved: egg-0, bowl-0
-Egg-0 is cracked and placed in bowl-0; the shell is discarded.
-7. crack-egg-and-put-in-container
+Mix the ingredients in bowl-0 (egg yolks, flour-0, sugar-0, and butter-0) to create a smooth base mixture (mixture-0).
+7. beat-egg-whites
 
-Objects involved: egg-1, bowl-0
-Egg-1 is cracked and placed in bowl-0; the shell is discarded.
-8. use-stand-mixer
+Beat the egg whites in bowl-1 until stiff peaks form, which will provide the soufflé’s light texture.
+8. fold-stiff-egg-whites-into-mixture
 
-Objects involved: bowl-0, mixture-0
-The electric stand mixer is used on bowl-0 to create mixture-0, which contains all ingredients in the bowl.
+Gently fold the beaten egg whites into the mixture in bowl-0 using a spatula to maintain the airy structure.
 9. pour-mixture-only
 
-Objects involved: mixture-0, bowl-0, pan-0
-Mixture-0 is poured from bowl-0 into pan-0.
-10. preheat-oven-with-cake-settings
+Pour the soufflé mixture from bowl-0 into pan-0, preparing it for baking.
+10. preheat-oven-with-souffle-settings
 
-Objects involved: oven
-The oven is preheated to 350 degrees Fahrenheit for cake baking.
+Preheat the oven to 375 degrees Fahrenheit, ensuring it is set for baking soufflés.
 11. put-container-in-oven
 
-Objects involved: pan-0, oven
-Pan-0 (containing mixture-0) is placed inside the oven.
-12. start-baking-with-cake-settings
+Place pan-0 with the soufflé mixture into the preheated oven.
+12. start-baking-with-souffle-settings
 
-Objects involved: oven, pan-0, mixture-0
-The oven is set to bake pan-0 (with mixture-0) for the required cake-baking time.
+Set the timer for baking the soufflé and start the oven to begin the baking process.
 13. remove-pan-from-oven
 
-Objects involved: pan-0, dessert-0 (once baked), oven
-Pan-0 (now containing dessert-0, the cake) is removed from the oven and placed on the counter to cool.
+Once baking is complete, carefully remove pan-0 from the oven and place it on the counter to cool.
 """
 
 #TODO: replace these with the parsed actions
 action_names = [
-"pour-powdery-ingredient-from-measuring-cup",
-"pour-powdery-ingredient-from-measuring-cup",
+"crack-egg-and-put-in-container",
+"separate-raw-yolk-from-egg-whites",
 "pour-powdery-ingredient-from-measuring-cup",
 "pour-powdery-ingredient-from-measuring-cup",
 "put-butter-in-container-from-measuring-cup",
-"crack-egg-and-put-in-container",
-"crack-egg-and-put-in-container",
 "use-stand-mixer",
+"beat-egg-whites",
+"fold-stiff-egg-whites-into-mixture",
 "pour-mixture-only",
-"preheat-oven-with-cake-settings",
+"preheat-oven-with-souffle-settings",
 "put-container-in-oven",
-"start-baking-with-cake-settings",
+"start-baking-with-souffle-settings",
 "remove-pan-from-oven",
 ]
  
-grounding_plan_prompt = \
-"""Thanks. First let's think step by step what objects are associated with each of these actions, and then we'll try the plan to get to the goal state.
-"""
-print("**********************PROMPT********************")
-print(grounding_plan_prompt)
-input()
-
 def get_objects_of_type(obj_string, object_type):
     objs = []
     for line in obj_string.split('\n'):
@@ -285,7 +285,8 @@ for action_name in action_names[len(actions_list):]:
     variable_description_list = descriptions["skill_variable_descriptions"][action_name]
     print("**********************PROMPT********************")
     action_arg_prompt = \
-f"""Let's recap what we've talked about. Currently, the following facts are true:
+f"""Thanks. Let's think step by step what objects are associated with each of these actions.
+Let's recap what we've talked about. Currently, the following facts are true:
 
 {initial_state_predicate_fstrings}
 

@@ -8,8 +8,8 @@ skills_strings = \
 (pour-powdery-ingredient-from-measuring-cup ?p - powder_ingredient_hypothetical ?cup - measuring_cup ?c - container)
 (pour-mixture-only ?from - container ?into - container ?m - mixture_hypothetical)
 (pour-powdery-ingredient-from-container ?from - container ?into - container ?m - powder_ingredient_hypothetical)
-(transfer-butter-only ?from - container ?into - container ?m - butter_hypothetical)
-(transfer-egg-only ?from - container ?into - container ?m - egg_hypothetical)
+(transfer-butter-from-pan-or-bowl ?from - container ?into - container ?m - butter_hypothetical)
+(transfer-egg-from-pan-or-bowl ?from - container ?into - container ?m - egg_hypothetical)
 (move-baked-good-in-container-to-different-container ?from - container ?to - container)
 (crack-egg-and-put-in-container ?e - egg_hypothetical ?c - container)
 (put-butter-in-container-from-measuring-cup ?b - butter_hypothetical ?c - container)
@@ -23,6 +23,7 @@ skills_strings = \
 (separate-raw-yolk-from-egg-whites ?e - egg_hypothetical ?new - egg_hypothetical)
 (beat-egg-whites ?m - electric_stand_mixer ?c - container ?e - egg_hypothetical)
 (fold-stiff-egg-whites-into-mixture ?s - spatula ?from - container ?to - container ?e - egg_hypothetical)
+
 """
 
 import argparse
