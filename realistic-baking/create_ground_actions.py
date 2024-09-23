@@ -10,7 +10,7 @@ skills_strings = \
 (pour-powdery-ingredient-from-container ?from - container ?into - container ?m - powder_ingredient_hypothetical)
 (transfer-butter-from-pan-or-bowl ?from - container ?into - container ?m - butter_hypothetical)
 (transfer-egg-from-pan-or-bowl ?from - container ?into - container ?m - egg_hypothetical)
-(move-baked-good-in-container-to-different-container ?from - container ?to - container)
+(move-baked-good-in-container-to-different-container ?from - container ?to - container ?d - dessert_hypothetical)
 (crack-egg-and-put-in-container ?e - egg_hypothetical ?c - container)
 (put-butter-in-container-from-measuring-cup ?b - butter_hypothetical ?c - container)
 (put-container-in-oven ?c - container ?o - oven)
@@ -20,7 +20,7 @@ skills_strings = \
 (remove-pan-from-oven ?c - container)
 (start-baking-with-cake-settings ?o - oven)
 (start-baking-with-souffle-settings ?o - oven)
-(separate-raw-yolk-from-egg-whites ?e - egg_hypothetical ?new - egg_hypothetical)
+(separate-raw-yolk-from-egg-whites ?e - egg_hypothetical ?new - egg_hypothetical ?c - container ?eggwhitescontainer - container)
 (beat-egg-whites ?m - electric_stand_mixer ?c - container ?e - egg_hypothetical)
 (fold-stiff-egg-whites-into-mixture ?s - spatula ?from - container ?to - container ?e - egg_hypothetical)
 

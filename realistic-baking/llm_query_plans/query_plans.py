@@ -192,7 +192,7 @@ f"""Now that we have a high level sketch of how to get to our goal, let's formal
 These are the names of the atomic actions that we can perform, along with their descriptions:
 {action_description_string}
 
-Can you please give a sequence of these phrases that will get us to the goal? Format it using a numbered list with one line per step, starting with "1. Give a little explanation of each step underneath each bullet point.".
+Can you please give a sequence of these phrases that will get us to the goal? Format it using a numbered list with one line per step, starting with "1.". Give a little explanation of each step underneath each bullet point.
 """
 
 print("**********************PROMPT********************")
@@ -200,68 +200,91 @@ print(formalizing_intro)
 input()
 print("**********************OPTIONAL PROMPT********************")
 #TODO: parse the actions, and if any of them can't be looked up, prompt again with the following:
-print(f"Step i doesn't use any of the phrases below. Could you please revise the plan using only phrases from the following list?\n{action_names_string}")
+# TODO: when parsing the action string, look for the name in the whole bullet point, not just the text following "#."
+print(f"Step i doesn't use any of the phrases below. Could you please revise the plan using only phrases from the following list? Write them exactly how they appear in the list. Give a little explanation of each step underneath each bullet point.\n{action_names_string}")
 input("Paste the parsed plan steps / actions into the script")
 
 #TODO: parse the plan
 parsed_plan = \
 """
-1. crack-egg-and-put-in-container
+1. pour-powdery-ingredient-from-measuring-cup
 
-Crack egg-0 into a container, discarding the eggshell to separate it into its components (yolk and whites).
-2. separate-raw-yolk-from-egg-whites
+From: measuring-cup-0 (flour-0)
+To: bowl-0
+Pour the flour into bowl-0 to prepare the dry ingredients.
+2. pour-powdery-ingredient-from-measuring-cup
 
-Separate the egg into yolk and egg whites, placing the yolk in bowl-0 and the whites in bowl-1.
-3. pour-powdery-ingredient-from-measuring-cup
+From: measuring-cup-2 (baking-powder-0)
+To: bowl-0
+Add baking powder to bowl-0 for leavening the cake.
+3. put-butter-in-container-from-measuring-cup
 
-Pour flour-0 from measuring-cup-0 into bowl-0 to add structure to the soufflé base.
+From: measuring-cup-4 (butter-0)
+To: bowl-1
+Transfer the butter to bowl-1 for creaming with sugar.
 4. pour-powdery-ingredient-from-measuring-cup
 
-Pour sugar-0 from measuring-cup-3 into bowl-0 for sweetness.
-5. put-butter-in-container-from-measuring-cup
+From: measuring-cup-3 (sugar-0)
+To: bowl-1
+Add sugar to bowl-1 to combine with butter for a sweet base.
+5. use-stand-mixer
 
-Transfer butter-0 from measuring-cup-4 into bowl-0 to enhance richness and moisture in the mixture.
-6. use-stand-mixer
+In: bowl-1
+Mix the butter and sugar together until light and fluffy.
+6. crack-egg-and-put-in-container
 
-Mix the ingredients in bowl-0 (egg yolks, flour-0, sugar-0, and butter-0) to create a smooth base mixture (mixture-0).
-7. beat-egg-whites
+To: bowl-1
+Add egg-0 to the creamed mixture for moisture and richness.
+7. pour-mixture-only
 
-Beat the egg whites in bowl-1 until stiff peaks form, which will provide the soufflé’s light texture.
-8. fold-stiff-egg-whites-into-mixture
+From: bowl-1
+To: bowl-0
+Combine the creamed mixture with the dry ingredients in bowl-0.
+8. use-stand-mixer
 
-Gently fold the beaten egg whites into the mixture in bowl-0 using a spatula to maintain the airy structure.
+In: bowl-0
+Mix all ingredients in bowl-0 until you have a smooth batter.
 9. pour-mixture-only
 
-Pour the soufflé mixture from bowl-0 into pan-0, preparing it for baking.
-10. preheat-oven-with-souffle-settings
+From: bowl-0
+To: pan-0
+Transfer the cake batter into pan-0, ready for baking.
+10. preheat-oven-with-cake-settings
 
-Preheat the oven to 375 degrees Fahrenheit, ensuring it is set for baking soufflés.
+Preheat the oven to 350°F, the ideal temperature for baking cakes.
 11. put-container-in-oven
 
-Place pan-0 with the soufflé mixture into the preheated oven.
-12. start-baking-with-souffle-settings
+Container: pan-0
+Place the pan-0 in the preheated oven to bake the cake.
+12. start-baking-with-cake-settings
 
-Set the timer for baking the soufflé and start the oven to begin the baking process.
+Set the baking time for the cake and start the oven timer.
 13. remove-pan-from-oven
 
-Once baking is complete, carefully remove pan-0 from the oven and place it on the counter to cool.
+Once baking is complete, carefully take the cake out of the oven to cool.
+14. move-baked-good-in-container-to-different-container
+
+From: pan-0
+To: plate-0
+Transfer the baked cake from pan-0 to plate-0 for serving.
 """
 
 #TODO: replace these with the parsed actions
 action_names = [
-"crack-egg-and-put-in-container",
-"separate-raw-yolk-from-egg-whites",
 "pour-powdery-ingredient-from-measuring-cup",
 "pour-powdery-ingredient-from-measuring-cup",
 "put-butter-in-container-from-measuring-cup",
+"pour-powdery-ingredient-from-measuring-cup",
 "use-stand-mixer",
-"beat-egg-whites",
-"fold-stiff-egg-whites-into-mixture",
+"crack-egg-and-put-in-container",
 "pour-mixture-only",
-"preheat-oven-with-souffle-settings",
+"use-stand-mixer",
+"pour-mixture-only",
+"preheat-oven-with-cake-settings",
 "put-container-in-oven",
-"start-baking-with-souffle-settings",
+"start-baking-with-cake-settings",
 "remove-pan-from-oven",
+"move-baked-good-in-container-to-different-container",
 ]
  
 def get_objects_of_type(obj_string, object_type):
