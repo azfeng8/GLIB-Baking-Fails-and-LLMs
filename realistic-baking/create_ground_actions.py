@@ -13,7 +13,7 @@ skills_strings = \
 (move-baked-good-in-container-to-different-container ?from - container ?to - container ?d - dessert_hypothetical)
 (crack-egg-and-put-in-container ?e - egg_hypothetical ?c - container)
 (put-butter-in-container-from-measuring-cup ?b - butter_hypothetical ?c - container)
-(put-container-in-oven ?c - container ?o - oven)
+(put-pan-or-bowl-in-oven ?c - container ?o - oven)
 (preheat-oven-with-cake-settings ?o - oven)
 (preheat-oven-with-souffle-settings ?o - oven)
 (use-stand-mixer ?m - electric_stand_mixer ?c - container ?m - mixture_hypothetical)
@@ -23,7 +23,6 @@ skills_strings = \
 (separate-raw-yolk-from-egg-whites ?e - egg_hypothetical ?new - egg_hypothetical ?c - container ?eggwhitescontainer - container)
 (beat-egg-whites ?m - electric_stand_mixer ?c - container ?e - egg_hypothetical)
 (fold-stiff-egg-whites-into-mixture ?s - spatula ?from - container ?to - container ?e - egg_hypothetical)
-
 """
 
 import argparse
