@@ -132,7 +132,7 @@ action_predicate_fstrings = [f'{k}: {v}' for k, v in descriptions["lifted_skill_
 
 intro_prompt = \
 f"""
-You are a household robot in a kitchen. You are in front of the kitchen counter, where there are some prepared ingredients. Your task is to decide the sequence of actions to bake desserts.
+You are a household robot in a kitchen. You are in front of the kitchen counter, where there are some prepared ingredients. 
 
 More specifically, you will be given a set of facts that are currently true in the world, and a set of facts that is your goal to make true in the world. With my step-by-step guidance, you will think through how to act to achieve the goal.
 
@@ -160,40 +160,22 @@ Right now, you see the some of these ingredients and items on the counter. You a
 
 {initial_state_predicate_fstrings}
 
-These are the things that you would like to become true:
-{goal_state_predicate_fstrings}
+As a reminder, in the kitchen, the pans, measuring cups, and bowls are on the counter, and the oven(s) is (are) behind the counter. If you are baking desserts, please rationalize what are the essential ingredients and their amounts to make those desserts and use only those. Once an ingredient is used once, it can't be reused.
 
-Getting to this state is your goal. We will spend the rest of the conversation trying to find the correct sequence of actions to get here.
-
-You should have all of the ingredients that you need on the counter prepared for you. Please make sure that each dessert you make has enough real, non-hypothetical ingredients allocated to it. If making multiple desserts, please make sure that you don't allocate the same ingredients between desserts. If you are strained to get enough ingredients for all the desserts you are making, it's okay to use less of certain ingredients: as long as each dessert has all the necessary ingredient types, it will be fine.
+You should have all of the ingredients that you need on the counter prepared for you. I'll let you know what desserts you will make shortly. 
 """
 print("**********************PROMPT********************")
 print(problem_setting_prompt)
 input()
 
-actions_prompt = \
-f"""Now that you know where you are starting from and where you'd like to get to, I'll tell you about the possible things you can do in the kitchen. Then, your job will be to find a sequence of these things that takes you from the start to the goal.
+# actions_prompt = \
+# f"""Now that you know where you are starting from and where you'd like to get to, I'll tell you about the possible things you can do in the kitchen. As a reminder, in the kitchen, the pans, measuring cups, and bowls are on the counter, and the oven(s) is (are) behind the counter. Then, your job will be to find a sequence of these things that takes you from the start to the goal.
 
-Here are examples of the actions you know how to do. These are pre-defined atomic actions that you can execute.
+# Here are examples of the actions you know how to do. These are pre-defined atomic actions that you can execute.
 
-""" + '\n'.join(action_predicate_fstrings) + '\n\n'
-
-start_thinking_prompt = \
-f"""Now that you know what actions you can take to manipulate the environment, let's think through some plans that will get us to the goal from our initial state. If you are baking desserts, please rationalize what are the essential ingredients and their amounts to make those desserts and use only those. Please provide the full plan for each dessert.
-"""
+# """ + '\n'.join(action_predicate_fstrings) + '\n\n'
 
 #[Optional]: optionally give more details at the starting state than the predicate descriptions: e.g. the butter is one lump of how many tablespoons, etc.
-
-intro = ""
-for prompt in [actions_prompt, start_thinking_prompt]:
-    intro += prompt
-print("**********************PROMPT********************")
-print(intro)
-input()
-
-print("**********************PROMPT********************")
-print("""At each step that you use the mixer, please list the ingredients that you will use in the mixing. If you don't need to use the mixer, then ignore this prompt. Make sure to not introduce any new actions that weren't in the list provided.""")
-input()
 
 action_description_string = ""
 action_names_string = ""
@@ -201,7 +183,12 @@ for k, v in descriptions["lifted_skill_descriptions"].items():
     action_description_string += k + ": " + v + '\n'
     action_names_string += k  + '\n'
 formalizing_intro = \
-f"""Now that we have a high level sketch of how to get to our goal, let's formalize these steps into a formatted plan.
+f"""These are the things that you would like to become true:
+{goal_state_predicate_fstrings}
+
+Getting to this state is your goal. We will spend the rest of the conversation trying to find the correct sequence of actions to get here.
+
+Please make sure that each dessert you make has enough real, non-hypothetical ingredients allocated to it. If making multiple desserts, please make sure that you don't allocate the same ingredients between desserts. If you are strained to get enough ingredients for all the desserts you are making, it's okay to use less of certain ingredients. As long as each dessert has all the necessary ingredient types, it will be fine.
 
 These are the names of the atomic actions that we can perform, along with their descriptions:
 {action_description_string}
@@ -211,6 +198,10 @@ Can you please give a sequence of these phrases that will get us to the goal? Fo
 
 print("**********************PROMPT********************")
 print(formalizing_intro)
+input()
+
+print("**********************OPTIONAL PROMPT********************")
+print("""At each step that you use the mixer, please list the ingredients that you will use in the mixing. If you don't need to use the mixer, then ignore this prompt. Make sure to not introduce any new actions that weren't in the list provided.""")
 input()
 
 print("**********************OPTIONAL PROMPT********************")
@@ -230,92 +221,44 @@ input("Paste the parsed plan steps / actions into the script")
 #TODO: make sure this string starts each bulletpoint with a newline then 1.: `\n1.`
 #TODO: make sure that this contains up to the last bulletpoint information, and no more.
 parsed_plan = """
-Here is the formalized plan to achieve the goal:
+Sure! Here’s the formalized plan to make the cake, formatted as requested:
 
-### **Plan for Cake (dessert-0)**
+1. **Place bowl-0 on the counter.**  
+   Prepare a bowl to mix the ingredients.
 
-1. **crack-egg-and-put-in-container (egg-0, bowl-0)**
-   - Crack the first egg (egg-0) into bowl-0, discarding the shell.
+2. **pour-powdery-ingredient-from-measuring-cup**  
+   Pour flour-1 from measuring-cup-1 into bowl-0. This provides the base for the cake.
 
-2. **crack-egg-and-put-in-container (egg-2, bowl-0)**
-   - Crack the second egg (egg-2) into bowl-0, discarding the shell.
+3. **pour-powdery-ingredient-from-measuring-cup**  
+   Pour sugar-0 from measuring-cup-3 into bowl-0. Sugar adds sweetness to the cake.
 
-3. **pour-powdery-ingredient-from-measuring-cup (sugar-1, measuring-cup-6, bowl-0)**
-   - Pour all of the sugar-1 from measuring-cup-6 into bowl-0.
+4. **pour-powdery-ingredient-from-measuring-cup**  
+   Pour baking-powder-0 from measuring-cup-2 into bowl-0. Baking powder is necessary for leavening the cake.
 
-4. **pour-powdery-ingredient-from-measuring-cup (flour-1, measuring-cup-1, bowl-0)**
-   - Pour all of the flour-1 from measuring-cup-1 into bowl-0.
+5. **put-butter-in-container-from-measuring-cup**  
+   Put butter-0 from measuring-cup-4 into bowl-0. Butter adds richness and moisture.
 
-5. **put-butter-in-container-from-measuring-cup (butter-0, measuring-cup-4, bowl-0)**
-   - Add all of the butter-0 from measuring-cup-4 into bowl-0.
+6. **crack-egg-and-put-in-container**  
+   Crack egg-0 into bowl-0. This contributes to the structure and moisture of the cake.
 
-6. **pour-powdery-ingredient-from-measuring-cup (baking-powder-0, measuring-cup-2, bowl-0)**
-   - Pour all of the baking-powder-0 from measuring-cup-2 into bowl-0.
+7. **crack-egg-and-put-in-container**  
+   Crack egg-1 into bowl-0. This adds additional moisture and binding to the mixture.
 
-7. **use-stand-mixer (bowl-0)**
-   - Use the stand mixer to combine all ingredients in bowl-0 until smooth.
+8. **use-stand-mixer**  
+   Mix the ingredients in bowl-0 until smooth. This combines all the ingredients into a uniform batter.
 
-8. **preheat-oven-with-cake-settings**
-   - Preheat the oven to 350°F, the temperature to bake a cake.
+9. **pour-mixture-only**  
+   Pour the mixed batter from bowl-0 into pan-0. Transfer the batter into the baking pan for baking.
 
-9. **pour-mixture-only (bowl-0, pan-0)**
-   - Pour the cake batter mixture from bowl-0 into pan-0.
+10. **preheat-oven-with-cake-settings**  
+   Preheat the oven to 350°F. This ensures the oven is ready for baking the cake.
 
-10. **put-pan-or-bowl-in-oven (pan-0)**
-    - Place pan-0, which contains the cake batter, into the preheated oven.
+11. **start-baking-with-cake-settings**  
+   Set the timer and start baking the cake in pan-0. This begins the baking process.
 
-11. **start-baking-with-cake-settings**
-    - Set the time and start baking the cake with cake settings.
+12. **remove-pan-from-oven**  
+   Once the baking time is up, remove pan-0 from the oven. This allows the cake to cool after baking.
 
----
-
-### **Plan for Soufflé (dessert-1)**
-
-12. **crack-egg-and-put-in-container (egg-4, bowl-1)**
-    - Crack the first egg (egg-4) into bowl-1, discarding the shell.
-
-13. **crack-egg-and-put-in-container (egg-5, bowl-1)**
-    - Crack the second egg (egg-5) into bowl-1, discarding the shell.
-
-14. **separate-raw-yolk-from-egg-whites (egg-4, bowl-1)**
-    - Separate egg-4 into yolk and egg whites, keeping them in different containers.
-
-15. **separate-raw-yolk-from-egg-whites (egg-5, bowl-1)**
-    - Separate egg-5 into yolk and egg whites, keeping them in different containers.
-
-16. **beat-egg-whites (bowl-1)**
-    - Beat the egg whites from bowl-1 using the electric mixer until stiff peaks form.
-
-17. **pour-powdery-ingredient-from-measuring-cup (sugar-0, measuring-cup-3, bowl-0)**
-    - Pour all of the sugar-0 from measuring-cup-3 into bowl-0.
-
-18. **pour-powdery-ingredient-from-measuring-cup (flour-0, measuring-cup-0, bowl-0)**
-    - Pour all of the flour-0 from measuring-cup-0 into bowl-0.
-
-19. **put-butter-in-container-from-measuring-cup (butter-1, measuring-cup-5, bowl-0)**
-    - Add all of the butter-1 from measuring-cup-5 into bowl-0.
-
-20. **use-stand-mixer (bowl-0)**
-    - Use the stand mixer to mix the sugar, flour, and butter into a smooth base.
-
-21. **fold-stiff-egg-whites-into-mixture (bowl-1, bowl-0)**
-    - Fold the stiff egg whites from bowl-1 into the soufflé mixture in bowl-0 using a spatula.
-
-22. **preheat-oven-with-souffle-settings**
-    - Preheat the oven to 375°F, the temperature to bake a soufflé.
-
-23. **pour-mixture-only (bowl-0, pan-1)**
-    - Pour the soufflé mixture from bowl-0 into pan-1.
-
-24. **put-pan-or-bowl-in-oven (pan-1)**
-    - Place pan-1, which contains the soufflé batter, into the preheated oven.
-
-25. **start-baking-with-souffle-settings**
-    - Set the time and start baking the soufflé with soufflé settings.
-
-***
-
-This plan covers the required actions for making both a cake and a soufflé, ensuring that all steps are followed correctly to reach the desired goal.
 """
 
 #TODO: replace these with the parsed actions
@@ -331,22 +274,22 @@ action_names = [
 "preheat-oven-with-cake-settings",
 "pour-mixture-only",
 "put-pan-or-bowl-in-oven",
-"start-baking-with-cake-settings",
+"set-oven-with-cake-time-and-press-start",
 # souffle plan
-"crack-egg-and-put-in-container",
-"crack-egg-and-put-in-container",
-"separate-raw-yolk-from-egg-whites",
-"separate-raw-yolk-from-egg-whites",
-"beat-egg-whites",
-"pour-powdery-ingredient-from-measuring-cup",
-"pour-powdery-ingredient-from-measuring-cup",
-"put-butter-in-container-from-measuring-cup",
-"use-stand-mixer",
-"fold-stiff-egg-whites-into-mixture",
-"preheat-oven-with-souffle-settings",
-"pour-mixture-only",
-"put-pan-or-bowl-in-oven",
-"start-baking-with-souffle-settings",
+# "crack-egg-and-put-in-container",
+# "crack-egg-and-put-in-container",
+# "separate-raw-yolk-from-egg-whites",
+# "separate-raw-yolk-from-egg-whites",
+# "beat-egg-whites",
+# "pour-powdery-ingredient-from-measuring-cup",
+# "pour-powdery-ingredient-from-measuring-cup",
+# "put-butter-in-container-from-measuring-cup",
+# "use-stand-mixer",
+# "fold-stiff-egg-whites-into-mixture",
+# "preheat-oven-with-souffle-settings",
+# "pour-mixture-only",
+# "put-pan-or-bowl-in-oven",
+# "start-baking-with-souffle-settings",
 ]
  
 def get_objects_of_type(obj_string, object_type):

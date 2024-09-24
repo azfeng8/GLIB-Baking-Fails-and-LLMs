@@ -59,13 +59,13 @@
             "move-baked-good-in-container-to-different-container": "Move the dessert from {} into {}. #01",
             "crack-egg-and-put-in-container": "Crack the egg {} into {} and discard the eggshell. #01",
             "put-butter-in-container-from-measuring-cup": "Put the butter {} in the measuring cup into {}. #01",
-            "put-pan-or-bowl-in-oven": "Put the {} in the {}. #01",
+            "put-pan-in-oven": "Put the {} on the kitchen counter in the {}. #01",
             "preheat-oven-with-cake-settings": "Close the oven door if it's open, and preheat the oven {} at 350 degrees Fahrenheit, the temperature at which to bake cakes. #0",
             "preheat-oven-with-souffle-settings":  "Close the oven door if it's open, and preheat the oven {} at 375 degrees Fahrenheit, the temperature at which to bake souffles. #0",
             "use-stand-mixer": "Mix the ingredients in {} with the mixer {} to create a new mixture {} with all the ingredients fused together. #102",
             "remove-pan-from-oven": "Remove the pan {} from the oven it is in and place it on the counter to cool, leaving the oven door open. #0",
-            "start-baking-with-cake-settings": "Set the amount of time to bake a cake and press 'start' on {} to begin baking. #0",
-            "start-baking-with-souffle-settings": "Set the amount of time to bake a souffle and press 'start' on {} to begin baking. #0",
+            "set-oven-with-cake-bake-time-and-press-start": "Set the amount of time to bake a cake and press 'start' on {} to begin baking, not opening the oven again until done baking. #0",
+            "set-oven-with-souffle-bake-time-and-press-start": "Set the amount of time to bake a souffle and press 'start' on {} to begin baking, not opening the oven again until done baking. #0",
             "separate-raw-yolk-from-egg-whites": "Separate the egg {} into an egg yolk, now called {} and in the container {}, and egg whites called {} and in the container {}. #00213",
             "beat-egg-whites": "Beat the egg {} with the mixer {} in the {}. #201",
             "fold-stiff-egg-whites-into-mixture": "Fold the egg whites {} in {} into the contents of {}, using the {}. #3120"
@@ -80,13 +80,13 @@
             "move-baked-good-in-container-to-different-container": "Move a dessert from a container into another container.",
             "crack-egg-and-put-in-container": "Crack a raw egg into a container and discard its eggshell.",
             "put-butter-in-container-from-measuring-cup": "Put all of the butter in the measuring cup into the container.",
-            "put-pan-or-bowl-in-oven": "Put the container (pan or bowl) in the oven.",
+            "put-pan-in-oven": "Open the oven door, put the pan in the oven, and close the oven door.",
             "preheat-oven-with-cake-settings": "Close the oven door if it's open, and preheat the oven at 350 degrees Fahrenheit, the temperature at which to bake cakes.",
             "preheat-oven-with-souffle-settings":  "Close the oven door if it's open, and preheat the oven at 375 degrees Fahrenheit, the temperature at which to bake souffles.",
             "use-stand-mixer": "Mix the ingredients in the container to create a smooth mixture, so that the ingredients in the container are no longer separable.",
-            "remove-pan-from-oven": "Remove a pan from the oven it is in and place it on the counter to cool, leaving the oven door open.",
-            "start-baking-with-cake-settings": "Set the amount of time to bake a cake and press 'start' on the oven to begin baking.",
-            "start-baking-with-souffle-settings": "Set the amount of time to bake a souffle and press 'start' on the oven to begin baking.",
+            "remove-pan-from-oven": "Open the oven door, remove a pan from the oven it is in and place it on the counter to cool, leaving the oven door open.",
+            "set-oven-with-cake-bake-time-and-press-start": "Set the amount of time to bake a cake and press 'start' on the oven to begin baking, not opening the oven again until done baking.",
+            "set-oven-with-souffle-bake-time-and-press-start": "Set the amount of time to bake a souffle and press 'start' on the oven to begin baking, not opening the oven again until done baking.",
             "separate-raw-yolk-from-egg-whites": "Separate a whole raw egg into an egg yolk and egg whites and place them in containers.",
             "beat-egg-whites": "Beat the egg whites in the container with the electric mixer until stiff peaks form.",
             "fold-stiff-egg-whites-into-mixture": "Fold the egg whites in the container into the mixture in the container, using the spatula."
@@ -131,8 +131,8 @@
                 "the butter that is in the measuring cup currently",
                 "the container that the butter will be in after moving it from the measuring cup"
             ],
-            "put-pan-or-bowl-in-oven": [
-                "the pan or bowl that is to be moved",
+            "put-pan-in-oven": [
+                "the pan that is to be moved",
                 "the oven that the container will be in after moving"
             ],
             "preheat-oven-with-cake-settings": [
@@ -149,10 +149,10 @@
             "remove-pan-from-oven": [
                 "the container to remove from the oven"
             ],
-            "start-baking-with-cake-settings": [
+            "set-oven-with-cake-bake-time-and-press-start": [
                 "the oven to start baking"
             ],
-            "start-baking-with-souffle-settings": [
+            "set-oven-with-souffle-bake-time-and-press-start": [
                 "the oven to start baking"
             ],
             "separate-raw-yolk-from-egg-whites": [
