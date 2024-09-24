@@ -186,7 +186,7 @@ formalizing_intro = \
 f"""These are the things that you would like to become true:
 {goal_state_predicate_fstrings}
 
-Getting to this state is your goal. We will spend the rest of the conversation trying to find the correct sequence of actions to get here.
+This state is your goal. Don't give a plan yet.
 
 Please make sure that each dessert you make has enough ingredients allocated to it. You cannot allocate hypothetical ingredients because they don't exist. If making multiple desserts, please make sure that you don't allocate the same  ingredients between desserts. If you are strained to get enough ingredients for all the desserts you are making, it's okay to use less of certain ingredients. As long as each dessert has all the necessary ingredient types, it will be fine.
 """
