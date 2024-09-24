@@ -188,8 +188,11 @@ f"""These are the things that you would like to become true:
 
 Getting to this state is your goal. We will spend the rest of the conversation trying to find the correct sequence of actions to get here.
 
-Please make sure that each dessert you make has enough real, non-hypothetical ingredients allocated to it. If making multiple desserts, please make sure that you don't allocate the same ingredients between desserts. If you are strained to get enough ingredients for all the desserts you are making, it's okay to use less of certain ingredients. As long as each dessert has all the necessary ingredient types, it will be fine.
+Please make sure that each dessert you make has enough ingredients allocated to it. You cannot allocate hypothetical ingredients because they don't exist. If making multiple desserts, please make sure that you don't allocate the same  ingredients between desserts. If you are strained to get enough ingredients for all the desserts you are making, it's okay to use less of certain ingredients. As long as each dessert has all the necessary ingredient types, it will be fine.
+"""
 
+get_plan_sketch_prompt = \
+f"""
 These are the names of the atomic actions that we can perform, along with their descriptions:
 {action_description_string}
 
@@ -198,6 +201,9 @@ Can you please give a sequence of these phrases that will get us to the goal? Fo
 
 print("**********************PROMPT********************")
 print(formalizing_intro)
+input()
+print("**********************PROMPT********************")
+print(get_plan_sketch_prompt)
 input()
 
 print("**********************OPTIONAL PROMPT********************")

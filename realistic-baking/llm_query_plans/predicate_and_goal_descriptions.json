@@ -66,7 +66,7 @@
             "remove-pan-from-oven": "Remove the pan {} from the oven it is in and place it on the counter to cool, leaving the oven door open. #0",
             "set-oven-with-cake-bake-time-and-press-start": "Set the amount of time to bake a cake and press 'start' on {} to begin baking, not opening the oven again until done baking. #0",
             "set-oven-with-souffle-bake-time-and-press-start": "Set the amount of time to bake a souffle and press 'start' on {} to begin baking, not opening the oven again until done baking. #0",
-            "separate-raw-yolk-from-egg-whites": "Separate the egg {} into an egg yolk, now called {} and in the container {}, and egg whites called {} and in the container {}. #00213",
+            "separate-raw-yolk-from-egg-whites": "Separate the raw egg {} that is out of its shell into an egg yolk, now called {} and in the container {}, and egg whites called {} and in the container {}. #00213",
             "beat-egg-whites": "Beat the egg {} with the mixer {} in the {}. #201",
             "fold-stiff-egg-whites-into-mixture": "Fold the egg whites {} in {} into the contents of {}, using the {}. #3120"
        },
@@ -87,7 +87,7 @@
             "remove-pan-from-oven": "Open the oven door, remove a pan from the oven it is in and place it on the counter to cool, leaving the oven door open.",
             "set-oven-with-cake-bake-time-and-press-start": "Set the amount of time to bake a cake and press 'start' on the oven to begin baking, not opening the oven again until done baking.",
             "set-oven-with-souffle-bake-time-and-press-start": "Set the amount of time to bake a souffle and press 'start' on the oven to begin baking, not opening the oven again until done baking.",
-            "separate-raw-yolk-from-egg-whites": "Separate a whole raw egg into an egg yolk and egg whites and place them in containers.",
+            "separate-raw-yolk-from-egg-whites": "Separate a raw egg that is out of its shell into an egg yolk and egg whites and place them in containers.",
             "beat-egg-whites": "Beat the egg whites in the container with the electric mixer until stiff peaks form.",
             "fold-stiff-egg-whites-into-mixture": "Fold the egg whites in the container into the mixture in the container, using the spatula."
             },
