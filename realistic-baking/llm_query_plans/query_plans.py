@@ -7,13 +7,11 @@ DONE 2. Refactor the JSON for predicate descriptions and create a problems.json 
 
 DONE 3. Use the ChatGPT website to get plans for all the other train goals.
 
-4. Try to recover the program that solved train task 4.
+DONE 4. Try to recover the program that solved train task 4.
 
-5. Get a prompting program that solves train tasks 1-3 a little reliably. Try the first couple of prompts a few times in the website to get the right plan sketches.
+DONE 5. Get a prompting program that solves train tasks 1-3 a little reliably. Try the first couple of prompts a few times in the website to get the right plan sketches.
 
-6. Use the API to verify with more experiments that the prompting program at least solves tasks 1-3.
-
-7. Try to find a prompting program that will solve train goal 4.
+6. Use the API to verify with more experiments that the prompting program at least solves tasks 1-4.
 
 Things to try:
 a) Give context of the oven capacity.
@@ -186,7 +184,7 @@ formalizing_intro = \
 f"""These are the things that you would like to become true:
 {goal_state_predicate_fstrings}
 
-Getting to this state is your goal. We will spend the rest of the conversation trying to find the correct sequence of actions to get here.
+This state is your goal. Don't give a plan yet.
 
 Please make sure that each dessert you make has enough ingredients allocated to it. You cannot allocate hypothetical ingredients because they don't exist. If making multiple desserts, please make sure that you don't allocate the same  ingredients between desserts. If you are strained to get enough ingredients for all the desserts you are making, it's okay to use less of certain ingredients. As long as each dessert has all the necessary ingredient types, it will be fine.
 """
@@ -227,60 +225,65 @@ input("Paste the parsed plan steps / actions into the script")
 #TODO: make sure this string starts each bulletpoint with a newline then 1.: `\n1.`
 #TODO: make sure that this contains up to the last bulletpoint information, and no more.
 parsed_plan = """
-Sure! Here’s the formalized plan to make the cake, formatted as requested:
+Here is the sequence of atomic actions that will achieve the goal of making a cake in pan-0 while ensuring it is not damaged:
 
-1. **Place bowl-0 on the counter.**  
-   Prepare a bowl to mix the ingredients.
+### **Goal**: 
+Make **dessert-0 a real, physical cake** and ensure **pan-0 is not damaged**.
 
-2. **pour-powdery-ingredient-from-measuring-cup**  
-   Pour flour-1 from measuring-cup-1 into bowl-0. This provides the base for the cake.
+### **Plan**:
 
-3. **pour-powdery-ingredient-from-measuring-cup**  
-   Pour sugar-0 from measuring-cup-3 into bowl-0. Sugar adds sweetness to the cake.
+1. **preheat-oven-with-cake-settings**
+   - Preheat the oven to 350°F, which is the appropriate temperature for baking a cake.
+   
+2. **crack-egg-and-put-in-container** (using **egg-0** and putting it in **bowl-0**)
+   - Crack the first egg into bowl-0, preparing the egg for the mixture.
 
-4. **pour-powdery-ingredient-from-measuring-cup**  
-   Pour baking-powder-0 from measuring-cup-2 into bowl-0. Baking powder is necessary for leavening the cake.
+3. **crack-egg-and-put-in-container** (using **egg-1** and putting it in **bowl-0**)
+   - Crack the second egg into the same bowl, combining the eggs for the cake mixture.
 
-5. **put-butter-in-container-from-measuring-cup**  
-   Put butter-0 from measuring-cup-4 into bowl-0. Butter adds richness and moisture.
+4. **pour-powdery-ingredient-from-measuring-cup** (using **flour-1** and putting it in **bowl-0**)
+   - Pour all of the couple of cups of flour (flour-1) from measuring-cup-1 into bowl-0.
 
-6. **crack-egg-and-put-in-container**  
-   Crack egg-0 into bowl-0. This contributes to the structure and moisture of the cake.
+5. **pour-powdery-ingredient-from-measuring-cup** (using **sugar-0** and putting it in **bowl-0**)
+   - Pour the sugar (sugar-0) from measuring-cup-3 into bowl-0 to add sweetness to the cake mixture.
 
-7. **crack-egg-and-put-in-container**  
-   Crack egg-1 into bowl-0. This adds additional moisture and binding to the mixture.
+6. **pour-powdery-ingredient-from-measuring-cup** (using **baking-powder-0** and putting it in **bowl-0**)
+   - Pour the baking powder (baking-powder-0) from measuring-cup-2 into bowl-0 to help the cake rise during baking.
 
-8. **use-stand-mixer**  
-   Mix the ingredients in bowl-0 until smooth. This combines all the ingredients into a uniform batter.
+7. **put-butter-in-container-from-measuring-cup** (using **butter-0** and putting it in **bowl-0**)
+   - Add all of the butter (butter-0) from measuring-cup-4 into bowl-0, providing richness and moisture to the cake mixture.
 
-9. **pour-mixture-only**  
-   Pour the mixed batter from bowl-0 into pan-0. Transfer the batter into the baking pan for baking.
+8. **use-stand-mixer** (using **bowl-0**)
+   - Use the electric stand mixer to mix all of the ingredients in bowl-0, creating a smooth, consistent cake batter.
 
-10. **preheat-oven-with-cake-settings**  
-   Preheat the oven to 350°F. This ensures the oven is ready for baking the cake.
+9. **pour-mixture-only** (pour the mixture from **bowl-0** into **pan-0**)
+   - Pour the smooth cake batter from bowl-0 into pan-0, preparing it for baking.
 
-11. **start-baking-with-cake-settings**  
-   Set the timer and start baking the cake in pan-0. This begins the baking process.
+10. **put-pan-in-oven** (using **pan-0**)
+    - Place pan-0 with the cake batter into the preheated oven.
 
-12. **remove-pan-from-oven**  
-   Once the baking time is up, remove pan-0 from the oven. This allows the cake to cool after baking.
+11. **set-oven-with-cake-bake-time-and-press-start**
+    - Set the appropriate bake time for the cake and press 'start' to begin the baking process.
 
+12. **remove-pan-from-oven** (once the cake is baked)
+    - After the baking time has completed, remove pan-0 from the oven and place it on the counter to cool, ensuring it is undamaged.
 """
 
 #TODO: replace these with the parsed actions
 action_names = [
     # cake plan
+"preheat-oven-with-cake-settings",
 "crack-egg-and-put-in-container",
 "crack-egg-and-put-in-container",
+"pour-powdery-ingredient-from-measuring-cup",
 "pour-powdery-ingredient-from-measuring-cup",
 "pour-powdery-ingredient-from-measuring-cup",
 "put-butter-in-container-from-measuring-cup",
-"pour-powdery-ingredient-from-measuring-cup",
 "use-stand-mixer",
-"preheat-oven-with-cake-settings",
 "pour-mixture-only",
-"put-pan-or-bowl-in-oven",
-"set-oven-with-cake-time-and-press-start",
+"put-pan-in-oven",
+"set-oven-with-cake-bake-time-and-press-start",
+'remove-pan-from-oven'
 # souffle plan
 # "crack-egg-and-put-in-container",
 # "crack-egg-and-put-in-container",
@@ -315,6 +318,27 @@ env = pddlgym.make("PDDLEnvBakingrealistic")
 action_preds = {p.name: p for p in env.action_space.predicates}
  
 actions_list = [
+"1. Close the oven door if it's open, and preheat the oven oven-0 at 350 degrees Fahrenheit, the temperature at which to bake cakes.",
+"2. Crack the egg egg-0 into bowl-0 and discard the eggshell.",
+"3. Crack the egg egg-1 into bowl-0 and discard the eggshell.",
+"4. Pour the entire flour-1 in measuring-cup-1 into bowl-0.",
+"5. Pour the entire sugar-0 in measuring-cup-3 into bowl-0.",
+"6. Pour the entire baking-powder-0 in measuring-cup-2 into bowl-0.",
+"7. Put the butter butter-0 in the measuring cup into bowl-0.",
+"8. Mix the ingredients in bowl-0 with the mixer mixer-0 to create a new mixture mixture-0 with all the ingredients fused together.",
+"9. Pour the entire mixture mixture-0 from bowl-0 into pan-0.",
+]
+ground_action_predicates = [
+"(preheat-oven-with-cake-settings oven-0)",
+"(crack-egg-and-put-in-container egg-0 bowl-0)",
+"(crack-egg-and-put-in-container egg-1 bowl-0)",
+"(pour-powdery-ingredient-from-measuring-cup flour-1 measuring-cup-1 bowl-0)",
+"(pour-powdery-ingredient-from-measuring-cup sugar-0 measuring-cup-3 bowl-0)",
+"(pour-powdery-ingredient-from-measuring-cup baking-powder-0 measuring-cup-2 bowl-0)",
+"(put-butter-in-container-from-measuring-cup butter-0 bowl-0)",
+"(use-stand-mixer mixer-0 bowl-0 mixture-0)",
+"(pour-mixture-only bowl-0 pan-0 mixture-0)",
+#
 ]
 for action_name in action_names[len(actions_list):]:
     action_description_with_nonspecific_articles = descriptions["lifted_skill_descriptions"][action_name]
@@ -379,8 +403,11 @@ f"""We are going to {action_description_with_nonspecific_articles[:-1].lower()}.
     action_description_info = descriptions["predicates"][action_name]
     action_description, arg_order = action_description_info.split('#')
     actions_list.append(action_description.strip().format(*[ground_objs[int(index)] for index in arg_order.strip()]))
+    ground_action_predicates.append(f'({action_name} ' + ' '.join(ground_objs) + ')')
     #[Optional]: print the current `parsed_plan` and ask it to update the steps given this action description on the current step.
 print('\n'.join(actions_list))
+
+print('\n'.join(ground_action_predicates))
 
 ### [Optional] To review plans, ask for preconditions and effects, and important subgoals / milestones / a curriculum that would be good to achieve.
 ### [Optional] Only execute the first step of the plan, and then interactively execute the plan after each observation.
