@@ -81,17 +81,20 @@ class Runner:
     def run(self):
         """Run primitive operator learning loop.
         """
-        results = []
-        plan_ops_results = []
         episode_done = True
         episode_time_step = 0
+        problem_idx = 0
         itrs_on = None
         prev_test_solve_rate = 0
+
+        # Logging 
         success_rates = []
+        results = []
+        plan_ops_results = []
         episode_start_itrs = []
         ops_changed_itrs = []
         planning_ops_changed_itrs = []
-        problem_idx = 0
+
         for itr in range(self.num_train_iters):
             logging.info("Iteration {} of {}".format(itr, self.num_train_iters))
 
@@ -103,7 +106,7 @@ class Runner:
                 episode_time_step = 0
 
             logging.debug("Getting action...")
-            action = self.agent.get_action(obs)
+            action = self.agent.get_action(obs, problem_idx)
 
             logging.debug("Executing action...")
             next_obs, _, episode_done, _ = self.train_env.step(action)
