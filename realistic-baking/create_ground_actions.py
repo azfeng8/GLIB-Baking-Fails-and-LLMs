@@ -5,24 +5,24 @@ To use, replace the objects string with an object - object_type per line. Replac
 
 skills_strings = \
 """
-(pour-powdery-ingredient-from-measuring-cup ?p - powder_ingredient_hypothetical ?cup - measuring_cup ?c - container)
-(pour-mixture-only ?from - container ?into - container ?m - mixture_hypothetical)
-(pour-powdery-ingredient-from-container ?from - container ?into - container ?m - powder_ingredient_hypothetical)
-(transfer-butter-from-pan-or-bowl ?from - container ?into - container ?m - butter_hypothetical)
-(transfer-egg-from-pan-or-bowl ?from - container ?into - container ?m - egg_hypothetical)
-(move-baked-good-in-container-to-different-container ?from - container ?to - container ?d - dessert_hypothetical)
-(crack-egg-and-put-in-container ?e - egg_hypothetical ?c - container)
-(put-butter-in-container-from-measuring-cup ?b - butter_hypothetical ?c - container)
-(put-pan-in-oven ?c - container ?o - oven)
-(preheat-oven-with-cake-settings ?o - oven)
-(preheat-oven-with-souffle-settings ?o - oven)
-(use-stand-mixer ?m - electric_stand_mixer ?c - container ?m - mixture_hypothetical)
-(remove-pan-from-oven ?c - container)
-(set-oven-with-cake-bake-time-and-press-start ?o - oven)
-(set-oven-with-souffle-bake-time-and-press-start ?o - oven)
-(separate-raw-yolk-from-egg-whites ?e - egg_hypothetical ?new - egg_hypothetical ?c - container ?eggwhitescontainer - container)
-(beat-egg-whites ?m - electric_stand_mixer ?c - container ?e - egg_hypothetical)
-(fold-stiff-egg-whites-into-mixture ?s - spatula ?from - container ?to - container ?e - egg_hypothetical)
+(beat-egg-whites ?arg0 - electric_stand_mixer ?arg1 - container ?arg2 - egg_hypothetical)
+(crack-egg-and-put-in-container ?arg0 - egg_hypothetical ?arg1 - container)
+(fold-stiff-egg-whites-into-mixture ?arg0 - spatula ?arg1 - container ?arg2 - container ?arg3 - egg_hypothetical)
+(move-baked-good-in-container-to-different-container ?arg0 - container ?arg1 - container ?arg2 - dessert_hypothetical)
+(pour-mixture-only ?arg0 - container ?arg1 - container ?arg2 - mixture_hypothetical)
+(pour-powdery-ingredient-from-container ?arg0 - container ?arg1 - container ?arg2 - powder_ingredient_hypothetical)
+(pour-powdery-ingredient-from-measuring-cup ?arg0 - powder_ingredient_hypothetical ?arg1 - measuring_cup ?arg2 - container)
+(preheat-oven-with-cake-settings ?arg0 - oven)
+(preheat-oven-with-souffle-settings ?arg0 - oven)
+(put-butter-in-container-from-measuring-cup ?arg0 - butter_hypothetical ?arg1 - container)
+(put-pan-in-oven ?arg0 - container ?arg1 - oven)
+(remove-pan-from-oven ?arg0 - container)
+(separate-raw-yolk-from-egg-whites ?arg0 - egg_hypothetical ?arg1 - egg_hypothetical ?arg2 - container ?arg3 - container)
+(set-oven-with-cake-bake-time-and-press-start ?arg0 - oven ?arg1 - dessert_hypothetical)
+(set-oven-with-souffle-bake-time-and-press-start ?arg0 - oven ?arg1 - dessert_hypothetical)
+(transfer-butter-from-pan-or-bowl ?arg0 - container ?arg1 - container ?arg2 - butter_hypothetical)
+(transfer-egg-from-pan-or-bowl ?arg0 - container ?arg1 - container ?arg2 - egg_hypothetical)
+(use-stand-mixer ?arg0 - electric_stand_mixer ?arg1 - container ?arg2 - mixture_hypothetical)
 """
 
 import argparse
@@ -141,5 +141,6 @@ for action in actions:
     domain_actions_str += action.name + ' '
 domain_actions_str = domain_actions_str[:-1]
 domain_actions_str += ')'
-# print(domain_actions_str)
+#TODO: automatically delete and insert this string
+print(domain_actions_str)
         

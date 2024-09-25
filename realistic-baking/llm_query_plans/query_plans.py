@@ -228,77 +228,113 @@ input("Paste the parsed plan steps / actions into the script")
 #TODO: make sure this string starts each bulletpoint with a newline then 1.: `\n1.`
 #TODO: make sure that this contains up to the last bulletpoint information, and no more.
 parsed_plan = """
-1. **preheat-oven-with-souffle-settings**  
-   - Begin by preheating the oven to 375 degrees Fahrenheit.
+1. **crack-egg-and-put-in-container (egg-0, bowl-0)**  
+   - Crack egg-0 into bowl-0 to start preparing the batter for the cake.
 
-2. **crack-egg-and-put-in-container (egg-0, bowl-0)**  
-   - Crack egg-0 into bowl-0.
+2. **crack-egg-and-put-in-container (egg-2, bowl-0)**  
+   - Crack egg-2 into bowl-0, so that both eggs needed for the cake are in the same bowl.
 
-3. **separate-raw-yolk-from-egg-whites (bowl-0)**  
-   - Separate the egg yolk from the whites, placing them in different containers.
+3. **put-butter-in-container-from-measuring-cup (butter-0, bowl-0)**  
+   - Add the butter from measuring-cup-4 into bowl-0, combining it with the eggs for the cake batter.
 
-4. **pour-powdery-ingredient-from-measuring-cup (flour-0, bowl-1)**  
-   - Pour the small amount of flour from measuring-cup-0 into bowl-1 for the soufflé base.
+4. **pour-powdery-ingredient-from-measuring-cup (flour-1, bowl-0)**  
+   - Add all the flour from measuring-cup-1 into bowl-0.
 
-5. **put-butter-in-container-from-measuring-cup (butter-0, bowl-1)**  
-   - Add the butter from measuring-cup-4 into bowl-1.
+5. **pour-powdery-ingredient-from-measuring-cup (sugar-1, bowl-0)**  
+   - Pour the sugar from measuring-cup-6 into bowl-0.
 
-6. **pour-powdery-ingredient-from-measuring-cup (sugar-0, bowl-1)**  
-   - Add the sugar from measuring-cup-3 into bowl-1 to sweeten the soufflé.
+6. **pour-powdery-ingredient-from-measuring-cup (baking-powder-0, bowl-0)**  
+   - Add the baking powder from measuring-cup-2 to bowl-0 to help the cake rise.
 
-7. **use-stand-mixer (bowl-1)**  
-   - Mix the flour, butter, and sugar in bowl-1 using the electric stand mixer to create a smooth base mixture.
+7. **use-stand-mixer (bowl-0)**  
+   - Mix all ingredients in bowl-0 with the electric stand mixer to create a smooth cake batter.
 
-8. **beat-egg-whites (bowl-0)**  
-   - Whip the egg whites in bowl-0 with the stand mixer until stiff peaks form.
+8. **preheat-oven-with-cake-settings**  
+   - Preheat the oven to 350°F, the optimal temperature for baking a cake.
 
-9. **fold-stiff-egg-whites-into-mixture (bowl-0, bowl-1)**  
-   - Gently fold the stiff egg whites from bowl-0 into the base mixture in bowl-1, keeping the air in the mixture for the soufflé’s texture.
+9. **pour-mixture-only (bowl-0, pan-0)**  
+   - Pour the cake batter from bowl-0 into pan-0.
 
-10. **pour-mixture-only (bowl-1, pan-0)**  
-    - Pour the soufflé mixture from bowl-1 into pan-0.
+10. **put-pan-in-oven (pan-0)**  
+    - Place pan-0 with the cake batter into the preheated oven.
 
-11. **put-pan-in-oven (pan-0)**  
-    - Place the pan-0 with the soufflé mixture into the preheated oven.
+11. **set-oven-with-cake-bake-time-and-press-start**  
+    - Set the correct time and start the oven for baking the cake.
 
-12. **set-oven-with-souffle-bake-time-and-press-start**  
-    - Set the appropriate bake time for the soufflé and start baking.
+---
 
-13. **remove-pan-from-oven (pan-0)**  
-    - Once the soufflé is baked, remove pan-0 from the oven and let it cool.
+12. **crack-egg-and-put-in-container (egg-4, bowl-1)**  
+    - Crack egg-4 into bowl-1 to start preparing the soufflé mixture.
+
+13. **crack-egg-and-put-in-container (egg-5, bowl-1)**  
+    - Crack egg-5 into bowl-1, so both eggs for the soufflé are in bowl-1.
+
+14. **separate-raw-yolk-from-egg-whites (bowl-1)**  
+    - Separate the egg yolks and whites in bowl-1, keeping them in different containers.
+
+15. **put-butter-in-container-from-measuring-cup (butter-1, bowl-1)**  
+    - Add butter from measuring-cup-5 to the bowl containing the egg yolks for richness.
+
+16. **pour-powdery-ingredient-from-measuring-cup (flour-0, bowl-1)**  
+    - Add the small amount of flour from measuring-cup-0 into bowl-1 with the yolks and butter.
+
+17. **pour-powdery-ingredient-from-measuring-cup (sugar-0, bowl-1)**  
+    - Add sugar from measuring-cup-3 into bowl-1 to sweeten the soufflé base.
+
+18. **use-stand-mixer (bowl-1)**  
+    - Mix the yolks, butter, sugar, and flour in bowl-1 to create the soufflé base.
+
+19. **beat-egg-whites (egg whites from egg-4 and egg-5, separate bowl)**  
+    - Beat the egg whites from eggs 4 and 5 until stiff peaks form.
+
+20. **fold-stiff-egg-whites-into-mixture (egg whites, bowl-1)**  
+    - Gently fold the beaten egg whites into the soufflé base in bowl-1.
+
+21. **preheat-oven-with-souffle-settings**  
+    - Preheat the oven to 375°F, the right temperature for a soufflé.
+
+22. **pour-mixture-only (bowl-1, pan-1)**  
+    - Pour the soufflé mixture into pan-1.
+
+23. **put-pan-in-oven (pan-1)**  
+    - Place pan-1 with the soufflé mixture into the oven.
+
+24. **set-oven-with-souffle-bake-time-and-press-start**  
+    - Set the correct time and start the oven for baking the soufflé.
 
 """
 
 #TODO: replace these with the parsed actions
 action_names = [
     # cake plan
-"preheat-oven-with-souffle-settings",
+"crack-egg-and-put-in-container",
+"crack-egg-and-put-in-container",
+"put-butter-in-container-from-measuring-cup",
+"pour-powdery-ingredient-from-measuring-cup",
+"pour-powdery-ingredient-from-measuring-cup",
+"pour-powdery-ingredient-from-measuring-cup",
+"use-stand-mixer",
+"preheat-oven-with-cake-settings",
+"pour-mixture-only",
+"put-pan-in-oven",
+"set-oven-with-cake-bake-time-and-press-start",
+# 'remove-pan-from-oven',
+# 'move-baked-good-in-container-to-different-container'
+# souffle plan
+"crack-egg-and-put-in-container",
 "crack-egg-and-put-in-container",
 "separate-raw-yolk-from-egg-whites",
-"pour-powdery-ingredient-from-measuring-cup",
 "put-butter-in-container-from-measuring-cup",
+# "separate-raw-yolk-from-egg-whites",
+"pour-powdery-ingredient-from-measuring-cup",
 "pour-powdery-ingredient-from-measuring-cup",
 "use-stand-mixer",
 "beat-egg-whites",
 "fold-stiff-egg-whites-into-mixture",
+"preheat-oven-with-souffle-settings",
 "pour-mixture-only",
 "put-pan-in-oven",
 "set-oven-with-souffle-bake-time-and-press-start",
-'remove-pan-from-oven'
-# souffle plan
-# "crack-egg-and-put-in-container",
-# "crack-egg-and-put-in-container",
-# "separate-raw-yolk-from-egg-whites",
-# "separate-raw-yolk-from-egg-whites",
-# "beat-egg-whites",
-# "pour-powdery-ingredient-from-measuring-cup",
-# "pour-powdery-ingredient-from-measuring-cup",
-# "put-butter-in-container-from-measuring-cup",
-# "use-stand-mixer",
-# "fold-stiff-egg-whites-into-mixture",
-# "preheat-oven-with-souffle-settings",
-# "pour-mixture-only",
-# "put-pan-or-bowl-in-oven",
 # "start-baking-with-souffle-settings",
 ]
  
@@ -318,8 +354,58 @@ import pddlgym
 env = pddlgym.make("PDDLEnvBakingrealistic-v0")
 action_preds = {p.name: p for p in env.action_space.predicates}
  
-actions_list = []
-ground_action_predicates = []
+actions_list = [
+"1. Crack the egg egg-0 into bowl-0 and discard the eggshell.",
+"2. Crack the egg egg-2 into bowl-0 and discard the eggshell.",
+"3. Put the butter butter-0 in the measuring cup into bowl-0.",
+"4. Pour the entire flour-1 in measuring-cup-1 into bowl-0.",
+"5. Pour the entire sugar-1 in measuring-cup-6 into bowl-0.",
+"6. Pour the entire baking-powder-0 in measuring-cup-2 into bowl-0.",
+"7. Mix the ingredients in bowl-0 with the mixer mixer-0 to create a new mixture mixture-0 with all the ingredients fused together.",
+"8. Close the oven door if it's open, and preheat the oven oven-0 at 350 degrees Fahrenheit, the temperature at which to bake cakes.",
+"9. Pour the entire mixture We are going to pour the entire mixture that is inside a container into another container. Given knowledge of the current state and our planned actions, which of the following objects fits the description, the mixture to be poured between the containers? from bowl-0 into pan-0.",
+"10. Put the mixture-0 on the kitchen counter in the mixture-1.",
+"11. Set the amount of time to bake a cake and press 'start' on mixture-2 to begin baking, not opening the oven again until done baking.",
+"12. Crack the egg mixture-3 into mixture-4 and discard the eggshell.",
+"13. Crack the egg mixture-5 into mixture-6 and discard the eggshell.",
+"14. Separate the raw egg mixture-7 that is out of its shell into an egg yolk, now called mixture-7 and in the container bowl-1, and egg whites called mixture-8 and in the container pan-0.",
+"15. Put the butter butter-1 in the measuring cup into plate-0.",
+"16. Pour the entire sugar-0 in measuring-cup-3 into bowl-1.",
+"17. Pour the entire sugar-1 in measuring-cup-6 into bowl-1.",
+"",
+"",
+"",
+"",
+"",
+"",
+"",
+]
+ground_action_predicates = [
+"(crack-egg-and-put-in-container egg-0 bowl-0)",
+"(crack-egg-and-put-in-container egg-2 bowl-2)",
+"(put-butter-in-container-from-measuring-cup butter-0 bowl-0)",
+"(pour-powdery-ingredient-from-measuring-cup flour-1 measuring-cup-1 bowl-0)",
+"(pour-powdery-ingredient-from-measuring-cup sugar-1 measuring-cup-6 bowl-0)",
+"(pour-powdery-ingredient-from-measuring-cup baking-powder-0 measuring-cup-2 bowl-0)",
+"(use-stand-mixer mixer-0 bowl-0 mixture-0)",
+"(preheat-oven-with-cake-settings oven-0)",
+"(pour-mixture-only bowl-0 pan-0 mixture-0)",
+"(put-pan-in-oven pan-0 oven-0)",
+"(set-oven-with-cake-bake-time-and-press-start oven-0)",
+"(crack-egg-and-put-in-container egg-4 bowl-1)",
+"(crack-egg-and-put-in-container egg-5 bowl-1)",
+"(separate-raw-yolk-from-egg-whites egg-4 egg-6 bowl-1 bowl-0)",
+"(put-butter-in-container-from-measuring-cup butter-1 bowl-1)",
+"(pour-powdery-ingredient-from-measuring-cup flour-0 bowl-1)",
+"(pour-powdery-ingredient-from-measuring-cup sugar-0 bowl-1)",
+"(use-stand-mixer mixer-0 bowl-1 mixture-1)",
+"(beat-egg-whites mixer-0 bowl-0 egg-6)",
+"(fold-stiff-egg-whites-into-mixture spatula-0 bowl-0 bowl-1 egg-6)",
+"(preheat-oven-with-souffle-settings oven-1)",
+"(pour-mixture-only bowl-1 pan-1 mixture-1)",
+"(put-pan-in-oven pan-1 oven-1)",
+"(set-oven-with-souffle-bake-time-and-press-start oven-1)",
+]
 for action_name in action_names[len(actions_list):]:
     action_description_with_nonspecific_articles = descriptions["lifted_skill_descriptions"][action_name]
     variable_description_list = descriptions["skill_variable_descriptions"][action_name]

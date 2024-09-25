@@ -1,0 +1,1 @@
+(crack-egg-and-put-in-container egg-0 pan-0)
