@@ -219,70 +219,71 @@ print("**********************OPTIONAL PROMPT********************")
 #TODO: parse the actions, and if any of them can't be looked up, prompt again with the following:
 # TODO: when parsing the action string, look for the name in the whole bullet point, not just the text following "#."
 print(f"Step i doesn't use any of the phrases below. Could you please revise the plan using only phrases from the following list? Write them exactly how they appear in the list. Give a little explanation of each step underneath each bullet point.\n{action_names_string}")
+
+print("**********************OPTIONAL PROMPT********************")
+print("Do you need to reorder any of the actions?")
 input("Paste the parsed plan steps / actions into the script")
 
 #TODO: parse the plan
 #TODO: make sure this string starts each bulletpoint with a newline then 1.: `\n1.`
 #TODO: make sure that this contains up to the last bulletpoint information, and no more.
 parsed_plan = """
-Here is the sequence of atomic actions that will achieve the goal of making a cake in pan-0 while ensuring it is not damaged:
+1. **preheat-oven-with-souffle-settings**  
+   - Begin by preheating the oven to 375 degrees Fahrenheit.
 
-### **Goal**: 
-Make **dessert-0 a real, physical cake** and ensure **pan-0 is not damaged**.
+2. **crack-egg-and-put-in-container (egg-0, bowl-0)**  
+   - Crack egg-0 into bowl-0.
 
-### **Plan**:
+3. **separate-raw-yolk-from-egg-whites (bowl-0)**  
+   - Separate the egg yolk from the whites, placing them in different containers.
 
-1. **preheat-oven-with-cake-settings**
-   - Preheat the oven to 350°F, which is the appropriate temperature for baking a cake.
-   
-2. **crack-egg-and-put-in-container** (using **egg-0** and putting it in **bowl-0**)
-   - Crack the first egg into bowl-0, preparing the egg for the mixture.
+4. **pour-powdery-ingredient-from-measuring-cup (flour-0, bowl-1)**  
+   - Pour the small amount of flour from measuring-cup-0 into bowl-1 for the soufflé base.
 
-3. **crack-egg-and-put-in-container** (using **egg-1** and putting it in **bowl-0**)
-   - Crack the second egg into the same bowl, combining the eggs for the cake mixture.
+5. **put-butter-in-container-from-measuring-cup (butter-0, bowl-1)**  
+   - Add the butter from measuring-cup-4 into bowl-1.
 
-4. **pour-powdery-ingredient-from-measuring-cup** (using **flour-1** and putting it in **bowl-0**)
-   - Pour all of the couple of cups of flour (flour-1) from measuring-cup-1 into bowl-0.
+6. **pour-powdery-ingredient-from-measuring-cup (sugar-0, bowl-1)**  
+   - Add the sugar from measuring-cup-3 into bowl-1 to sweeten the soufflé.
 
-5. **pour-powdery-ingredient-from-measuring-cup** (using **sugar-0** and putting it in **bowl-0**)
-   - Pour the sugar (sugar-0) from measuring-cup-3 into bowl-0 to add sweetness to the cake mixture.
+7. **use-stand-mixer (bowl-1)**  
+   - Mix the flour, butter, and sugar in bowl-1 using the electric stand mixer to create a smooth base mixture.
 
-6. **pour-powdery-ingredient-from-measuring-cup** (using **baking-powder-0** and putting it in **bowl-0**)
-   - Pour the baking powder (baking-powder-0) from measuring-cup-2 into bowl-0 to help the cake rise during baking.
+8. **beat-egg-whites (bowl-0)**  
+   - Whip the egg whites in bowl-0 with the stand mixer until stiff peaks form.
 
-7. **put-butter-in-container-from-measuring-cup** (using **butter-0** and putting it in **bowl-0**)
-   - Add all of the butter (butter-0) from measuring-cup-4 into bowl-0, providing richness and moisture to the cake mixture.
+9. **fold-stiff-egg-whites-into-mixture (bowl-0, bowl-1)**  
+   - Gently fold the stiff egg whites from bowl-0 into the base mixture in bowl-1, keeping the air in the mixture for the soufflé’s texture.
 
-8. **use-stand-mixer** (using **bowl-0**)
-   - Use the electric stand mixer to mix all of the ingredients in bowl-0, creating a smooth, consistent cake batter.
+10. **pour-mixture-only (bowl-1, pan-0)**  
+    - Pour the soufflé mixture from bowl-1 into pan-0.
 
-9. **pour-mixture-only** (pour the mixture from **bowl-0** into **pan-0**)
-   - Pour the smooth cake batter from bowl-0 into pan-0, preparing it for baking.
+11. **put-pan-in-oven (pan-0)**  
+    - Place the pan-0 with the soufflé mixture into the preheated oven.
 
-10. **put-pan-in-oven** (using **pan-0**)
-    - Place pan-0 with the cake batter into the preheated oven.
+12. **set-oven-with-souffle-bake-time-and-press-start**  
+    - Set the appropriate bake time for the soufflé and start baking.
 
-11. **set-oven-with-cake-bake-time-and-press-start**
-    - Set the appropriate bake time for the cake and press 'start' to begin the baking process.
+13. **remove-pan-from-oven (pan-0)**  
+    - Once the soufflé is baked, remove pan-0 from the oven and let it cool.
 
-12. **remove-pan-from-oven** (once the cake is baked)
-    - After the baking time has completed, remove pan-0 from the oven and place it on the counter to cool, ensuring it is undamaged.
 """
 
 #TODO: replace these with the parsed actions
 action_names = [
     # cake plan
-"preheat-oven-with-cake-settings",
+"preheat-oven-with-souffle-settings",
 "crack-egg-and-put-in-container",
-"crack-egg-and-put-in-container",
-"pour-powdery-ingredient-from-measuring-cup",
-"pour-powdery-ingredient-from-measuring-cup",
+"separate-raw-yolk-from-egg-whites",
 "pour-powdery-ingredient-from-measuring-cup",
 "put-butter-in-container-from-measuring-cup",
+"pour-powdery-ingredient-from-measuring-cup",
 "use-stand-mixer",
+"beat-egg-whites",
+"fold-stiff-egg-whites-into-mixture",
 "pour-mixture-only",
 "put-pan-in-oven",
-"set-oven-with-cake-bake-time-and-press-start",
+"set-oven-with-souffle-bake-time-and-press-start",
 'remove-pan-from-oven'
 # souffle plan
 # "crack-egg-and-put-in-container",
@@ -314,32 +315,11 @@ import re
 
 import gym
 import pddlgym
-env = pddlgym.make("PDDLEnvBakingrealistic")
+env = pddlgym.make("PDDLEnvBakingrealistic-v0")
 action_preds = {p.name: p for p in env.action_space.predicates}
  
-actions_list = [
-"1. Close the oven door if it's open, and preheat the oven oven-0 at 350 degrees Fahrenheit, the temperature at which to bake cakes.",
-"2. Crack the egg egg-0 into bowl-0 and discard the eggshell.",
-"3. Crack the egg egg-1 into bowl-0 and discard the eggshell.",
-"4. Pour the entire flour-1 in measuring-cup-1 into bowl-0.",
-"5. Pour the entire sugar-0 in measuring-cup-3 into bowl-0.",
-"6. Pour the entire baking-powder-0 in measuring-cup-2 into bowl-0.",
-"7. Put the butter butter-0 in the measuring cup into bowl-0.",
-"8. Mix the ingredients in bowl-0 with the mixer mixer-0 to create a new mixture mixture-0 with all the ingredients fused together.",
-"9. Pour the entire mixture mixture-0 from bowl-0 into pan-0.",
-]
-ground_action_predicates = [
-"(preheat-oven-with-cake-settings oven-0)",
-"(crack-egg-and-put-in-container egg-0 bowl-0)",
-"(crack-egg-and-put-in-container egg-1 bowl-0)",
-"(pour-powdery-ingredient-from-measuring-cup flour-1 measuring-cup-1 bowl-0)",
-"(pour-powdery-ingredient-from-measuring-cup sugar-0 measuring-cup-3 bowl-0)",
-"(pour-powdery-ingredient-from-measuring-cup baking-powder-0 measuring-cup-2 bowl-0)",
-"(put-butter-in-container-from-measuring-cup butter-0 bowl-0)",
-"(use-stand-mixer mixer-0 bowl-0 mixture-0)",
-"(pour-mixture-only bowl-0 pan-0 mixture-0)",
-#
-]
+actions_list = []
+ground_action_predicates = []
 for action_name in action_names[len(actions_list):]:
     action_description_with_nonspecific_articles = descriptions["lifted_skill_descriptions"][action_name]
     variable_description_list = descriptions["skill_variable_descriptions"][action_name]
@@ -355,9 +335,8 @@ We want to make these facts true:
 
 We're thinking through a plan step-by-step to our goal. The plan sketch is:
 
-{parsed_plan}
+""" + '\n'.join(action_names)
 
-"""
 
     if len(actions_list) > 0:
         actions_done_string = ""
@@ -373,16 +352,16 @@ f"""So far in our plan, we've already done:\n""" + actions_done_string
         match = re.search(f'\n{len(actions_list)+1}\.[\s\S.]*', parsed_plan)
         step = parsed_plan[match.start(): match.end()]
     step = step.strip()
-    reminder_prompt = \
-f"""As a reminder, we are doing the following step in the plan sketch. You may need to revise the step if it's incorrect:
+#     reminder_prompt = \
+# f"""As a reminder, we are doing the following step in the plan sketch. You may need to revise the step if it's incorrect:
 
-{step}
+# {step}
 
-"""
+# """
     action_arg_prompt += \
 f"""
 Okay, now, we are thinking about step {len(actions_list) + 1} in our plan sketch. We are going to do the following action: {action_description_with_nonspecific_articles[:-1].lower()}. We need to identify the names of the specific objects involved in this action. Here are more details about how the objects involved need to relate to the action:
-""" + '\n'.join(variable_description_list) + '\n' + reminder_prompt
+""" + '\n'.join(variable_description_list) + '\n'# + reminder_prompt
     print(action_arg_prompt)
 
     ground_objs = []

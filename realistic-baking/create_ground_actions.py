@@ -13,7 +13,7 @@ skills_strings = \
 (move-baked-good-in-container-to-different-container ?from - container ?to - container ?d - dessert_hypothetical)
 (crack-egg-and-put-in-container ?e - egg_hypothetical ?c - container)
 (put-butter-in-container-from-measuring-cup ?b - butter_hypothetical ?c - container)
-(put-pan-or-bowl-in-oven ?c - container ?o - oven)
+(put-pan-in-oven ?c - container ?o - oven)
 (preheat-oven-with-cake-settings ?o - oven)
 (preheat-oven-with-souffle-settings ?o - oven)
 (use-stand-mixer ?m - electric_stand_mixer ?c - container ?m - mixture_hypothetical)
