@@ -4,8 +4,6 @@ from pddlgym.structs import Anti
 
 
 # Load the plan
-# idx = 3
-# fname = f'problem{idx + 1}.txt'
 test = False
 t = 'test' if test else 'train'
 r = range(0, 10) if test else range(0,4)
@@ -30,7 +28,7 @@ for idx, fname in problems:
     for line in plan:
         if line.strip() == '': continue
 
-        # print(line)
+        print(line)
         items = line.strip()[1:-1].split()
         action_predicate_name = items[0]
         object_names = items[1:]
@@ -43,6 +41,7 @@ for idx, fname in problems:
                 if obj_name == object_name:
                     args.append(o)
                     break
+        print(action_pred, args)
         actions.append(action_pred(*args))
 
     for action in actions:

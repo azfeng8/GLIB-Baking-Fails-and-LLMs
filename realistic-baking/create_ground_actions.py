@@ -25,6 +25,7 @@ skills_strings = \
 (use-stand-mixer ?arg0 - electric_stand_mixer ?arg1 - container ?arg2 - mixture_hypothetical)
 """
 
+
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--file', type=str)
@@ -86,6 +87,14 @@ for line in skills_strings.split('\n'):
         arg_type = arg_type.strip()
         types.append(arg_type)
     actions.append(Lifted_Action(action_name.strip(), types))
+domain_actions_str = '; (:actions '
+for action in actions:
+    domain_actions_str += action.name + ' '
+domain_actions_str = domain_actions_str[:-1]
+domain_actions_str += ')'
+#TODO: automatically delete and insert this string
+print(domain_actions_str)
+ 
 # For each skill:
     # Count how many arguments of each type there are. Then do N_total_objects_of_type P N_args_of_that_type. Then use itertools.product between the permutations to get each enumerated arguments list.
     # in the innermost loop, iterate over the Action template's arguments, taking the next elt in the itertools.product of that argument type, to construct the final ground action predicate.
@@ -136,11 +145,4 @@ out_lines = lines[:line_to_insert+1] + lines_to_insert + lines[prev_close_paran_
 with open(args.file, 'w') as f:
     f.write(''.join(out_lines))
 
-domain_actions_str = '; (:actions '
-for action in actions:
-    domain_actions_str += action.name + ' '
-domain_actions_str = domain_actions_str[:-1]
-domain_actions_str += ')'
-#TODO: automatically delete and insert this string
-print(domain_actions_str)
-        
+       
