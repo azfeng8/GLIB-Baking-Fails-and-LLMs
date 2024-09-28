@@ -83,7 +83,7 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
             else:
                 self.llm_line_stats.append(0)
             GOAL_BABBLING_LOGGER.debug("CONTINUING PLAN")
-            GOAL_BABBLING_LOGGER.debug(f"PLAN: {self._plan}")
+            GOAL_BABBLING_LOGGER.info(f"PLAN: {self._plan}")
             if len(self._operators) > 0:
                 return in_plan, self._operators.pop(0), self._plan.pop(0)
             else:

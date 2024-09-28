@@ -287,6 +287,8 @@ class BaseCuriosityModule:
         num_phs = len(phs)
         for v_nums in itertools.product(range(num_phs), repeat=num_phs):
             # Filter out if any number is skipped
+            # For example, if num_phs=3, this allows (1,1,1) and (1,2,2) but not (1,3,1)
+            # TODO: bug. This lets through (1,2,2) and (2,1,1), which are the two ways of saying the same representation, so the sampling is not uniform.
             valid = True
             for lo in range(num_phs-1):
                 hi = lo+1
