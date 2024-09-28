@@ -29,8 +29,10 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
         self._episode_start_state = None
         self._seen_state_actions = set()
 
-        self._sampling_iterator = self._yield_goal_action(self._action_space.predicates, self._observation_space.predicates, self._k)
-
+        if self._domain_name.lower() == 'bakingrealistic':
+            self._sampling_iterator = self._yield_goal_action(self._action_space.predicates, [p for p in self._observation_space.predicates if p.name not in ('different', 'name-less-than')], self._k)
+        else:
+            self._sampling_iterator = self._yield_goal_action(self._action_space.predicates, self._observation_space.predicates, self._k)
 
     @classmethod
     def _use_goal_preds(cls, goal_preds):
@@ -114,7 +116,10 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
         if self._ignore_mutex:  # ignore mutex goals
             self._goal_mutex_pairs = self._compute_lifted_mutex_literals(self._episode_start_state)
         # Forget the goal-action that was going to be taken at the end of the plan in progress
-        self._sampling_iterator = self._yield_goal_action(self._action_space.predicates, self._observation_space.predicates, self._k)
+        if self._domain_name.lower() == 'bakingrealistic':
+            self._sampling_iterator = self._yield_goal_action(self._action_space.predicates, [p for p in self._observation_space.predicates if p.name not in ('different', 'name-less-than')], self._k)
+        else:
+            self._sampling_iterator = self._yield_goal_action(self._action_space.predicates, self._observation_space.predicates, self._k)
         self._current_goal_action = None
 
     def _get_goal_action_priority(self, goal_action):
