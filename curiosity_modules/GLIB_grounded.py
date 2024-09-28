@@ -76,7 +76,10 @@ class GLIBG1CuriosityModule(GoalBabblingCuriosityModule):
         goal_act = None
         while goal_act is None or goal_act in self._visited_state_action_pairs:
             # Sample a random goal
-            goal_pred = np.random.permutation(self._observation_space.predicates)[0]
+            if self._domain_name.lower() == 'bakingrealistic':
+                goal_pred = np.random.permutation([p for p in self._observation_space.predicates if p.name not in ('different', 'name-less-than')])[0]
+            else:
+                goal_pred = np.random.permutation(self._observation_space.predicates)[0]
             ground_goal = self._sample_grounding(goal_pred, list(self._start_state.objects))
             if ground_goal is None or ground_goal in self._static_preds:
                 goal_act = None
@@ -99,6 +102,9 @@ class GLIBG1CuriosityModule(GoalBabblingCuriosityModule):
         if len(plan) == 0:
             self.line_stats.append('EMPTY PLAN - babbled')
         return plan + [self._last_sampled_action]
+
+    def observe(self, state, action, effects):
+        pass
 
 # class GLIBG2CuriosityModule(GoalBabblingCuriosityModule):
 #     #TODO: mutex goals

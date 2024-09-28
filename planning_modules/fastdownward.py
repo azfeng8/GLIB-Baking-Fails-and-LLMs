@@ -28,6 +28,9 @@ class FastDownwardPlanner(Planner):
         cmd_str1, cmd_str2 = self._get_cmd_str(domain_fname, problem_fname)
         start_time = time.time()
         output = subprocess.getoutput(cmd_str1)
+        if "exit code: 31" in output:
+            print(output)
+            raise Exception
         output = subprocess.getoutput(cmd_str2)
         end_time = time.time()
         if end_time - start_time > 0.9*ac.planner_timeout:
@@ -75,7 +78,8 @@ class FastDownwardPlanner(Planner):
         os.remove(domain_fname)
         if not use_cache:
             os.remove(problem_fname)
-        os.remove('output.sas')
+        if os.path.exists('output.sas'):
+            os.remove('output.sas')
 
 
 def parse_plan_step(plan_step, operators, action_predicates, objects):

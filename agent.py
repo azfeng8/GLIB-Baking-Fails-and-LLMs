@@ -1,7 +1,7 @@
 from curiosity_modules import create_curiosity_module
 from operator_learning_modules import create_operator_learning_module
 from planning_modules import create_planning_module
-from pddlgym.structs import Anti
+from pddlgym.structs import Anti, State
 from settings import LLMConfig as lc
 from openai_interface import OpenAI_Model
 from settings import EnvConfig as ec
@@ -11,6 +11,7 @@ import pickle
 import time
 import numpy as np
 from typing import Optional
+import logging
 
 
 class Agent:
@@ -72,7 +73,7 @@ class Agent:
         
 
     ## Training time methods
-    def get_action(self, state):
+    def get_action(self, state, _problem_idx):
         """Get an exploratory action to collect more training data.
            Not used for testing. Planner is used for testing."""
         start_time = time.time()
@@ -94,8 +95,20 @@ class Agent:
             effects (set[Literal]): effects of the transition
             itr (int): training iteration #
         """
+        if self.domain_name.lower() == 'bakingrealistic':
+            obs_literals = set()
+            next_obs_literals = set()
+            for lit in state.literals:
+                if lit.predicate.name not in ('different', 'name-less-than'):
+                    obs_literals.add(lit)
+            for lit in next_state.literals:
+                if lit.predicate.name not in ('different', 'name-less-than'):
+                    next_obs_literals.add(lit)
+            state = State(frozenset(obs_literals), state.objects, state.goal)
+            next_state = State(frozenset(next_obs_literals), next_state.objects, next_state.goal)
         # Get effects
         effects = self._compute_effects(state, next_state)
+        logging.info(f"EFFECTS: \n{effects}")
         # Add data
         self._operator_learning_module.observe(state, action, effects, start_episode=self.episode_start, itr=itr)
         # Some curiosity modules might use transition data
@@ -153,7 +166,7 @@ class InitialPlanAgent(Agent):
     def __init__(self, domain_name, action_space, observation_space,
                  curiosity_module_name, operator_learning_name,
                  planning_module_name, log_llm_path:Optional[str]):
-        super.__init__(domain_name, action_space, observation_space,
+        super().__init__(domain_name, action_space, observation_space,
                  curiosity_module_name, operator_learning_name,
                  planning_module_name, log_llm_path)
         
@@ -183,6 +196,7 @@ class InitialPlanAgent(Agent):
             else:
                 self.problem_to_plan_step[problem_idx] += 1
             self.prev_episode_idx = problem_idx
+            self._action_in_plan = False
             return action
             
         self.prev_episode_idx = problem_idx
@@ -216,10 +230,10 @@ class InitialPlanAgent(Agent):
     def _get_plans(self):
         """Fill in self.plans with the plans from txt files."""
         FILEPATHS = [
-           '/home/catalan/GLIB-Baking-Fails-and-LLMs/realistic-baking/llm_plans/problem1.txt',
-           '/home/catalan/GLIB-Baking-Fails-and-LLMs/realistic-baking/llm_plans/problem2.txt',
-           '/home/catalan/GLIB-Baking-Fails-and-LLMs/realistic-baking/llm_plans/problem3.txt',
-           '/home/catalan/GLIB-Baking-Fails-and-LLMs/realistic-baking/llm_plans/problem4.txt',
+           '/home/catalan/GLIB-Baking-Fails-and-LLMs/realistic-baking/llm_plans/train/problem1.txt',
+           '/home/catalan/GLIB-Baking-Fails-and-LLMs/realistic-baking/llm_plans/train/problem2.txt',
+           '/home/catalan/GLIB-Baking-Fails-and-LLMs/realistic-baking/llm_plans/train/problem3.txt',
+           '/home/catalan/GLIB-Baking-Fails-and-LLMs/realistic-baking/llm_plans/train/problem4.txt',
         ]
         for problem_i, filepath in enumerate(FILEPATHS):
             with open(filepath, 'r') as f:

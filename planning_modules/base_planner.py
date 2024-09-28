@@ -57,11 +57,17 @@ class Planner:
     def _create_domain_file_predicates(self):
         preds_pddl = []
         for pred in self._predicates.values():
+            if self.domain_name.lower()== 'bakingrealistic' and pred.name == 'different' or pred.name == 'name-less-than':
+                continue
             var_part = []
             for i, var_type in enumerate(pred.var_types):
                 var_part.append("?arg{} - {}".format(i, var_type))
             preds_pddl.append("\t\t({} {})".format(pred.name, " ".join(var_part)))
-        preds_pddl.append("\t(Different ?arg0 ?arg1)")
+        if self.domain_name.lower() == 'bakingrealistic':
+            for t in self._types:
+                preds_pddl.append(f"\t\t(different ?arg0 - {t} ?arg1 - {t})")
+        else:
+            preds_pddl.append("\t(Different ?arg0 ?arg1)")
         return """\t(:predicates\n{}\n\t)""".format("\n".join(preds_pddl))
 
     def _create_domain_file_operator(self, operator):
@@ -95,8 +101,12 @@ class Planner:
                     var_cleaned = var[:var.find(":")]
                     for param in list(sorted(all_params)):
                         param_cleaned = param[:param.find(":")]
-                        precond += "(not (Different {} {})) ".format(
-                            param_cleaned, var_cleaned)
+                        if self.domain_name.lower() == 'bakingrealistic':
+                            precond += "(not (different {} {})) ".format(
+                                param_cleaned, var_cleaned)
+                        else:
+                            precond += "(not (Different {} {})) ".format(
+                                param_cleaned, var_cleaned)
                 precond += "(not {}))".format(term.positive.pddl_str())
                 for var in universally_quantified_vars:
                     precond += ")"
@@ -113,8 +123,12 @@ class Planner:
                 if param1 >= param2:
                     continue
                 param2_cleaned = param2[:param2.find(":")]
-                precond_strs.append("(Different {} {})".format(
-                    param1_cleaned, param2_cleaned))
+                if self.domain_name.lower() == 'bakingrealistic':
+                    precond_strs.append("(different {} {})".format(
+                        param1_cleaned, param2_cleaned))
+                else:
+                    precond_strs.append("(Different {} {})".format(
+                        param1_cleaned, param2_cleaned))
 
         return "\n\t\t\t".join(precond_strs)
 
@@ -143,41 +157,80 @@ class Planner:
 
             # Add action literals (in case they're not already present in the initial state)
             # which will be true when the original domain uses operators_as_actions
-            init_state = State(problem_parser.initial_state, problem_parser.objects, None)
-            act_lits = self._action_space.all_ground_literals(init_state, valid_only=False)
-            problem_parser.initial_state = frozenset(act_lits | problem_parser.initial_state)
 
-            # Add 'Different' pairs for each pair of objects
-            Different = Predicate('Different', 2)
-            init_state = set(problem_parser.initial_state)
-            for obj1 in problem_parser.objects:
-                for obj2 in problem_parser.objects:
-                    if obj1 == obj2:
+            if self.domain_name .lower()== 'bakingrealistic':
+                action_pred_names = [p.name for p in self._action_space.predicates]
+                initial_state = set()
+                for lit in problem_parser.initial_state:
+                    # Remove ground action literals
+                    if lit.predicate.name in action_pred_names:
                         continue
-                    # if obj1.var_type != obj2.var_type:
-                    #     continue
-                    diff_lit = Different(obj1, obj2)
-                    init_state.add(diff_lit)
-            problem_parser.initial_state = frozenset(init_state)
-            # Also add 'different' pairs for goal if it's existential
-            if isinstance(problem_parser.goal, Exists):
-                diffs = []
-                for var1 in problem_parser.goal.variables:
-                    for var2 in problem_parser.goal.variables:
-                        if var1 == var2:
+                    # Remove name-less-than predicates
+                    if lit.predicate.name == 'name-less-than':
+                        continue
+                    initial_state.add(lit)
+                init_state = State(initial_state, problem_parser.objects, None)
+                act_lits = self._action_space.all_ground_literals(init_state, valid_only=False)
+                problem_parser.initial_state = frozenset(act_lits | init_state.literals)
+                    
+                Different = Predicate('different', 2)
+                init_state = set(problem_parser.initial_state)
+                for obj1 in problem_parser.objects:
+                    for obj2 in problem_parser.objects:
+                        if obj1 == obj2:
                             continue
-                        diffs.append(Different(var1, var2))
-                problem_parser.goal = Exists(
-                    problem_parser.goal.variables,
-                    type(problem_parser.goal.body)(
-                        problem_parser.goal.body.literals+diffs))
-
-            # If no objects, write a dummy one to make FF not crash.
-            if not problem_parser.objects:
-                problem_parser.objects.append("DUMMY")
-
+                        diff_lit = Different(obj1, obj2)
+                        init_state.add(diff_lit)
+                problem_parser.initial_state = frozenset(init_state)
+                # Also add 'different' pairs for goal if it's existential
+                if isinstance(problem_parser.goal, Exists):
+                    diffs = []
+                    for var1 in problem_parser.goal.variables:
+                        for var2 in problem_parser.goal.variables:
+                            if var1 == var2:
+                                continue
+                            diffs.append(Different(var1, var2))
+                    problem_parser.goal = Exists(
+                        problem_parser.goal.variables,
+                        type(problem_parser.goal.body)(
+                            problem_parser.goal.body.literals+diffs))
             # Write out new temporary problem file
-            problem_parser.write(problem_fname, fast_downward_order=True)
+                problem_parser.write(problem_fname, fast_downward_order=True)
+            else:
+                init_state = State(problem_parser.initial_state, problem_parser.objects, None)
+                act_lits = self._action_space.all_ground_literals(init_state, valid_only=False)
+                problem_parser.initial_state = frozenset(act_lits | problem_parser.initial_state)
+                # Add 'Different' pairs for each pair of objects
+                Different = Predicate('Different', 2)
+                init_state = set(problem_parser.initial_state)
+                for obj1 in problem_parser.objects:
+                    for obj2 in problem_parser.objects:
+                        if obj1 == obj2:
+                            continue
+                        # if obj1.var_type != obj2.var_type:
+                        #     continue
+                        diff_lit = Different(obj1, obj2)
+                        init_state.add(diff_lit)
+                problem_parser.initial_state = frozenset(init_state)
+                # Also add 'different' pairs for goal if it's existential
+                if isinstance(problem_parser.goal, Exists):
+                    diffs = []
+                    for var1 in problem_parser.goal.variables:
+                        for var2 in problem_parser.goal.variables:
+                            if var1 == var2:
+                                continue
+                            diffs.append(Different(var1, var2))
+                    problem_parser.goal = Exists(
+                        problem_parser.goal.variables,
+                        type(problem_parser.goal.body)(
+                            problem_parser.goal.body.literals+diffs))
+
+                # If no objects, write a dummy one to make FF not crash.
+                if not problem_parser.objects:
+                    problem_parser.objects.append("DUMMY")
+
+                # Write out new temporary problem file
+                problem_parser.write(problem_fname)
 
             # Add to cache
             self._problem_files[raw_problem_fname] = (problem_fname, problem_parser.objects)

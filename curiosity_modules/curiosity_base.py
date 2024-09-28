@@ -72,7 +72,7 @@ class BaseCuriosityModule:
             prefix, random.randint(0, 9999999))
         objects = state.objects
         all_action_lits = self._action_space.all_ground_literals(state)
-        initial_state = state.literals | all_action_lits
+        initial_state = frozenset([lit for lit in state.literals if lit.predicate.name != 'name-less-than']) | all_action_lits
         problem_name = "{}_problem".format(prefix)
         domain_name = self._planning_module.domain_name
         PDDLProblemParser.create_pddl_file(fname, objects, initial_state,

@@ -4,7 +4,7 @@ from flags import parse_flags
 
 import matplotlib
 matplotlib.use("Agg")
-from agent import Agent
+from agent import Agent, InitialPlanAgent
 from planning_modules.base_planner import PlannerTimeoutException, \
     NoPlanFoundException
 from plotting import plot_results
@@ -83,7 +83,7 @@ class Runner:
         """
         episode_done = True
         episode_time_step = 0
-        problem_idx = 0
+        problem_idx = None 
         itrs_on = None
         prev_test_solve_rate = 0
 
@@ -99,17 +99,24 @@ class Runner:
             logging.info("Iteration {} of {}".format(itr, self.num_train_iters))
 
             if episode_done or episode_time_step > ac.max_train_episode_length[self.domain_name]:
+                if problem_idx is None:
+                    problem_idx = 0
+                else:
+                    problem_idx = (problem_idx + 1) % self.num_train_problems
                 self.train_env.fix_problem_index(problem_idx)
                 obs, _ = self.train_env.reset()
-                problem_idx = (problem_idx + 1) % self.num_train_problems
+                logging.info(f"***********************************New episode! Problem {problem_idx}:{obs.goal}***********************************")
                 self.agent.reset_episode(obs)
                 episode_time_step = 0
 
-            logging.debug("Getting action...")
+            logging.info("Getting action...")
             action = self.agent.get_action(obs, problem_idx)
 
             logging.debug("Executing action...")
-            next_obs, _, episode_done, _ = self.train_env.step(action)
+            logging.info(f"Taking action {action}")
+            next_obs, rew, episode_done, _ = self.train_env.step(action)
+            logging.info(f"Reward: {rew}")
+            if round(rew) == 1: logging.info(f"***********************************Reached goal! {obs.goal}***********************************")
 
             # # Exclude no-ops
             # while len(self.agent._compute_effects(obs, next_obs)) == 0:
@@ -129,7 +136,7 @@ class Runner:
             # Learn and test
             if itr % ac.learning_interval[self.domain_name] == 0:
                 start = time.time()
-                logging.debug("Learning...")
+                logging.info("Learning...")
 
                 if self.domain_name == "PybulletBlocks" and self.curiosity_name == "oracle":
                     operators_changed = True
@@ -141,6 +148,9 @@ class Runner:
                    itr + ac.learning_interval[self.domain_name] >= self.num_train_iters:
                     # start = time.time()
                     logging.debug("Testing...")
+                    # logging.info("Learned operators:")
+                    # for op in self.agent.learned_operators:
+                        # logging.info(op.pddl_str())
 
                     test_solve_rate, variational_dist, successes = self._evaluate_operators(use_learned_ops=True)
 
@@ -275,7 +285,7 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_
 
     ac.seed = seed
     ec.seed = seed
-    ac.planner_timeout = 60 if "oracle" in curiosity_name else 120 
+    ac.planner_timeout = 60 if "oracle" in curiosity_name else 180 
 
     train_env = gym.make("PDDLEnv{}-v0".format(domain_name))
     train_env.seed(seed)
