@@ -32,6 +32,7 @@ class Runner:
     def __init__(self, agent:Agent, train_env, test_env, domain_name, curiosity_name):
         self.agent:Agent = agent
         self.train_env = train_env
+        self.num_train_problems = len(self.train_env.problems)
         self.test_env = test_env
         self.domain_name = domain_name
         self.curiosity_name = curiosity_name
@@ -80,26 +81,32 @@ class Runner:
     def run(self):
         """Run primitive operator learning loop.
         """
-        results = []
-        plan_ops_results = []
         episode_done = True
         episode_time_step = 0
+        problem_idx = 0
         itrs_on = None
         prev_test_solve_rate = 0
+
+        # Logging 
         success_rates = []
+        results = []
+        plan_ops_results = []
         episode_start_itrs = []
         ops_changed_itrs = []
         planning_ops_changed_itrs = []
+
         for itr in range(self.num_train_iters):
             logging.info("Iteration {} of {}".format(itr, self.num_train_iters))
 
             if episode_done or episode_time_step > ac.max_train_episode_length[self.domain_name]:
+                self.train_env.fix_problem_index(problem_idx)
                 obs, _ = self.train_env.reset()
+                problem_idx = (problem_idx + 1) % self.num_train_problems
                 self.agent.reset_episode(obs)
                 episode_time_step = 0
 
             logging.debug("Getting action...")
-            action = self.agent.get_action(obs)
+            action = self.agent.get_action(obs, problem_idx)
 
             logging.debug("Executing action...")
             next_obs, _, episode_done, _ = self.train_env.step(action)
