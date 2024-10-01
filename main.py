@@ -136,7 +136,7 @@ class Runner:
             # Learn and test
             if itr % ac.learning_interval[self.domain_name] == 0:
                 start = time.time()
-                logging.info("Learning...")
+                logging.debug("Learning...")
 
                 if self.domain_name == "PybulletBlocks" and self.curiosity_name == "oracle":
                     operators_changed = True
@@ -147,7 +147,8 @@ class Runner:
                 if operators_changed or ac.planner_name[self.domain_name] == "ffreplan" or \
                    itr + ac.learning_interval[self.domain_name] >= self.num_train_iters:
                     # start = time.time()
-                    logging.debug("Testing...")
+                    if operators_changed:
+                        logging.info("Operators changed. Testing...")
                     # logging.info("Learned operators:")
                     # for op in self.agent.learned_operators:
                         # logging.info(op.pddl_str())

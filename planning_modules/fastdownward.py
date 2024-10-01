@@ -41,12 +41,13 @@ class FastDownwardPlanner(Planner):
         except Exception as e:
             self.delete_cached_plan_files(domain_fname, problem_fname, use_cache=True)
             raise e 
-        actions, operator_names = self._plan_to_actions(plan, objects)
+        actions, operator_names = self._plan_to_actions(plan, objects, domain_fname)
         self.delete_cached_plan_files(domain_fname, problem_fname, use_cache=True)
         return actions, operator_names
 
     def _get_cmd_str(self, domain_fname, problem_fname):
         timeout = "gtimeout" if sys.platform == "darwin" else "timeout"
+        #FIXME: rename the output file so that it's unique, and so multiple seeds can run from the same folder
         return f"{timeout} {ac.planner_timeout} {self.FD_PATH} {domain_fname} {problem_fname}", f'{timeout} {ac.planner_timeout} {self.FD_PATH} --alias lama-first output.sas'
 
     @staticmethod
@@ -56,7 +57,7 @@ class FastDownwardPlanner(Planner):
         plan = [line[:-3].strip() for line in output.split('\n') if line.endswith('(1)')]
         return plan
 
-    def _plan_to_actions(self, plan, objects, use_learned_ops=False):
+    def _plan_to_actions(self, plan, objects, domain_fname, use_learned_ops=False):
         if use_learned_ops:
             operators = self._learned_operators
         else:
@@ -68,7 +69,7 @@ class FastDownwardPlanner(Planner):
         for plan_step in plan:
             if plan_step == "reach-goal":
                 continue
-            action, op_name = parse_plan_step(plan_step, operators, action_predicates, objects)
+            action, op_name = self.parse_plan_step(plan_step, operators, action_predicates, objects, domain_fname)
             actions.append(action)
             operator_names.append(op_name)
         return actions, operator_names
@@ -82,33 +83,33 @@ class FastDownwardPlanner(Planner):
             os.remove('output.sas')
 
 
-def parse_plan_step(plan_step, operators, action_predicates, objects):
-    plan_step_split = plan_step.split()
+    def parse_plan_step(self, plan_step, operators, action_predicates, objects, domain_file):
+        plan_step_split = plan_step.split()
 
-    # Get the operator from its name
-    operator = None
-    for op in operators:
-        if op.name.lower() == plan_step_split[0]:
-            operator = op
-            break
-    assert operator is not None, "Unknown operator '{}'".format(plan_step_split[0])
+        # Get the operator from its name
+        operator = None
+        for op in operators:
+            if op.name.lower() == plan_step_split[0]:
+                operator = op
+                break
+        assert operator is not None, "Unknown operator '{}' in file {}".format(plan_step_split[0],domain_file)
 
-    assert len(plan_step_split) == len(operator.params) + 1, f"{operator.pddl_str()}\nplan:{plan_step_split}"
-    object_names = plan_step_split[1:]
-    args = []
-    for name in object_names:
-        matches = [o for o in objects if o.name == name]
-        assert len(matches) == 1
-        args.append(matches[0])
-    assignments = dict(zip(operator.params, args))
+        assert len(plan_step_split) == len(operator.params) + 1, f"{operator.pddl_str()}\nplan:{plan_step_split}"
+        object_names = plan_step_split[1:]
+        args = []
+        for name in object_names:
+            matches = [o for o in objects if o.name == name]
+            assert len(matches) == 1
+            args.append(matches[0])
+        assignments = dict(zip(operator.params, args))
 
-    for cond in operator.preconds.literals:
-        if cond.predicate in action_predicates:
-            ground_action = ground_literal(cond, assignments)
-            return ground_action, operator.name
+        for cond in operator.preconds.literals:
+            if cond.predicate in action_predicates:
+                ground_action = ground_literal(cond, assignments)
+                return ground_action, operator.name
 
-    import ipdb; ipdb.set_trace()
-    raise Exception("Unrecognized plan step: `{}`".format(str(plan_step)))
+        import ipdb; ipdb.set_trace()
+        raise Exception("Unrecognized plan step: `{}`".format(str(plan_step)))
 
 
  
