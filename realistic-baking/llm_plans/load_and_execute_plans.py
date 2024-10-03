@@ -6,7 +6,7 @@ from pddlgym.structs import Anti
 # Load the plan
 test = False
 t = 'test' if test else 'train'
-r = range(0, 10) if test else range(0,4)
+r = range(0, 20) if test else range(0,4)
 problems = [(idx, f'{t}/problem{idx + 1}.txt') for idx in r]
 
 for idx, fname in problems:
