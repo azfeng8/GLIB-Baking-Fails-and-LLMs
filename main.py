@@ -115,7 +115,7 @@ class Runner:
             logging.debug("Executing action...")
             logging.info(f"Taking action {action}")
             next_obs, rew, episode_done, _ = self.train_env.step(action)
-            logging.info(f"Reward: {rew}")
+            # logging.info(f"Reward: {rew}")
             if round(rew) == 1: logging.info(f"***********************************Reached goal! {obs.goal}***********************************")
 
             # # Exclude no-ops
@@ -136,7 +136,6 @@ class Runner:
             # Learn and test
             if itr % ac.learning_interval[self.domain_name] == 0:
                 start = time.time()
-                logging.debug("Learning...")
 
                 if self.domain_name == "PybulletBlocks" and self.curiosity_name == "oracle":
                     operators_changed = True
@@ -149,9 +148,9 @@ class Runner:
                     # start = time.time()
                     if operators_changed:
                         logging.info("Operators changed. Testing...")
-                    # logging.info("Learned operators:")
-                    # for op in self.agent.learned_operators:
-                        # logging.info(op.pddl_str())
+                    logging.info("Learned operators:")
+                    for op in self.agent.learned_operators:
+                        logging.info(op.pddl_str())
 
                     test_solve_rate, variational_dist, successes = self._evaluate_operators(use_learned_ops=True)
 

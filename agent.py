@@ -126,7 +126,10 @@ class Agent:
 
     def learn(self, itr):
         # Learn
+        logging.info("Learning...")
+        start = time.time()
         some_learned_operator_changed, some_planning_operator_changed = self._operator_learning_module.learn(itr, skill_to_edit=self._skill_to_edit)
+        logging.info(f"Learning took {time.time() - start} s")
 
         # Used in LLMIterative only
         if self.operator_learning_name in ['LLM+LNDR', 'LLMIterative+LNDR']:
@@ -134,7 +137,9 @@ class Agent:
 
         if some_learned_operator_changed:
             start_time = time.time()
+            logging.info("Resetting curiosity...")
             self._curiosity_module.learning_callback()
+            logging.info(f"Resetting curiosity took {time.time() - start_time}")
             self.curiosity_time += time.time()-start_time
             # for pred, dt in self._operator_learning_module.learned_dts.items():
             #     print(pred)
@@ -146,8 +151,16 @@ class Agent:
         return some_learned_operator_changed, some_planning_operator_changed
 
     def reset_episode(self, state):
+        obs_literals = set()
+        if self.domain_name.lower() == 'bakingrealistic':
+            for lit in state.literals:
+                if lit.predicate.name not in ('different', 'name-less-than'):
+                    obs_literals.add(lit)
+            state = State(frozenset(obs_literals), state.objects, state.goal)
+
         start_time = time.time()
         self._curiosity_module.reset_episode(state)
+        logging.info(f"Resetting episode for curiosity took {time.time() - start_time}")
         self.curiosity_time += time.time()-start_time
         self.episode_start = True
 
