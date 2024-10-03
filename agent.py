@@ -76,6 +76,13 @@ class Agent:
     def get_action(self, state, _problem_idx):
         """Get an exploratory action to collect more training data.
            Not used for testing. Planner is used for testing."""
+        if self.domain_name.lower() == 'bakingrealistic':
+            obs_literals = set()
+            for lit in state.literals:
+                if lit.predicate.name not in ('different', 'name-less-than'):
+                    obs_literals.add(lit)
+            state = State(frozenset(obs_literals), state.objects, state.goal)
+
         start_time = time.time()
         in_plan, op_name, action = self._curiosity_module.get_action(state)
         logging.info(f"Getting action took {time.time() - start_time}")
