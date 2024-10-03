@@ -135,7 +135,6 @@ class Runner:
 
             # Learn and test
             if itr % ac.learning_interval[self.domain_name] == 0:
-                start = time.time()
 
                 if self.domain_name == "PybulletBlocks" and self.curiosity_name == "oracle":
                     operators_changed = True
@@ -152,7 +151,9 @@ class Runner:
                     for op in self.agent.learned_operators:
                         logging.info(op.pddl_str())
 
+                    start = time.time()
                     test_solve_rate, variational_dist, successes = self._evaluate_operators(use_learned_ops=True)
+                    logging.info(f"Evaluation took {time.time() - start} s")
 
                     logging.info(f"Result: {test_solve_rate} {variational_dist}")
                     # logging.debug("Testing took {} seconds".format(time.time()-start))

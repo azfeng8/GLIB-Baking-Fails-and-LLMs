@@ -78,6 +78,7 @@ class Agent:
            Not used for testing. Planner is used for testing."""
         start_time = time.time()
         in_plan, op_name, action = self._curiosity_module.get_action(state)
+        logging.info(f"Getting action took {time.time() - start_time}")
         self.curiosity_time += time.time()-start_time
 
         if in_plan:
@@ -126,7 +127,6 @@ class Agent:
 
     def learn(self, itr):
         # Learn
-        logging.info("Learning...")
         start = time.time()
         some_learned_operator_changed, some_planning_operator_changed = self._operator_learning_module.learn(itr, skill_to_edit=self._skill_to_edit)
         logging.info(f"Learning took {time.time() - start} s")
@@ -137,7 +137,6 @@ class Agent:
 
         if some_learned_operator_changed:
             start_time = time.time()
-            logging.info("Resetting curiosity...")
             self._curiosity_module.learning_callback()
             logging.info(f"Resetting curiosity took {time.time() - start_time}")
             self.curiosity_time += time.time()-start_time

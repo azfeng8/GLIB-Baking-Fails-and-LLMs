@@ -9,6 +9,7 @@ import pickle
 import itertools
 import numpy as np
 import logging
+import time
 
 GLIB_L_LOGGER = logging.getLogger("GLIB_Lifted")
 
@@ -112,12 +113,18 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
 
     def _iw_reset(self):
         if self._ignore_statics:  # ignore static goals
+            start = time.time()
             self._goal_static_preds = self._compute_static_preds()
+            logging.info(f"Static preds compute took {time.time() - start} s")
         if self._ignore_mutex:  # ignore mutex goals
+            start = time.time()
             self._goal_mutex_pairs = self._compute_lifted_mutex_literals(self._episode_start_state)
+            logging.info(f"Goal mutex pairs compute took {time.time() - start} s")
         # Forget the goal-action that was going to be taken at the end of the plan in progress
         if self._domain_name.lower() == 'bakingrealistic':
+            start = time.time()
             self._sampling_iterator = self._yield_goal_action(self._action_space.predicates, [p for p in self._observation_space.predicates if p.name not in ('different', 'name-less-than')], self._k)
+            logging.info(f'Creating goal sampler generator took {time.time() - start} s')
         else:
             self._sampling_iterator = self._yield_goal_action(self._action_space.predicates, self._observation_space.predicates, self._k)
         self._current_goal_action = None
