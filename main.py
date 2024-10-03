@@ -29,6 +29,8 @@ import pickle
 class Runner:
     """Helper class for running experiments.
     """
+
+
     def __init__(self, agent:Agent, train_env, test_env, domain_name, curiosity_name):
         self.agent:Agent = agent
         self.train_env = train_env
@@ -241,6 +243,28 @@ class Runner:
         """Test current operators. Return (solve rate on test suite,
         average variational distance).
         """
+        BAKING_REALISTIC_TEST_CASES_DESCRIPTIONS = {
+            0: "Bake souffle and cake, without damaging pans, putting them on plates.",
+            1: "move-baked-good-in-container-to-different-container",
+            2: "set-oven-with-souffle-bake-time-and-press-start",
+            3: "set-oven-with-cake-bake-time-and-press-start",
+            4: "fold-stiff-egg-whites-into-mixture",
+            5: "pour-mixture-only",
+            6: "use-stand-mixer for cake",
+            7: "use-stand-mixer for souffle",
+            8: "beat-egg-whites",
+            9: "separate-egg-whites",
+            10: "transfer-butter-from-pan-or-bowl",
+            11: "transfer-egg-from-pan-or-bowl",
+            12: "pour-powdery-ingredient-from-container",
+            13: "remove-pan-from-oven",
+            14: "put-pan-in-oven",
+            15: "crack-egg",
+            16: "preheat-souffle",
+            17: "preheat-cake",
+            18: "pour-powdery-ingredient-from-measuring-cup",
+            19: "put-butter-in-container-from-measuring-cup",
+        }
         if self.domain_name == "PybulletBlocks" and self.curiosity_name == "oracle":
             # Disable oracle for pybullet.
             return 0.0, 1.0
@@ -251,8 +275,6 @@ class Runner:
             num_problems = len(self.test_env.problems)
         successes = []
         for problem_idx in range(num_problems):
-            logging.info("\tTest case {} of {}, {} successes so far".format(
-                problem_idx+1, num_problems, num_successes))#, end="\r")
             self.test_env.fix_problem_index(problem_idx)
             obs, debug_info = self.test_env.reset()
             try:
@@ -260,6 +282,12 @@ class Runner:
             except (NoPlanFoundException, PlannerTimeoutException):
                 # Automatic failure
                 successes.append(0)
+                if self.domain_name.lower() == 'bakingrealistic':
+                    logging.info("\tTest case {}/{}, FAILED. {} successes so far. {}".format(
+                    problem_idx+1, num_problems, num_successes, BAKING_REALISTIC_TEST_CASES_DESCRIPTIONS[problem_idx]))
+                else:
+                    logging.info("\tTest case {} of {}, {} successes so far".format(
+                    problem_idx+1, num_problems, num_successes))
                 continue
             # Test plan open-loop
             reward = 0.
@@ -271,6 +299,7 @@ class Runner:
                 obs, reward, done, _ = self.test_env.step(action)
                 if done:
                     break
+
             # Reward is 1 iff goal is reached
             if reward == 1.:
                 num_successes += 1
@@ -278,6 +307,15 @@ class Runner:
             else:
                 assert reward == 0.
                 successes.append(0)
+
+            if self.domain_name.lower() == 'bakingrealistic':
+                result_str = "PASSED" if reward == 1. else "FAILED"
+                logging.info("\tTest case {}/{}, {}. {} successes so far. {}".format(
+                problem_idx+1, num_problems, result_str, num_successes, BAKING_REALISTIC_TEST_CASES_DESCRIPTIONS[problem_idx]))
+            else:
+                logging.info("\tTest case {} of {}, {} successes so far".format(
+                problem_idx+1, num_problems, num_successes))#, end="\r")
+ 
         variational_dist = 0
         return float(num_successes)/num_problems, variational_dist, successes
 
