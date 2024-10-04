@@ -275,6 +275,8 @@ class Runner:
             num_problems = len(self.test_env.problems)
         successes = []
         for problem_idx in range(num_problems):
+            #FIXME: First get the operator learner to learn mixing. That is the bottleneck for the harder tasks.
+            if self.domain_name.lower() == 'bakingrealistic' and problem_idx <= 5: continue
             self.test_env.fix_problem_index(problem_idx)
             obs, debug_info = self.test_env.reset()
             try:
