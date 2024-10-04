@@ -8,6 +8,7 @@
         },
     "predicates":
             {
+            "is-oven": "{} is an oven. #0",
             "mixture-is-hypothetical": "{} is a hypothetical object that doesn't exist yet. #0",
             "is-whole-raw-egg": "{} is out of its shell and is a whole raw egg, with the egg whites and yolk not separated. #0",
             "powder-ingredient-in-measuring-cup": "{} is in the measuring cup {}. #01",

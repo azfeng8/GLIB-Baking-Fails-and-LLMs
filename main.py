@@ -144,9 +144,8 @@ class Runner:
                     operators_changed, planning_operators_changed = self.agent.learn(itr)
 
                 # Only rerun tests if operators have changed, or stochastic env
-                if operators_changed or ac.planner_name[self.domain_name] == "ffreplan" or \
-                   itr + ac.learning_interval[self.domain_name] >= self.num_train_iters:
-                    # start = time.time()
+                if (operators_changed or ac.planner_name[self.domain_name] == "ffreplan" or \
+                   itr + ac.learning_interval[self.domain_name] >= self.num_train_iters):
                     if operators_changed:
                         logging.info("Operators changed. Testing...")
                     logging.info("Learned operators:")
@@ -154,28 +153,32 @@ class Runner:
                         logging.info(op.pddl_str())
 
                     start = time.time()
-                    test_solve_rate, variational_dist, successes = self._evaluate_operators(use_learned_ops=True)
-                    logging.info(f"Evaluation took {time.time() - start} s")
+                    # Evaluation takes a very long time (>=2 min each time on a subset of the 20 tasks), so only evaluate after iteration 500
+                    if self.domain_name.lower() == 'bakingrealistic' and itr >= 500 or ( self.domain_name.lower() != 'bakingrealistic'):
+                        test_solve_rate, variational_dist, successes = self._evaluate_operators(use_learned_ops=True)
+                        logging.info(f"Evaluation took {time.time() - start} s")
 
-                    logging.info(f"Result: {test_solve_rate} {variational_dist}")
-                    # logging.debug("Testing took {} seconds".format(time.time()-start))
+                        logging.info(f"Result: {test_solve_rate} {variational_dist}")
 
-                    if "oracle" in self.agent.curiosity_module_name and \
-                       test_solve_rate == 1 and ac.planner_name[self.domain_name] == "ff":
-                        # Oracle can be done when it reaches 100%, if deterministic env
-                        self.agent._curiosity_module.turn_off()
-                        self.agent._operator_learning_module.turn_off()
-                        if itrs_on is None:
-                            itrs_on = itr
+                        if "oracle" in self.agent.curiosity_module_name and \
+                        test_solve_rate == 1 and ac.planner_name[self.domain_name] == "ff":
+                            # Oracle can be done when it reaches 100%, if deterministic env
+                            self.agent._curiosity_module.turn_off()
+                            self.agent._operator_learning_module.turn_off()
+                            if itrs_on is None:
+                                itrs_on = itr
 
-                    # Logging
-                    ops_changed_itrs.append(itr)
-                    log_ops = True
-                    if (test_solve_rate > prev_test_solve_rate) and ('LNDR' in self.agent.operator_learning_name):
-                        log_data = True
-                        success_rates.append([itr, test_solve_rate])
+                        # Logging
+                        ops_changed_itrs.append(itr)
+                        log_ops = True
+                        if (test_solve_rate > prev_test_solve_rate) and ('LNDR' in self.agent.operator_learning_name):
+                            log_data = True
+                            success_rates.append([itr, test_solve_rate])
 
-                    prev_test_solve_rate = test_solve_rate
+                        prev_test_solve_rate = test_solve_rate
+                    else:
+                        test_solve_rate = -1
+                        variational_dist = -1
 
 
                 else:
