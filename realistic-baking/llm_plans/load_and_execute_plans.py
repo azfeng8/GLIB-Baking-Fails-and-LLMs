@@ -28,7 +28,7 @@ for idx, fname in problems:
     for line in plan:
         if line.strip() == '': continue
 
-        print(line)
+        # print(line)
         items = line.strip()[1:-1].split()
         action_predicate_name = items[0]
         object_names = items[1:]
@@ -41,7 +41,7 @@ for idx, fname in problems:
                 if obj_name == object_name:
                     args.append(o)
                     break
-        print(action_pred, args)
+        # print(action_pred, args)
         actions.append(action_pred(*args))
 
     for action in actions:
