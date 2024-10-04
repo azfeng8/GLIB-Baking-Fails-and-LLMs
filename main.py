@@ -274,9 +274,30 @@ class Runner:
         else:
             num_problems = len(self.test_env.problems)
         successes = []
-        for problem_idx in range(num_problems):
+        passed_cases = set()
+        if self.domain_name.lower() == 'bakingrealistic':
+            problems = range(num_problems-1, -1, -1)
+        else:
+            problems = range(num_problems)
+        for problem_idx in problems:
             #FIXME: First get the operator learner to learn mixing. That is the bottleneck for the harder tasks.
-            if self.domain_name.lower() == 'bakingrealistic' and problem_idx <= 5: continue
+            if self.domain_name.lower() == 'bakingrealistic':
+                if problem_idx <= 5: continue
+                if (problem_idx == 6) and (
+                    # Problem 6 needs these cases to pass
+                    18 not in passed_cases
+                    or 19 not in passed_cases 
+                    or 15 not in passed_cases
+                ):
+                    continue
+                if (problem_idx == 7) and (
+                    # Problem 7 needs these cases to pass
+                    9 not in passed_cases
+                    or 18 not in passed_cases
+                    or 19 not in passed_cases 
+                    or 15 not in passed_cases
+                ):
+                    continue
             self.test_env.fix_problem_index(problem_idx)
             obs, debug_info = self.test_env.reset()
             try:
@@ -306,6 +327,7 @@ class Runner:
             if reward == 1.:
                 num_successes += 1
                 successes.append(1)
+                passed_cases.add(problem_idx)
             else:
                 assert reward == 0.
                 successes.append(0)
@@ -334,9 +356,15 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_
     # learner, which uses the environment to access the predicates and
     # action names.
     ac.train_env = train_env
-    agent = Agent(domain_name, train_env.action_space,
-                  train_env.observation_space, curiosity_name, learning_name, log_llm_path=log_llmi_path,
-                  planning_module_name=ac.planner_name[domain_name])
+    if gc.use_demos:
+        agent = InitialPlanAgent(domain_name, train_env.action_space,
+                    train_env.observation_space, curiosity_name, learning_name, log_llm_path=log_llmi_path,
+                    planning_module_name=ac.planner_name[domain_name])
+    else:
+        agent = Agent(domain_name, train_env.action_space,
+                    train_env.observation_space, curiosity_name, learning_name, log_llm_path=log_llmi_path,
+                    planning_module_name=ac.planner_name[domain_name])
+        
     test_env = gym.make("PDDLEnv{}Test-v0".format(domain_name))
     results, curiosity_avg_time, plan_ops_results  = Runner(agent, train_env, test_env, domain_name, curiosity_name).run()
     with open("results/timings/{}_{}_{}_{}.txt".format(domain_name, curiosity_name, learning_name, seed), "w") as f:

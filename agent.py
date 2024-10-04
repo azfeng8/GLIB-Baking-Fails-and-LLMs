@@ -182,6 +182,7 @@ class Agent:
         return self._planning_module.get_policy(problem_fname, use_learned_ops)
 
 class InitialPlanAgent(Agent):
+    """An agent with initial demonstration data to each of the 4 train tasks."""
     def __init__(self, domain_name, action_space, observation_space,
                  curiosity_module_name, operator_learning_name,
                  planning_module_name, log_llm_path:Optional[str]):
@@ -194,66 +195,78 @@ class InitialPlanAgent(Agent):
 
         # dict: problem index -> list of plan steps (ground action predicate strings)
         self.plans = {}
-        self._get_plans()
+        # self._get_plans()
         self.prev_episode_idx = None
         # Keep track of episodes that have finished at least once
         self.terminated_episodes = set()
         self.action_space = action_space
- 
-    def get_action(self, state, problem_idx):
+        with open('bakingrealistic_demonstrations.pkl', 'rb') as f:
+            transitions = pickle.load(f)
+        self._operator_learning_module._transitions = transitions
+        for action_pred in transitions:
+            self._operator_learning_module._fits_all_data[action_pred] = False
 
-        if self.prev_episode_idx is not None and self.prev_episode_idx != problem_idx:
-            self.terminated_episodes.add(self.prev_episode_idx)
+        # self.dumped = False
 
-        # If this is the first time in this episode, execute the plan until the episode terminates or the plan terminates.
-        if problem_idx not in self.terminated_episodes and self.problem_to_plan_step[problem_idx] != "DONE":
-            plan = self.plans[problem_idx]
-            plan_step = self.problem_to_plan_step[problem_idx]
-            action =  self._parse_action_from_string(plan[plan_step], state.objects)
-            if plan_step + 2 > len(plan):
-                self.problem_to_plan_step[problem_idx] = "DONE"
-            else:
-                self.problem_to_plan_step[problem_idx] += 1
-            self.prev_episode_idx = problem_idx
-            self._action_in_plan = False
-            return action
+    # def get_action(self, state, problem_idx):
+
+    #     if self.prev_episode_idx is not None and self.prev_episode_idx != problem_idx:
+    #         self.terminated_episodes.add(self.prev_episode_idx)
+
+    #     # If this is the first time in this episode, execute the plan until the episode terminates or the plan terminates.
+    #     if problem_idx not in self.terminated_episodes and self.problem_to_plan_step[problem_idx] != "DONE":
+    #         plan = self.plans[problem_idx]
+    #         plan_step = self.problem_to_plan_step[problem_idx]
+    #         action =  self._parse_action_from_string(plan[plan_step], state.objects)
+    #         if plan_step + 2 > len(plan):
+    #             self.problem_to_plan_step[problem_idx] = "DONE"
+    #         else:
+    #             self.problem_to_plan_step[problem_idx] += 1
+    #         self.prev_episode_idx = problem_idx
+    #         self._action_in_plan = False
+    #         return action
             
-        self.prev_episode_idx = problem_idx
+    #     # if len(self.terminated_episodes) == 4 and not self.dumped:
+    #     #     with open('bakingrealistic_demonstrations.pkl', 'wb') as f:
+    #     #         pickle.dump(self._operator_learning_module._transitions, f)
+    #     #     self.dumped = True
 
-        in_plan, op_name, action = self._curiosity_module.get_action(state)
+    #     self.prev_episode_idx = problem_idx
 
-        if in_plan:
-            self._action_in_plan = op_name
-        else:
-            self._action_in_plan = False
-        return action
+    #     in_plan, op_name, action = self._curiosity_module.get_action(state)
 
-    def _parse_action_from_string(self, action_string, objects_frozenset):
-        """Given action string (pred obj-0 obj-1...), parse the pddlgym action.
-        """
-        items = action_string.strip()[1:-1].split()
-        action_predicate_name = items[0]
-        object_names = items[1:]
+    #     if in_plan:
+    #         self._action_in_plan = op_name
+    #     else:
+    #         self._action_in_plan = False
+    #     return action
 
-        action_pred = [p for p in self.action_space.predicates if p.name == action_predicate_name][0]
-        objects = [o for o in objects_frozenset]
-        args = []
-        for object_name in object_names:
-            for o in objects:
-                obj_name, _ = o._str.split(':')
-                if obj_name == object_name:
-                    args.append(o)
-                    break
-        return action_pred(*args)
+    # def _parse_action_from_string(self, action_string, objects_frozenset):
+    #     """Given action string (pred obj-0 obj-1...), parse the pddlgym action.
+    #     """
+    #     items = action_string.strip()[1:-1].split()
+    #     action_predicate_name = items[0]
+    #     object_names = items[1:]
 
-    def _get_plans(self):
-        """Fill in self.plans with the plans from txt files."""
-        FILEPATHS = [
-           '/home/catalan/GLIB-Baking-Fails-and-LLMs/realistic-baking/llm_plans/train/problem1.txt',
-           '/home/catalan/GLIB-Baking-Fails-and-LLMs/realistic-baking/llm_plans/train/problem2.txt',
-           '/home/catalan/GLIB-Baking-Fails-and-LLMs/realistic-baking/llm_plans/train/problem3.txt',
-           '/home/catalan/GLIB-Baking-Fails-and-LLMs/realistic-baking/llm_plans/train/problem4.txt',
-        ]
-        for problem_i, filepath in enumerate(FILEPATHS):
-            with open(filepath, 'r') as f:
-                self.plans[problem_i] = [l for l in f.readlines() if l.strip() != '']
+    #     action_pred = [p for p in self.action_space.predicates if p.name == action_predicate_name][0]
+    #     objects = [o for o in objects_frozenset]
+    #     args = []
+    #     for object_name in object_names:
+    #         for o in objects:
+    #             obj_name, _ = o._str.split(':')
+    #             if obj_name == object_name:
+    #                 args.append(o)
+    #                 break
+    #     return action_pred(*args)
+
+    # def _get_plans(self):
+    #     """Fill in self.plans with the plans from txt files."""
+    #     FILEPATHS = [
+    #        '/home/catalan/GLIB-Baking-Fails-and-LLMs/realistic-baking/llm_plans/train/problem1.txt',
+    #        '/home/catalan/GLIB-Baking-Fails-and-LLMs/realistic-baking/llm_plans/train/problem2.txt',
+    #        '/home/catalan/GLIB-Baking-Fails-and-LLMs/realistic-baking/llm_plans/train/problem3.txt',
+    #        '/home/catalan/GLIB-Baking-Fails-and-LLMs/realistic-baking/llm_plans/train/problem4.txt',
+    #     ]
+    #     for problem_i, filepath in enumerate(FILEPATHS):
+    #         with open(filepath, 'r') as f:
+    #             self.plans[problem_i] = [l for l in f.readlines() if l.strip() != '']

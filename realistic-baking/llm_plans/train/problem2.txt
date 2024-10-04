@@ -10,4 +10,3 @@
 (pour-mixture-only bowl-0 pan-0 mixture-0)
 (put-pan-in-oven pan-0 oven-0)
 (set-oven-with-souffle-bake-time-and-press-start oven-0 dessert-0)
-(remove-pan-from-oven pan-0)
