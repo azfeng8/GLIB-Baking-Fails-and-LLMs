@@ -40,6 +40,8 @@ class Runner:
         self.curiosity_name = curiosity_name
         self.num_train_iters = ac.num_train_iters[domain_name]
 
+        self.dumped_preheat_souffle = False
+        self.dumped_preheat_cake = False
     def _initialize_variational_distance_transitions(self):
         logging.info("Getting transitions for variational distance...")
         fname = f"{gc.vardisttrans_dir}/{self.domain_name}.vardisttrans"
@@ -85,7 +87,7 @@ class Runner:
         """
         episode_done = True
         episode_time_step = 0
-        problem_idx = None 
+        problem_idx = 0 
         itrs_on = None
         prev_test_solve_rate = 0
 
@@ -97,15 +99,15 @@ class Runner:
         ops_changed_itrs = []
         planning_ops_changed_itrs = []
 
+        obs, _ = self.train_env.reset()
+        logging.info(f"***********************************New episode! Problem {problem_idx}:{obs.goal}***********************************")
+        self.agent.reset_episode(obs)
+        episode_time_step = 0
+
         for itr in range(self.num_train_iters):
             logging.info("Iteration {} of {}".format(itr, self.num_train_iters))
 
-            if episode_done or episode_time_step > ac.max_train_episode_length[self.domain_name]:
-                if problem_idx is None:
-                    problem_idx = 0
-                else:
-                    problem_idx = (problem_idx + 1) % self.num_train_problems
-                self.train_env.fix_problem_index(problem_idx)
+            if episode_done:
                 obs, _ = self.train_env.reset()
                 logging.info(f"***********************************New episode! Problem {problem_idx}:{obs.goal}***********************************")
                 self.agent.reset_episode(obs)
@@ -113,18 +115,71 @@ class Runner:
 
             logging.info("Getting action...")
             action = self.agent.get_action(obs, problem_idx)
+            if action is None:
+                if self.agent.option == 0:
+                    action = self.agent.next_action
+                    next_obs, rew, episode_done, _  =  self.train_env.step(action)
+                    logging.info(f"Observing action {action}")
+                    self.agent.observe(obs, action, next_obs, itr)
+                    obs, _ = self.train_env.reset()
+                    logging.info(f"Resetting to prev subgoal, executing actions:\n{self.agent.action_seq}")
+                    next_obs = obs
+                    for action in self.agent.action_seq:
+                        next_obs, rew, episode_done, _ = self.train_env.step(action)
+                elif self.agent.option == 1:
+                    obs, _ = self.train_env.reset()
+                    logging.info(f"Resetting to start, and executing actions:\n{self.agent.action_seq_reset}")
+                    for i, action in enumerate(self.agent.action_seq_reset):
+                        next_obs, rew, episode_done, _ = self.train_env.step(action)
+                        if i == len(self.agent.action_seq_reset) - 1 and self.agent.observe_last_transition:
+                            logging.info(f"Observing action {action}")
+                            self.agent.observe(obs, action, next_obs, itr)
+                        obs = next_obs
+                elif self.agent.option == 2:
+                    obs, _ = self.train_env.reset()
+                    logging.info(f"Resetting to start, and executing actions:\n{self.agent.action_seq_reset}. Then resetting to prev subgoal")
+                    for i, action in enumerate(self.agent.action_seq_reset):
+                        next_obs, rew, episode_done, _ = self.train_env.step(action)
+                        if i == len(self.agent.action_seq_reset) - 1 and self.agent.observe_last_transition:
+                            logging.info(f"Observing action {action}")
+                            self.agent.observe(obs, action, next_obs, itr)
+                        obs = next_obs                   
+                    obs, _ = self.train_env.reset()
+                    next_obs = obs
+                    for action in self.agent.action_seq:
+                        next_obs, rew, episode_done, _ = self.train_env.step(action)
+                elif self.agent.option == 3 or self.agent.option == 5:
+                    action = self.agent.next_action
+                    logging.info(f"Observing action {action}")
+                    next_obs, rew, episode_done, _ = self.train_env.step(action)
+                    self.agent.observe(obs, action, next_obs, itr)
+                    obs, _ = self.train_env.reset()
+                    next_obs = obs
+                    for action in self.agent.action_seq:
+                        next_obs, rew, episode_done, _ = self.train_env.step(action)
+                elif self.agent.option == 4:
+                    for action in self.agent.action_seq_reset:
+                        next_obs, rew, episode_done, _ = self.train_env.step(action) 
+                        self.agent.observe(obs, action, next_obs, itr)
+                        obs = next_obs
+                        itr += 1
+                elif self.agent.option == 6:
+                    for action in self.agent.action_seq_reset:
+                        next_obs, rew, episode_done, _ = self.train_env.step(action) 
+                        self.agent.observe(obs, action, next_obs, itr)
+                        obs = next_obs
+                        itr += 1                   
+                    obs, _ = self.train_env.reset()
+                    next_obs = obs
+                    for action in self.agent.action_seq:
+                        next_obs, rew, episode_done, _ = self.train_env.step(action)
+ 
+            else:
+                logging.info(f"Taking action {action}")
+                next_obs, rew, episode_done, _ = self.train_env.step(action)
+                if round(rew) == 1: logging.info(f"***********************************Reached goal! {obs.goal}***********************************")
+                self.agent.observe(obs, action, next_obs, itr)
 
-            logging.debug("Executing action...")
-            logging.info(f"Taking action {action}")
-            next_obs, rew, episode_done, _ = self.train_env.step(action)
-            # logging.info(f"Reward: {rew}")
-            if round(rew) == 1: logging.info(f"***********************************Reached goal! {obs.goal}***********************************")
-
-            # # Exclude no-ops
-            # while len(self.agent._compute_effects(obs, next_obs)) == 0:
-            #     next_obs, _, episode_done, _ = self.train_env.step(action)
-
-            self.agent.observe(obs, action, next_obs, itr)
             obs = next_obs
             episode_time_step += 1
 
@@ -154,7 +209,7 @@ class Runner:
 
                     start = time.time()
                     # Evaluation takes a very long time (>=2 min each time on a subset of the 20 tasks), so only evaluate after iteration 500
-                    if self.domain_name.lower() == 'bakingrealistic' and itr >= 500 or ( self.domain_name.lower() != 'bakingrealistic'):
+                    if self.domain_name.lower() == 'bakingrealistic' and itr >= 350 or ( self.domain_name.lower() != 'bakingrealistic'):
                         test_solve_rate, variational_dist, successes = self._evaluate_operators(use_learned_ops=True)
                         logging.info(f"Evaluation took {time.time() - start} s")
 
@@ -285,7 +340,7 @@ class Runner:
         for problem_idx in problems:
             #FIXME: First get the operator learner to learn mixing. That is the bottleneck for the harder tasks.
             if self.domain_name.lower() == 'bakingrealistic':
-                if problem_idx <= 5: continue
+                if problem_idx != 16 and problem_idx != 17: continue
                 if (problem_idx == 6) and (
                     # Problem 6 needs these cases to pass
                     18 not in passed_cases
@@ -344,6 +399,16 @@ class Runner:
                 problem_idx+1, num_problems, num_successes))#, end="\r")
  
         variational_dist = 0
+        if 16 in passed_cases:
+            if not self.dumped_preheat_souffle: 
+                with open('preheat-souffle.pkl', 'wb') as f:
+                    pickle.dump(self.agent._operator_learning_module._transitions, f)
+            self.dumped_preheat_souffle = True
+        if 17 in passed_cases:
+            if not self.dumped_preheat_cake:
+                with open('preheat-cake.pkl', 'wb') as f:
+                    pickle.dump(self.agent._operator_learning_module._transitions, f)
+            self.dumped_preheat_cake = True
         return float(num_successes)/num_problems, variational_dist, successes
 
 def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_path:str):
@@ -359,14 +424,9 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_
     # learner, which uses the environment to access the predicates and
     # action names.
     ac.train_env = train_env
-    if gc.use_demos:
-        agent = InitialPlanAgent(domain_name, train_env.action_space,
-                    train_env.observation_space, curiosity_name, learning_name, log_llm_path=log_llmi_path,
-                    planning_module_name=ac.planner_name[domain_name])
-    else:
-        agent = Agent(domain_name, train_env.action_space,
-                    train_env.observation_space, curiosity_name, learning_name, log_llm_path=log_llmi_path,
-                    planning_module_name=ac.planner_name[domain_name])
+    agent = InitialPlanAgent(domain_name, train_env.action_space,
+                train_env.observation_space, curiosity_name, learning_name, log_llm_path=log_llmi_path,
+                planning_module_name=ac.planner_name[domain_name])
         
     test_env = gym.make("PDDLEnv{}Test-v0".format(domain_name))
     results, curiosity_avg_time, plan_ops_results  = Runner(agent, train_env, test_env, domain_name, curiosity_name).run()

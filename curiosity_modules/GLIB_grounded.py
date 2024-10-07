@@ -35,11 +35,11 @@ class GLIBG1CuriosityModule(GoalBabblingCuriosityModule):
         self._last_state = set()
         self._plan = []
 
-    def _get_action(self, state):
+    def _get_action(self, state, goal):
         if self._visited_state_action_pairs is None:
             self._visited_state_action_pairs = set()
             self._start_state = state
-        in_plan, operator_name, action = super()._get_action(state)
+        in_plan, operator_name, action = super()._get_action(state, goal)
         for lit in state:  # update novelty
             self._visited_state_action_pairs.add(((lit, action)))
         return in_plan, operator_name, action

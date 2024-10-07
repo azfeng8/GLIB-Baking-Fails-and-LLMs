@@ -188,8 +188,8 @@ class AgentConfig:
     }
 
     ## Constants for curiosity modules. ##
-    max_sampling_tries = 3
-    max_planning_tries = 6
+    max_sampling_tries = 1
+    max_planning_tries = 2
     oracle_max_depth = 2
 
     ## Constants for mutex detection. ##
