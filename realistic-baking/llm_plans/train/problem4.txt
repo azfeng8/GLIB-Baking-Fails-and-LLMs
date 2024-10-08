@@ -8,7 +8,7 @@
 (pour-mixture-only bowl-0 pan-0 mixture-0)
 (put-pan-in-oven pan-0 oven-0)
 (set-oven-with-cake-bake-time-and-press-start oven-0 dessert-0)
-(crack-egg-and-put-in-container egg-2 bowl-0)
+(crack-egg-and-put-in-container egg-2 bowl-1)
 (separate-raw-yolk-from-egg-whites egg-2 egg-3 bowl-1 bowl-0)
 (put-butter-in-container-from-measuring-cup butter-1 bowl-1)
 (pour-powdery-ingredient-from-measuring-cup flour-0 measuring-cup-0 bowl-1)

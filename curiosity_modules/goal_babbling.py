@@ -69,22 +69,10 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
 
         # Continue executing plan?
         if self._plan and (last_state != state):
-            if 'glibg' in self._name:
-                # in GLIB-G, the last item in the plan is the babbled action
-                if len(self._plan) == 1:
-                    self.line_stats.append('FINISHED PLAN - babbled')
-                else:
-                    self.line_stats.append((self._goal, deepcopy(self._plan[:-1]), deepcopy(self._operators)))
-                    in_plan = True
-            else:
-                # in GLIB-lifted, the last item in the plan is not the babbled action
-                self.line_stats.append((self._goal, deepcopy(self._plan), deepcopy(self._operators)))
-                in_plan = True
-            # if self._goal_from_llm:
-            #     self.llm_line_stats.append(1)
-            # else:
-            #     self.llm_line_stats.append(0)
-            GOAL_BABBLING_LOGGER.debug("CONTINUING PLAN")
+
+            in_plan = True
+
+            GOAL_BABBLING_LOGGER.info("CONTINUING PLAN")
             GOAL_BABBLING_LOGGER.info(f"PLAN: {self._plan}")
             if len(self._operators) > 0:
                 return in_plan, self._operators.pop(0), self._plan.pop(0)
@@ -97,46 +85,39 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
             if goal is None:
                 goal, self._goal_from_llm = self._sample_goal(state)
                 GOAL_BABBLING_LOGGER.debug(f"SAMPLED GOAL: {goal}")
-                given_goal = False
             else:
-                GOAL_BABBLING_LOGGER.debug(f"USING GIVEN GOAL: {goal}")
-                given_goal = True
+                GOAL_BABBLING_LOGGER.info(f"USING GIVEN GOAL: {goal}")
                 
             sampling_attempts += 1
 
             if not self._goal_is_valid(goal):
                 continue
 
-            # print("trying goal:", goal)
-            # print("from state:", state)
 
             # Create a pddl problem file with the goal and current state
             problem_fname = self._create_problem_pddl(
                 state, goal, prefix=self._name)
 
+            # GOAL_BABBLING_LOGGER.info(f"Problem file: {problem_fname}")
             # Get a plan
             try:
                 self._plan, self._operators = self._planning_module.get_plan(
                     problem_fname, use_cache=False, use_learned_ops=False)
             except NoPlanFoundException:
+                GOAL_BABBLING_LOGGER.info(f"No plan found.")
                 continue
             except PlannerTimeoutException:
+                GOAL_BABBLING_LOGGER.info(f"PLANNER TIMED OUT")
                 break
             planning_attempts += 1
 
             if self._plan_is_good():
                 if len(self._plan) != 0:
                     in_plan = True
-                    # self.line_stats.append((goal, deepcopy(self._plan), deepcopy(self._operators)))
                     GOAL_BABBLING_LOGGER.debug(f"\tGOAL: {goal}")
-                    GOAL_BABBLING_LOGGER.debug(f"\tPLAN: {self._plan}")
-                    # if self._goal_from_llm:
-                    #     self.llm_line_stats.append(1)
-                    # else:
-                    #     self.llm_line_stats.append(0)
+                    GOAL_BABBLING_LOGGER.info(f"\tPLAN: {self._plan}")
     
-                if not given_goal:
-                    self._plan = self._finish_plan(self._plan)
+                self._plan = self._finish_plan(self._plan)
                 self._goal = goal
                 # import ipdb; ipdb.set_trace()
                 # Take the first step in the plan
@@ -151,12 +132,6 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
         return in_plan, None, self._get_fallback_action(state)
 
     def _get_fallback_action(self, state):
-        self.line_stats.append('fallback')
-        self.llm_line_stats.append(0)
-        # if np.random.random() < 0.4:
-        #     act = np.random.choice([p for p in self._action_space.all_ground_literals(state) if p.predicate.name == 'preheat-oven-with-cake-settings'])
-        #     return act
-        # else:
         return self._action_space.sample(state)
 
     def _plan_is_good(self):

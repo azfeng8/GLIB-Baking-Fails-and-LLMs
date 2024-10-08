@@ -91,7 +91,6 @@ class GLIBG1CuriosityModule(GoalBabblingCuriosityModule):
                 continue
             goal_act = (ground_goal, ground_action)
         goal, act = goal_act
-        self._last_sampled_action = act
         return goal, False
 
     def _goal_is_valid(self, goal):
@@ -101,7 +100,7 @@ class GLIBG1CuriosityModule(GoalBabblingCuriosityModule):
         self._last_state = None
         if len(plan) == 0:
             self.line_stats.append('EMPTY PLAN - babbled')
-        return plan + [self._last_sampled_action]
+        return plan
 
     def observe(self, state, action, effects):
         pass

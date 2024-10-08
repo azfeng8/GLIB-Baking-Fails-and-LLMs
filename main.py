@@ -40,8 +40,8 @@ class Runner:
         self.curiosity_name = curiosity_name
         self.num_train_iters = ac.num_train_iters[domain_name]
 
-        self.dumped_preheat_souffle = False
-        self.dumped_preheat_cake = False
+        self.dumped_mix_cake = False
+        self.dumped_mix_souffle = False
     def _initialize_variational_distance_transitions(self):
         logging.info("Getting transitions for variational distance...")
         fname = f"{gc.vardisttrans_dir}/{self.domain_name}.vardisttrans"
@@ -85,7 +85,6 @@ class Runner:
     def run(self):
         """Run primitive operator learning loop.
         """
-        episode_done = True
         episode_time_step = 0
         problem_idx = 0 
         itrs_on = None
@@ -99,24 +98,35 @@ class Runner:
         ops_changed_itrs = []
         planning_ops_changed_itrs = []
 
-        self.train_env.fix_problem_index(0)
+        problem_idx = 3
+        self.train_env.fix_problem_index(problem_idx)
         obs, _ = self.train_env.reset()
         logging.info(f"***********************************New episode! Problem {problem_idx}:{obs.goal}***********************************")
-        self.agent.reset_episode(obs)
+        self.agent.reset_episode(obs, problem_idx)
         episode_time_step = 0
-        # problem_idx = 0
         prev_action = None
+        episode_done = False
+
+        # Learn the ops from demos
+        if isinstance(self.agent, InitialPlanAgent):
+            self.agent.learn(0)
+            test_solve_rate = -1
+            variational_dist = -1
+            results.append((-1, test_solve_rate, variational_dist))
 
         for itr in range(self.num_train_iters):
             logging.info("Iteration {} of {}".format(itr, self.num_train_iters))
 
             if episode_done:
-                # problem_idx = (problem_idx + 1) % self.num_train_problems
-                self.train_env.fix_problem_index(0)
+                problem_idx = (problem_idx + 1) % self.num_train_problems
+                self.train_env.fix_problem_index(problem_idx)
                 obs, _ = self.train_env.reset()
                 logging.info(f"***********************************New episode! Problem {problem_idx}:{obs.goal}***********************************")
-                self.agent.reset_episode(obs)
+                self.agent.reset_episode(obs, problem_idx)
                 episode_time_step = 0
+                if input("Dump transitions?") == 'y':
+                    with open('transitions.pkl', 'wb') as f:
+                        pickle.dump(self.agent._operator_learning_module._transitions, f)
 
             logging.info("Getting action...")
             action = self.agent.get_action(obs, problem_idx)
@@ -219,7 +229,7 @@ class Runner:
 
                     start = time.time()
                     # Evaluation takes a very long time (>=2 min each time on a subset of the 20 tasks), so only evaluate after iteration 500
-                    if True: #self.domain_name.lower() == 'bakingrealistic' and itr >= 350 or ( self.domain_name.lower() != 'bakingrealistic'):
+                    if self.domain_name.lower() == 'bakingrealistic' and itr >= 100 or ( self.domain_name.lower() != 'bakingrealistic'):
                         test_solve_rate, variational_dist, successes = self._evaluate_operators(use_learned_ops=True)
                         logging.info(f"Evaluation took {time.time() - start} s")
 
@@ -247,7 +257,7 @@ class Runner:
 
 
                 else:
-                    assert results, "operators_changed is False but never learned any operators..."
+                    # assert results, "operators_changed is False but never learned any operators..."
                     logging.debug("No operators changed, continuing...")
 
                     test_solve_rate = results[-1][1]
@@ -266,39 +276,39 @@ class Runner:
                 results.append((itr, test_solve_rate, variational_dist))
                 # plan_ops_results.append((itr, plan_ops_solve_rate, v_dist))
 
-                if gc.dataset_logging:
-                    if log_ops:
-                        path = os.path.join('results', 'LNDR', self.domain_name, self.agent.operator_learning_name, self.agent.curiosity_module_name, str(ec.seed), f'iter_{itr}' )
-                        os.makedirs(path, exist_ok=True)
-                        with open(os.path.join(path, 'planning_operators.pkl'), 'wb') as f:
-                            pickle.dump(list(self.agent.planning_operators), f)
-                        with open(os.path.join(path, 'learned_operators.pkl'), 'wb') as f:
-                            pickle.dump(list(self.agent.learned_operators), f)
-                        with open(os.path.join(path, 'ndrs.pkl'), 'wb') as f:
-                            pickle.dump(self.agent._operator_learning_module._ndrs, f)
-                    if log_data:
-                        path = os.path.join('results', 'LNDR', self.domain_name, self.agent.operator_learning_name, self.agent.curiosity_module_name, str(ec.seed), f'iter_{itr}' )
-                        os.makedirs(path, exist_ok=True)
-                        np.savetxt(os.path.join(path, 'test_cases.txt'), np.array(successes), fmt='%1.3f')
+        #         if gc.dataset_logging:
+        #             if log_ops:
+        #                 path = os.path.join('results', 'LNDR', self.domain_name, self.agent.operator_learning_name, self.agent.curiosity_module_name, str(ec.seed), f'iter_{itr}' )
+        #                 os.makedirs(path, exist_ok=True)
+        #                 with open(os.path.join(path, 'planning_operators.pkl'), 'wb') as f:
+        #                     pickle.dump(list(self.agent.planning_operators), f)
+        #                 with open(os.path.join(path, 'learned_operators.pkl'), 'wb') as f:
+        #                     pickle.dump(list(self.agent.learned_operators), f)
+        #                 with open(os.path.join(path, 'ndrs.pkl'), 'wb') as f:
+        #                     pickle.dump(self.agent._operator_learning_module._ndrs, f)
+        #             if log_data:
+        #                 path = os.path.join('results', 'LNDR', self.domain_name, self.agent.operator_learning_name, self.agent.curiosity_module_name, str(ec.seed), f'iter_{itr}' )
+        #                 os.makedirs(path, exist_ok=True)
+        #                 np.savetxt(os.path.join(path, 'test_cases.txt'), np.array(successes), fmt='%1.3f')
 
 
-        if gc.dataset_logging:
-            if ('LNDR' in self.agent.operator_learning_name):
-                path = os.path.join('results', 'LNDR', self.domain_name, self.agent.operator_learning_name, self.agent.curiosity_module_name, str(ec.seed))
-                os.makedirs(path, exist_ok=True)
-                np.savetxt(os.path.join(path, 'success_increases.txt'), np.array(success_rates), fmt='%1.3f')
-                np.savetxt(os.path.join(path, 'episode_start_iters.txt'), np.array(episode_start_itrs), fmt="%d")
-                np.savetxt(os.path.join(path, 'learned_ops_change_iters.txt'), np.array(ops_changed_itrs), fmt='%d')
-                np.savetxt(os.path.join(path, 'planning_ops_change_iters.txt'), np.array(planning_ops_changed_itrs), fmt='%d')
-                np.savetxt(os.path.join(path, 'first_nonNOP_iters.txt'), np.array(self.agent._operator_learning_module._first_nonNOP_itrs), fmt='%d')
-                os.makedirs(os.path.join(path, f'iter_{itr}'), exist_ok=True)
+        # if gc.dataset_logging:
+        #     if ('LNDR' in self.agent.operator_learning_name):
+        #         path = os.path.join('results', 'LNDR', self.domain_name, self.agent.operator_learning_name, self.agent.curiosity_module_name, str(ec.seed))
+        #         os.makedirs(path, exist_ok=True)
+        #         np.savetxt(os.path.join(path, 'success_increases.txt'), np.array(success_rates), fmt='%1.3f')
+        #         np.savetxt(os.path.join(path, 'episode_start_iters.txt'), np.array(episode_start_itrs), fmt="%d")
+        #         np.savetxt(os.path.join(path, 'learned_ops_change_iters.txt'), np.array(ops_changed_itrs), fmt='%d')
+        #         np.savetxt(os.path.join(path, 'planning_ops_change_iters.txt'), np.array(planning_ops_changed_itrs), fmt='%d')
+        #         np.savetxt(os.path.join(path, 'first_nonNOP_iters.txt'), np.array(self.agent._operator_learning_module._first_nonNOP_itrs), fmt='%d')
+        #         os.makedirs(os.path.join(path, f'iter_{itr}'), exist_ok=True)
 
-                with open(os.path.join(path, f'iter_{itr}', 'transition_data.pkl'), 'wb') as f:
-                    pickle.dump(self.agent._operator_learning_module._transitions, f)
+        #         with open(os.path.join(path, f'iter_{itr}', 'transition_data.pkl'), 'wb') as f:
+        #             pickle.dump(self.agent._operator_learning_module._transitions, f)
  
 
-                with open(os.path.join(path, 'skill_sequence.pkl'), 'wb') as f:
-                    pickle.dump(self.agent._operator_learning_module._actions, f)
+        #         with open(os.path.join(path, 'skill_sequence.pkl'), 'wb') as f:
+        #             pickle.dump(self.agent._operator_learning_module._actions, f)
 
 
         if itrs_on is None:
@@ -409,16 +419,16 @@ class Runner:
                 problem_idx+1, num_problems, num_successes))#, end="\r")
  
         variational_dist = 0
-        if 16 in passed_cases:
-            if not self.dumped_preheat_souffle: 
-                with open('preheat-souffle.pkl', 'wb') as f:
-                    pickle.dump(self.agent._operator_learning_module._transitions, f)
-            self.dumped_preheat_souffle = True
-        if 17 in passed_cases:
-            if not self.dumped_preheat_cake:
-                with open('preheat-cake.pkl', 'wb') as f:
-                    pickle.dump(self.agent._operator_learning_module._transitions, f)
-            self.dumped_preheat_cake = True
+        if 6 in passed_cases and not self.dumped_mix_cake: 
+            with open('mix-for-cake.pkl', 'wb') as f:
+                pickle.dump(self.agent._operator_learning_module._transitions, f)
+            self.dumped_mix_cake = True
+        if 7 in passed_cases and not self.dumped_mix_souffle:
+            with open('mix-for-souffle.pkl', 'wb') as f:
+                pickle.dump(self.agent._operator_learning_module._transitions, f)
+            self.dumped_mix_souffle = True
+ 
+
         return float(num_successes)/num_problems, variational_dist, successes
 
 def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_path:str):
