@@ -41,7 +41,7 @@ class FastDownwardPlanner(Planner):
         except Exception as e:
             self.delete_cached_plan_files(domain_fname, problem_fname, use_cache=True)
             raise e 
-        actions, operator_names = self._plan_to_actions(plan, objects, domain_fname)
+        actions, operator_names = self._plan_to_actions(plan, objects, domain_fname, use_learned_ops=use_learned_ops)
         self.delete_cached_plan_files(domain_fname, problem_fname, use_cache=True)
         return actions, operator_names
 
@@ -110,7 +110,3 @@ class FastDownwardPlanner(Planner):
 
         import ipdb; ipdb.set_trace()
         raise Exception("Unrecognized plan step: `{}`".format(str(plan_step)))
-
-
- 
-

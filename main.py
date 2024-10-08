@@ -4,7 +4,7 @@ from flags import parse_flags
 
 import matplotlib
 matplotlib.use("Agg")
-from agent import Agent, InitialPlanAgent
+from agent import Agent, InitialPlanAgent, DemonstrationsAgent
 from planning_modules.base_planner import PlannerTimeoutException, \
     NoPlanFoundException
 from plotting import plot_results
@@ -99,15 +99,20 @@ class Runner:
         ops_changed_itrs = []
         planning_ops_changed_itrs = []
 
+        self.train_env.fix_problem_index(0)
         obs, _ = self.train_env.reset()
         logging.info(f"***********************************New episode! Problem {problem_idx}:{obs.goal}***********************************")
         self.agent.reset_episode(obs)
         episode_time_step = 0
+        # problem_idx = 0
+        prev_action = None
 
         for itr in range(self.num_train_iters):
             logging.info("Iteration {} of {}".format(itr, self.num_train_iters))
 
             if episode_done:
+                # problem_idx = (problem_idx + 1) % self.num_train_problems
+                self.train_env.fix_problem_index(0)
                 obs, _ = self.train_env.reset()
                 logging.info(f"***********************************New episode! Problem {problem_idx}:{obs.goal}***********************************")
                 self.agent.reset_episode(obs)
@@ -176,11 +181,16 @@ class Runner:
  
             else:
                 logging.info(f"Taking action {action}")
+                if prev_action == action:
+                    if input("Dump transitions? y/n") == 'y':
+                        with open(f'transitions.pkl', 'wb') as f:
+                            pickle.dump(self.agent._operator_learning_module._transitions, f)
                 next_obs, rew, episode_done, _ = self.train_env.step(action)
                 if round(rew) == 1: logging.info(f"***********************************Reached goal! {obs.goal}***********************************")
                 self.agent.observe(obs, action, next_obs, itr)
 
             obs = next_obs
+            prev_action = action
             episode_time_step += 1
 
             log_data = False
@@ -209,7 +219,7 @@ class Runner:
 
                     start = time.time()
                     # Evaluation takes a very long time (>=2 min each time on a subset of the 20 tasks), so only evaluate after iteration 500
-                    if self.domain_name.lower() == 'bakingrealistic' and itr >= 350 or ( self.domain_name.lower() != 'bakingrealistic'):
+                    if True: #self.domain_name.lower() == 'bakingrealistic' and itr >= 350 or ( self.domain_name.lower() != 'bakingrealistic'):
                         test_solve_rate, variational_dist, successes = self._evaluate_operators(use_learned_ops=True)
                         logging.info(f"Evaluation took {time.time() - start} s")
 
@@ -340,7 +350,7 @@ class Runner:
         for problem_idx in problems:
             #FIXME: First get the operator learner to learn mixing. That is the bottleneck for the harder tasks.
             if self.domain_name.lower() == 'bakingrealistic':
-                if problem_idx != 16 and problem_idx != 17: continue
+                if problem_idx <= 5: continue
                 if (problem_idx == 6) and (
                     # Problem 6 needs these cases to pass
                     18 not in passed_cases
