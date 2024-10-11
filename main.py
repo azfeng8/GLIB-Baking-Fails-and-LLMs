@@ -98,14 +98,17 @@ class Runner:
         ops_changed_itrs = []
         planning_ops_changed_itrs = []
 
-        problem_idx = 3
-        self.train_env.fix_problem_index(problem_idx)
-        obs, _ = self.train_env.reset()
-        logging.info(f"***********************************New episode! Problem {problem_idx}:{obs.goal}***********************************")
-        self.agent.reset_episode(obs, problem_idx)
+        # problem_idx = 3
+        # self.train_env.fix_problem_index(problem_idx)
+        # obs, _ = self.train_env.reset()
+        # logging.info(f"***********************************New episode! Problem {problem_idx}:{obs.goal}***********************************")
+        # self.agent.reset_episode(obs, problem_idx)
         episode_time_step = 0
         prev_action = None
-        episode_done = False
+        episode_done = True
+        # One cycle goes through all of the specified training episodes in the cycle once.
+        cycle = []
+        subgoals_paths = {}
 
         # Learn the ops from demos
         if isinstance(self.agent, InitialPlanAgent):
@@ -117,16 +120,57 @@ class Runner:
         for itr in range(self.num_train_iters):
             logging.info("Iteration {} of {}".format(itr, self.num_train_iters))
 
+            # ask user to input which episodes to do in the next cycle
+            if len(cycle) == 0 and episode_done:
+                uip = input("Cycle finished. Dumping transitions. Filename or n to quit?")
+                while not uip.endswith('.pkl') and uip != 'n':
+                    uip = input("Cycle finished. Dumping transitions. Filename or n to quit?")
+                if uip != 'n':
+                    with open(uip.strip(), 'wb') as f:
+                        pickle.dump(self.agent._operator_learning_module._transitions, f)
+                num_probs = len(self.train_env.problems)
+                uip = input(f"By default, all {num_probs} train problems are in the cycle. Press 'n' to enter manually the episodes, or anything else to accept.")
+                if uip == 'n':
+                    episodes_uip = input("Enter the episode indices, split by whitespace.") 
+                    cycle = [int(i) for i in episodes_uip.split()]
+                else:
+                    cycle = list(range(num_probs))
+                logging.info(f"Episodes: " + ','.join([str(s) for s in cycle]))
+                # confirm or enter subgoal paths
+                DEFAULT_SUBGOALS_TXT_PATHS = [f'/home/catalan/GLIB-Baking-Fails-and-LLMs/realistic-baking/llm_plans/train_subgoals/problem{idx + 1}.txt' for idx in cycle] 
+                paths_invalid = True
+                while paths_invalid:
+                    s = ''
+                    for i, path in enumerate(DEFAULT_SUBGOALS_TXT_PATHS):
+                        s += f'problem {i}: {path}\n'
+                    s += "Confirm the above paths. Press y to accept, or anything else to enter new paths."
+                    if input(s) == 'y':
+                        subgoals_paths = {i: path for i, path in enumerate(DEFAULT_SUBGOALS_TXT_PATHS)}
+                        paths_invalid = False
+                    else:
+                        uip = input("Enter the paths, in order of the episodes (" + ",".join(cycle) +  ") separated by white space.")
+                        subgoals_paths = {i: p for i, p in zip(cycle, uip.split())}
+                        if not all(os.path.exists(p) for p in subgoals_paths.values()):
+                            paths_invalid = True
+                        else:
+                            paths_invalid = False
+                episode_done = True
+
             if episode_done:
-                problem_idx = (problem_idx + 1) % self.num_train_problems
+                problem_idx = cycle.pop(0)
                 self.train_env.fix_problem_index(problem_idx)
                 obs, _ = self.train_env.reset()
                 logging.info(f"***********************************New episode! Problem {problem_idx}:{obs.goal}***********************************")
-                self.agent.reset_episode(obs, problem_idx)
+                self.agent.reset_episode(obs, problem_idx, subgoals_paths[problem_idx])
                 episode_time_step = 0
-                if input("Dump transitions?") == 'y':
-                    with open('transitions.pkl', 'wb') as f:
-                        pickle.dump(self.agent._operator_learning_module._transitions, f)
+
+            if self.agent.finished_preconds_plan:
+                # Reset to previous subgoal
+                self.agent.finished_preconds_plan = False
+                obs, _ = self.train_env.reset()
+                logging.info(f"Resetting to prev subgoal, executing actions:\n{self.agent.action_seq}")
+                for action in self.agent.action_seq:
+                    obs, rew, episode_done, _ = self.train_env.step(action)
 
             logging.info("Getting action...")
             action = self.agent.get_action(obs, problem_idx)
