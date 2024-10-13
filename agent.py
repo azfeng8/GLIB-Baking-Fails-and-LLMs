@@ -331,8 +331,8 @@ class InitialPlanAgent(Agent):
                 ground_act = [p for p in grounded_precond if p.predicate.name in action_predicates][0]
                 plan = self._get_plan_to_preconds(grounded_precond, state)
                 if plan is not None:
-                    logging.info(f"PLAN: {plan}. Executing first action...")
                     self._preconds_plan = plan + [ground_act]
+                    logging.info(f"PLAN: {self._preconds_plan}. Executing first action...")
                     self._last_preconds_action = (tuple(preconds), lifted_act)
                     if len(self._preconds_plan) == 1:
                         self.finished_preconds_plan = True
