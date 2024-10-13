@@ -595,6 +595,7 @@ class InitialPlanAgent(Agent):
         if self._action_in_plan_to_preconds:
             # Stop executing the plan if it failed in the middle.
             if len(effects) == 0:
+                self.finished_preconds_plan = True
                 self._preconds_plan = []
 
         # Check if planned to the next subgoal
