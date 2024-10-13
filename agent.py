@@ -330,7 +330,7 @@ class InitialPlanAgent(Agent):
                 plan = self._get_plan_to_preconds(grounded_precond, state)
                 if plan is not None:
                     self._preconds_plan = plan + [ground_act]
-                    self._last_preconds_action = (grounded_precond, ground_act)
+                    self._last_preconds_action = (tuple(preconds), lifted_act)
                     if len(self._preconds_plan) == 1:
                         self.finished_preconds_plan = True
                         self._visited_preconds_actions.add((tuple(preconds), lifted_act))
@@ -602,6 +602,8 @@ class InitialPlanAgent(Agent):
             # Stop executing the plan if it failed in the middle.
             if len(effects) == 0:
                 self.finished_preconds_plan = True
+                self._visited_preconds_actions.add(self._last_preconds_action)
+                self._last_preconds_action = None
                 self._preconds_plan = []
 
         # Check if planned to the next subgoal
