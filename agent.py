@@ -304,17 +304,19 @@ class InitialPlanAgent(Agent):
             If all of the preconditions are either unreachable from this state or the same preconditions has already had an action tried from it.
         """
         if len(self._preconds_plan) == 1:
+            logging.info(f"Executing plan: {self._preconds_plan}")
             self.finished_preconds_plan = True
             self._visited_preconds_actions.add(self._last_preconds_action)
             self._last_preconds_action = None
             return self._preconds_plan.pop()
 
         elif len(self._preconds_plan) > 0:
+            logging.info(f"Executing plan: {self._preconds_plan}")
             self.finished_preconds_plan = False
             return self._preconds_plan.pop(0)
 
         # set a hyperparameter for how many ground preconditions to try.
-        NUM_TRIES = 10
+        NUM_TRIES = 3
 
         action_predicates = set(p.name for p in self.action_space.predicates)
         for op in self.learned_operators:
@@ -329,6 +331,7 @@ class InitialPlanAgent(Agent):
                 ground_act = [p for p in grounded_precond if p.predicate.name in action_predicates][0]
                 plan = self._get_plan_to_preconds(grounded_precond, state)
                 if plan is not None:
+                    logging.info(f"PLAN: {plan}. Executing first action...")
                     self._preconds_plan = plan + [ground_act]
                     self._last_preconds_action = (tuple(preconds), lifted_act)
                     if len(self._preconds_plan) == 1:
