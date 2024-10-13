@@ -122,38 +122,39 @@ class Runner:
 
             # ask user to input which episodes to do in the next cycle
             if len(cycle) == 0 and episode_done:
-                uip = input("Cycle finished. Dumping transitions. Filename or n to quit?")
-                while not uip.endswith('.pkl') and uip != 'n':
-                    uip = input("Cycle finished. Dumping transitions. Filename or n to quit?")
-                if uip != 'n':
-                    with open(uip.strip(), 'wb') as f:
-                        pickle.dump(self.agent._operator_learning_module._transitions, f)
+                # uip = input("Cycle finished. Dumping transitions. Filename or n to quit?")
+                # while not uip.endswith('.pkl') and uip != 'n':
+                    # uip = input("Cycle finished. Dumping transitions. Filename or n to quit?")
+                # if uip != 'n':
+                logging.info("Dumping transitions...")
+                with open('transitions.pkl', 'wb') as f:
+                    pickle.dump(self.agent._operator_learning_module._transitions, f)
                 num_probs = len(self.train_env.problems)
-                uip = input(f"By default, all {num_probs} train problems are in the cycle. Press 'n' to enter manually the episodes, or anything else to accept.")
-                if uip == 'n':
-                    episodes_uip = input("Enter the episode indices, split by whitespace.") 
-                    cycle = [int(i) for i in episodes_uip.split()]
-                else:
-                    cycle = list(range(num_probs))
+                # uip = input(f"By default, all {num_probs} train problems are in the cycle. Press 'n' to enter manually the episodes, or anything else to accept.")
+                # if uip == 'n':
+                    # episodes_uip = input("Enter the episode indices, split by whitespace.") 
+                    # cycle = [int(i) for i in episodes_uip.split()]
+                # else:
+                cycle = list(range(num_probs))
                 logging.info(f"Episodes: " + ','.join([str(s) for s in cycle]))
                 # confirm or enter subgoal paths
-                DEFAULT_SUBGOALS_TXT_PATHS = [f'/home/catalan/GLIB-Baking-Fails-and-LLMs/realistic-baking/llm_plans/train_subgoals/problem{idx + 1}.txt' for idx in cycle] 
-                paths_invalid = True
-                while paths_invalid:
-                    s = ''
-                    for i, path in enumerate(DEFAULT_SUBGOALS_TXT_PATHS):
-                        s += f'problem {i}: {path}\n'
-                    s += "Confirm the above paths. Press y to accept, or anything else to enter new paths."
-                    if input(s) == 'y':
-                        subgoals_paths = {i: path for i, path in enumerate(DEFAULT_SUBGOALS_TXT_PATHS)}
-                        paths_invalid = False
-                    else:
-                        uip = input("Enter the paths, in order of the episodes (" + ",".join(cycle) +  ") separated by white space.")
-                        subgoals_paths = {i: p for i, p in zip(cycle, uip.split())}
-                        if not all(os.path.exists(p) for p in subgoals_paths.values()):
-                            paths_invalid = True
-                        else:
-                            paths_invalid = False
+                DEFAULT_SUBGOALS_TXT_PATHS = [f'/home/ubuntu/GLIB-Baking-Fails-and-LLMs/realistic-baking/llm_plans/train_subgoals/problem{idx + 1}.txt' for idx in cycle] 
+                # paths_invalid = True
+                # while paths_invalid:
+                #     s = ''
+                #     for i, path in enumerate(DEFAULT_SUBGOALS_TXT_PATHS):
+                #         s += f'problem {i}: {path}\n'
+                #     s += "Confirm the above paths. Press y to accept, or anything else to enter new paths."
+                #     if input(s) == 'y':
+                subgoals_paths = {i: path for i, path in enumerate(DEFAULT_SUBGOALS_TXT_PATHS)}
+                    #     paths_invalid = False
+                    # else:
+                    #     uip = input("Enter the paths, in order of the episodes (" + ",".join(cycle) +  ") separated by white space.")
+                    #     subgoals_paths = {i: p for i, p in zip(cycle, uip.split())}
+                    #     if not all(os.path.exists(p) for p in subgoals_paths.values()):
+                    #         paths_invalid = True
+                    #     else:
+                    #         paths_invalid = False
                 episode_done = True
 
             if episode_done:
@@ -236,9 +237,10 @@ class Runner:
             else:
                 logging.info(f"Taking action {action}")
                 if prev_action == action:
-                    if input("Dump transitions? y/n") == 'y':
-                        with open(f'transitions.pkl', 'wb') as f:
-                            pickle.dump(self.agent._operator_learning_module._transitions, f)
+                    logging.info("Warning: looping the same action!")
+                    # if input("Dump transitions? y/n") == 'y':
+                        # with open(f'transitions.pkl', 'wb') as f:
+                            # pickle.dump(self.agent._operator_learning_module._transitions, f)
                 next_obs, rew, episode_done, _ = self.train_env.step(action)
                 if round(rew) == 1: logging.info(f"***********************************Reached goal! {obs.goal}***********************************")
                 self.agent.observe(obs, action, next_obs, itr)

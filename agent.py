@@ -214,7 +214,7 @@ class InitialPlanAgent(Agent):
 
         # Load the demos
         # with open('bakingrealistic_demonstrations.pkl', 'rb') as f:
-        with open('transitions.pkl', 'rb') as f:
+        with open('bakingrealistic_demonstrations.pkl', 'rb') as f:
             transitions = pickle.load(f)
         self._operator_learning_module._transitions = transitions
         for action_pred in transitions:
@@ -447,87 +447,93 @@ class InitialPlanAgent(Agent):
 
         assert self.next_subgoal_idx < len(self.subgoals), f"Last subgoal in subgoals must reach the goal of the episode: {self.subgoals}"
 
+        logging.info("Dumping transitions...")
+        with open('transitions.pkl', 'wb') as f:
+            pickle.dump(self._operator_learning_module._transitions, f)
+
         logging.info("Getting plan to next subgoal...")
         # Get a plan to the next subgoal
         in_plan, op_name, action = self._curiosity_module.get_action(state, self.subgoals[self.next_subgoal_idx])
 
         if not in_plan:
-            # print ops, action seq, and current state
-            pprint(sorted(state.literals))
-            # for o in self._operator_learning_module._learned_operators:
-                # logging.info(o.pddl_str())
-            print_rule_set(self._operator_learning_module._ndrs)
-            logging.info("Action sequence thus far")
-            for act in self.action_seq:
-                logging.info(act)
-            self.action_seq_reset = []
-            option_str = \
-"""Please pick an option:
+            logging.info("Taking random action...")
+            return action
+#             # print ops, action seq, and current state
+#             pprint(sorted(state.literals))
+#             # for o in self._operator_learning_module._learned_operators:
+#                 # logging.info(o.pddl_str())
+#             print_rule_set(self._operator_learning_module._ndrs)
+#             logging.info("Action sequence thus far")
+#             for act in self.action_seq:
+#                 logging.info(act)
+#             self.action_seq_reset = []
+#             option_str = \
+# """Please pick an option:
 
-[0] Enter an action. Execute it, and observe the transition. Then, reset to the previous achieved subgoal.
-[1] Enter an action sequence, and decide whether to observe the last transition. Reset to start, and then execute it. Then, try to plan to the next subgoal from there.
-[2] Enter an action sequence. Reset to start, then execute it, and observe the last transition. Then, reset back to the previous subgoal.
-[3] Execute a random action, observe it, and reset to the previous achieved subgoal.
-[4] Execute a sequence of actions, observing all of them. Don't reset.
-[5] Dump the transitions, and take a random action, observing it. Then reset to the previous achieved subgoal.
-[6] Execute a sequence of actions, observing all of them. Reset to previous subgoal.
-"""
-            option = int(input(option_str))
-            # 1. Execute the action, and observe that transition. Then, reset.
-            self.option = option
-            if option == 0:
-                action = self._safe_action_input(state)
-                self.next_action = action
-            elif option == 1 or option == 2:
-                action_str = input("Enter the next action, or q to quit: ")
-                while action_str != 'q':
-                    loop = True
-                    while loop and action_str != 'q':
-                        try:
-                            action = self._parse_action_from_string(action_str, state.objects)
-                            loop = False
-                        except:
-                            action_str = input("Error parsing. Re-enter the action, or enter q to quit:")
-                    if action_str == 'q': break
-                    self.action_seq_reset.append(action)
-                    action_str = input("Enter the next action: ")
-                if option == 1:
-                    if input("Enter 'y' to observe the last transition (needs lowercase):") == 'y':
-                        self.observe_last_transition = True
-            elif option == 3:
-                self.next_action = self.action_space.sample(state)
-            elif option == 4:
-                action_str = input("Enter the next action, or q to quit: ")
-                while action_str != 'q':
-                    loop = True
-                    while loop and action_str != 'q':
-                        try:
-                            action = self._parse_action_from_string(action_str, state.objects)
-                            loop = False
-                        except:
-                            action_str = input("Error parsing. Re-enter the action, or enter q to quit:")
-                    if action_str == 'q': break
-                    self.action_seq_reset.append(action)
-                    action_str = input("Enter the next action: ")
-            elif option == 5:
-                self.next_action = self.action_space.sample(state)
-                with open('transitions.pkl', 'wb') as f:
-                    pickle.dump(self._operator_learning_module._transitions, f)
-            elif option == 6:
-                action_str = input("Enter the next action, or q to quit: ")
-                while action_str != 'q':
-                    loop = True
-                    while loop and action_str != 'q':
-                        try:
-                            action = self._parse_action_from_string(action_str, state.objects)
-                            loop = False
-                        except:
-                            action_str = input("Error parsing. Re-enter the action, or enter q to quit:")
-                    if action_str == 'q': break
-                    self.action_seq_reset.append(action)
-                    action_str = input("Enter the next action: ")
-            self._action_in_plan = False
-            return None
+# [0] Enter an action. Execute it, and observe the transition. Then, reset to the previous achieved subgoal.
+# [1] Enter an action sequence, and decide whether to observe the last transition. Reset to start, and then execute it. Then, try to plan to the next subgoal from there.
+# [2] Enter an action sequence. Reset to start, then execute it, and observe the last transition. Then, reset back to the previous subgoal.
+# [3] Execute a random action, observe it, and reset to the previous achieved subgoal.
+# [4] Execute a sequence of actions, observing all of them. Don't reset.
+# [5] Dump the transitions, and take a random action, observing it. Then reset to the previous achieved subgoal.
+# [6] Execute a sequence of actions, observing all of them. Reset to previous subgoal.
+# """
+#             option = int(input(option_str))
+#             # 1. Execute the action, and observe that transition. Then, reset.
+#             self.option = option
+#             if option == 0:
+#                 action = self._safe_action_input(state)
+#                 self.next_action = action
+#             elif option == 1 or option == 2:
+#                 action_str = input("Enter the next action, or q to quit: ")
+#                 while action_str != 'q':
+#                     loop = True
+#                     while loop and action_str != 'q':
+#                         try:
+#                             action = self._parse_action_from_string(action_str, state.objects)
+#                             loop = False
+#                         except:
+#                             action_str = input("Error parsing. Re-enter the action, or enter q to quit:")
+#                     if action_str == 'q': break
+#                     self.action_seq_reset.append(action)
+#                     action_str = input("Enter the next action: ")
+#                 if option == 1:
+#                     if input("Enter 'y' to observe the last transition (needs lowercase):") == 'y':
+#                         self.observe_last_transition = True
+#             elif option == 3:
+#                 self.next_action = self.action_space.sample(state)
+#             elif option == 4:
+#                 action_str = input("Enter the next action, or q to quit: ")
+#                 while action_str != 'q':
+#                     loop = True
+#                     while loop and action_str != 'q':
+#                         try:
+#                             action = self._parse_action_from_string(action_str, state.objects)
+#                             loop = False
+#                         except:
+#                             action_str = input("Error parsing. Re-enter the action, or enter q to quit:")
+#                     if action_str == 'q': break
+#                     self.action_seq_reset.append(action)
+#                     action_str = input("Enter the next action: ")
+#             elif option == 5:
+#                 self.next_action = self.action_space.sample(state)
+#                 with open('transitions.pkl', 'wb') as f:
+#                     pickle.dump(self._operator_learning_module._transitions, f)
+#             elif option == 6:
+#                 action_str = input("Enter the next action, or q to quit: ")
+#                 while action_str != 'q':
+#                     loop = True
+#                     while loop and action_str != 'q':
+#                         try:
+#                             action = self._parse_action_from_string(action_str, state.objects)
+#                             loop = False
+#                         except:
+#                             action_str = input("Error parsing. Re-enter the action, or enter q to quit:")
+#                     if action_str == 'q': break
+#                     self.action_seq_reset.append(action)
+#                     action_str = input("Enter the next action: ")
+#             self._action_in_plan = False
+#             return None
         # Use preconditions of currently learned operators as goals.
 
         # Save the current state. reset to this one after each plan is executed.
@@ -595,6 +601,7 @@ class InitialPlanAgent(Agent):
         if self._action_in_plan_to_preconds:
             # Stop executing the plan if it failed in the middle.
             if len(effects) == 0:
+                self.finished_preconds_plan = True
                 self._preconds_plan = []
 
         # Check if planned to the next subgoal
