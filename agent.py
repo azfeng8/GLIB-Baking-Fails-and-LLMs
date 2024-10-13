@@ -330,7 +330,7 @@ class InitialPlanAgent(Agent):
                 plan = self._get_plan_to_preconds(grounded_precond, state)
                 if plan is not None:
                     self._preconds_plan = plan + [ground_act]
-                    self._last_preconds_action = (grounded_precond, ground_act)
+                    self._last_preconds_action = (tuple(preconds), lifted_act)
                     if len(self._preconds_plan) == 1:
                         self.finished_preconds_plan = True
                         self._visited_preconds_actions.add((tuple(preconds), lifted_act))
@@ -528,18 +528,6 @@ class InitialPlanAgent(Agent):
                     action_str = input("Enter the next action: ")
             self._action_in_plan = False
             return None
-        # Use preconditions of currently learned operators as goals.
-
-        # Save the current state. reset to this one after each plan is executed.
-
-        # For each action predicate
-            # for each learned operator using that action predicate
-                # for each possible grounding of the operator precondition in the state
-                    # Try to find a plan to the goal
-                    # If found a plan, add it to the list to execute
-            # Execute each of the plans from the current state until operators changed or all the plans for the action predicate are executed.
-            # If operators changed, then go back to the start of the first for loop.
-            # Note when plans are executed unsuccessfully but the operators don't change. Should print and ask to save the transitions to a file, with input to choose filename.
         self.curiosity_time += time.time()-start_time
 
         if in_plan:
@@ -596,6 +584,8 @@ class InitialPlanAgent(Agent):
             # Stop executing the plan if it failed in the middle.
             if len(effects) == 0:
                 self.finished_preconds_plan = True
+                self._visited_preconds_actions.add(self._last_preconds_action)
+                self._last_preconds_action = None
                 self._preconds_plan = []
 
         # Check if planned to the next subgoal
