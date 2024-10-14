@@ -8,5 +8,5 @@
 (mixture-in-container pan-0 mixture-0)
 (container-in-oven pan-0 oven-0)
 (is-cake dessert-0)
-(not (container-in-an-oven pan-0))
+(not (container-in-an-oven pan-0)), (is-pan pan-0)
 (dessert-in-container plate-0 dessert-0)

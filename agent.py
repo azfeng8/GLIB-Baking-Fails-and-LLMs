@@ -214,7 +214,7 @@ class InitialPlanAgent(Agent):
 
         # Load the demos
         # with open('bakingrealistic_demonstrations.pkl', 'rb') as f:
-        with open('transitions.pkl', 'rb') as f:
+        with open('intermediate.pkl', 'rb') as f:
             transitions = pickle.load(f)
         self._operator_learning_module._transitions = transitions
         for action_pred in transitions:
@@ -307,10 +307,12 @@ class InitialPlanAgent(Agent):
             self.finished_preconds_plan = True
             self._visited_preconds_actions.add(self._last_preconds_action)
             self._last_preconds_action = None
+            logging.info(f"FOLLOWING PLAN: {self._preconds_plan}")
             return self._preconds_plan.pop()
 
         elif len(self._preconds_plan) > 0:
             self.finished_preconds_plan = False
+            logging.info(f"FOLLOWING PLAN: {self._preconds_plan}")
             return self._preconds_plan.pop(0)
 
         # set a hyperparameter for how many ground preconditions to try.
@@ -330,6 +332,7 @@ class InitialPlanAgent(Agent):
                 plan = self._get_plan_to_preconds(grounded_precond, state)
                 if plan is not None:
                     self._preconds_plan = plan + [ground_act]
+                    logging.info(f"PLAN: {self._preconds_plan}")
                     self._last_preconds_action = (tuple(preconds), lifted_act)
                     if len(self._preconds_plan) == 1:
                         self.finished_preconds_plan = True
