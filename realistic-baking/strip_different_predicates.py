@@ -136,7 +136,7 @@ class Planner:
         return self._problem_files[raw_problem_fname]
 
 
-env = pddlgym.make("PDDLEnvBakingrealistic-v0")
+env = pddlgym.make("PDDLEnvBakingrealisticTest-v0")
 p = Planner(env)
 p._create_domain_file()
 for idx in range(len(env.problems)):

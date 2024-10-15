@@ -261,7 +261,26 @@ class NDR:
                 params.add(v)
         params= sorted(params)
         return Operator(op_name, params, preconds, max_effects)
-
+    
+    def multi_determinize(self, name_suffix=0):
+        """Create a deterministic operators with multiple effect sets
+        """
+        indices = [i for i, eff in enumerate(self.effects) if len(eff) > 0 ]
+        effs = self.effects
+        ops = []
+        for idx in indices:
+            op_name = "{}{}".format(self.action.predicate.name, name_suffix)
+            effects = LiteralConjunction(sorted(effs[idx]))
+            preconds = LiteralConjunction(sorted(self.preconditions) + [self.action])
+            params = set()
+            for lit in preconds.literals + effects.literals:
+                for v in lit.variables:
+                    params.add(v)
+            params= sorted(params)
+            ops.append(Operator(op_name, params, preconds, effects))
+            name_suffix += 1
+        return ops
+    
 
 class NDRSet:
     """A set of NDRs with a special default rule.

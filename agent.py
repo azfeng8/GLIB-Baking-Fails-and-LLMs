@@ -77,10 +77,10 @@ class Agent:
         # Flag to tell if at the episode start. Unset after observing the first effect.
         self.episode_start = False
 
-         # Load the demos
-        with open('bakingrealistic_demonstrations.pkl', 'rb') as f:
-            transitions = pickle.load(f)
-        self._operator_learning_module._transitions = transitions       
+        #  # Load the demos
+        # with open('bakingrealistic_demonstrations.pkl', 'rb') as f:
+        #     transitions = pickle.load(f)
+        # self._operator_learning_module._transitions = transitions       
 
     ## Training time methods
     def get_action(self, state, _problem_idx):
@@ -145,7 +145,7 @@ class Agent:
     def learn(self, itr):
         # Learn
         start = time.time()
-        some_learned_operator_changed, some_planning_operator_changed = self._operator_learning_module.learn(itr, skill_to_edit=self._skill_to_edit)
+        some_learned_operator_changed, some_planning_operator_changed = self._operator_learning_module.learn(itr, skill_to_edit=None) #FIXME skill_to_edit is not able to run like this
         # logging.info(f"Learning took {time.time() - start} s")
 
         # Used in LLMIterative only
@@ -213,8 +213,7 @@ class InitialPlanAgent(Agent):
         self.obs_space = observation_space
 
         # Load the demos
-        # with open('bakingrealistic_demonstrations.pkl', 'rb') as f:
-        with open('intermediate.pkl', 'rb') as f:
+        with open('bakingrealistic_demonstrations.pkl', 'rb') as f:
             transitions = pickle.load(f)
         self._operator_learning_module._transitions = transitions
         for action_pred in transitions:
@@ -243,6 +242,9 @@ class InitialPlanAgent(Agent):
         # This is set by the Runner.run() method and also self._get_action_with_preconds_as_goals()
         self.finished_preconds_plan = False
         self._last_preconds_action = None
+
+        # Keeps track of unreachable preconditions from certain states
+        self._visited_preconds_states = set()
 
     def reset_episode(self, state, problem_idx, subgoals_path):
         self._load_subgoals(state, problem_idx, subgoals_path) 
@@ -316,29 +318,36 @@ class InitialPlanAgent(Agent):
             return self._preconds_plan.pop(0)
 
         # set a hyperparameter for how many ground preconditions to try.
-        NUM_TRIES = 10
+        NUM_TRIES = 200
 
         action_predicates = set(p.name for p in self.action_space.predicates)
         for op in self.learned_operators:
             preconds = op.preconds.literals
             lifted_act = [p for p in preconds if p.predicate.name in action_predicates][0]
-            if (tuple(preconds), lifted_act) in self._visited_preconds_actions:
+            if tuple(preconds) in self._visited_preconds_actions:
                 continue
-            #TODO: if retrying from this state, only need to compute the ground preconds once, and don't duplicate goals to plan to in between calls to this function from the same state
+            if (tuple(preconds), state) in self._visited_preconds_states:
+                continue
+            logging.info(f"Trying preconds for op: {op.name}: {preconds}")
+            #TODO: ground preconds don't have to be randomized by objects: 
+            #           for mix operators: if there are the (is-*) predicates in the state and precondition, these don't change, and can narrow down the objects to be assigned to variables.
+            #           for bake operators: restrict the container to be a pan 
             ground_preconds_list = self._get_ground_preconds(op, state)
             for i in np.random.permutation(len(ground_preconds_list))[:NUM_TRIES]:
                 grounded_precond = ground_preconds_list[i]
                 ground_act = [p for p in grounded_precond if p.predicate.name in action_predicates][0]
-                plan = self._get_plan_to_preconds(grounded_precond, state)
+                grounded_precond_no_act = [p for p in grounded_precond if p.predicate.name not in action_predicates]
+                plan = self._get_plan_to_preconds(grounded_precond_no_act, state)
                 if plan is not None:
                     self._preconds_plan = plan + [ground_act]
                     logging.info(f"PLAN: {self._preconds_plan}")
-                    self._last_preconds_action = (tuple(preconds), lifted_act)
+                    self._last_preconds_action = tuple(preconds)
                     if len(self._preconds_plan) == 1:
                         self.finished_preconds_plan = True
-                        self._visited_preconds_actions.add((tuple(preconds), lifted_act))
+                        self._visited_preconds_actions.add(self._last_preconds_action)
                         self._last_preconds_action = None
                     return self._preconds_plan.pop(0)
+            self._visited_preconds_states.add((tuple(preconds), state))
 
         # once done, proceed to the next subgoal in the file.
         return None
@@ -405,6 +414,7 @@ class InitialPlanAgent(Agent):
         problem_fname = self._curiosity_module._create_problem_pddl(
             state, goal, prefix='glibg1_preconds')
 
+        # logging.info(problem_fname)
         # Get a plan
         try:
             plan, _ = self._planning_module.get_plan(
@@ -420,7 +430,6 @@ class InitialPlanAgent(Agent):
 
         return None
         
-
 
     def get_action(self, state, _problem_idx):
         """Get an exploratory action to collect more training data.
@@ -593,6 +602,7 @@ class InitialPlanAgent(Agent):
 
         # Check if planned to the next subgoal
         if self._action_in_plan and self.next_subgoal_idx < len(self.subgoals):
+            #TODO: bug. if the subgoal is two actions away, this fails.
             assignments = find_satisfying_assignments(next_state.literals, self.subgoals[self.next_subgoal_idx].literals, allow_redundant_variables=False)
             if len(assignments) > 0:
                 for assignment in assignments:
@@ -666,6 +676,7 @@ class DemonstrationsAgent(Agent):
         # Keep track of episodes that have finished at least once
         self.terminated_episodes = set()
         self.action_space = action_space
+        self.finished_preconds_plan = False
 
         self.dumped = False
 
@@ -732,7 +743,7 @@ class DemonstrationsAgent(Agent):
             with open(filepath, 'r') as f:
                 self.plans[problem_i] = [l for l in f.readlines() if l.strip() != '']
     
-    def reset_episode(self, state, problem_idx):
+    def reset_episode(self, state, problem_idx, subgoals_path):
         obs_literals = set()
         if self.domain_name.lower() == 'bakingrealistic':
             for lit in state.literals:

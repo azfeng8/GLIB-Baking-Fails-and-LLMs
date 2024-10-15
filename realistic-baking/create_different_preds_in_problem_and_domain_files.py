@@ -167,12 +167,13 @@ class Planner:
                         continue
                     # if obj1.var_type != obj2.var_type:
                     #     continue
-                    obj1_name, _ =  obj1._str.split(':')
+                    obj1_name, obj1_vartype =  obj1._str.split(':')
                     obj2_name, _ =  obj2._str.split(':')
                         
-                    diff_lit = Different(obj1, obj2)
-                    init_state.add(diff_lit)
-                    if obj1_name < obj2_name:
+                    if obj1.var_type == obj2.var_type:
+                        diff_lit = Different(obj1, obj2)
+                        init_state.add(diff_lit)
+                    if obj1_vartype == 'egg_hypothetical' and obj2.var_type == obj1.var_type and obj1_name < obj2_name:
                         init_state.add(NameLessThan(obj1, obj2))
             problem_parser.initial_state = frozenset(init_state)
             # Also add 'different' pairs for goal if it's existential

@@ -42,45 +42,6 @@ class Runner:
 
         self.dumped_mix_cake = False
         self.dumped_mix_souffle = False
-    def _initialize_variational_distance_transitions(self):
-        logging.info("Getting transitions for variational distance...")
-        fname = f"{gc.vardisttrans_dir}/{self.domain_name}.vardisttrans"
-        if os.path.exists(fname):
-            with open(fname, "rb") as f:
-                transitions = pickle.load(f)
-            return transitions
-        actions = self.test_env.action_space.predicates
-        total_counts = {a: 0 for a in actions}
-        num_no_effects = {a: 0 for a in actions}
-        transitions = []
-        num_trans_per_act = 100
-        if self.domain_name in ec.num_test_problems:
-            num_problems = ec.num_test_problems[self.domain_name]
-        else:
-            num_problems = len(self.test_env.problems)
-        while True:
-            if all(c >= num_trans_per_act for c in total_counts.values()):
-                break
-            obs, _ = self.test_env.reset()
-            for _ in range(ec.num_var_dist_trans[self.domain_name]//num_problems):
-                action = self.test_env.action_space.sample(obs)
-                next_obs, _, done, _ = self.test_env.step(action)
-                null_effect = (next_obs.literals == obs.literals)
-                keep_transition = ((not null_effect or
-                                    (num_no_effects[action.predicate] <
-                                     total_counts[action.predicate]/2+1)) and
-                                   total_counts[action.predicate] < num_trans_per_act)
-                if keep_transition:
-                    total_counts[action.predicate] += 1
-                    if null_effect:
-                        num_no_effects[action.predicate] += 1
-                    transitions.append((obs, action, next_obs))
-                if done:
-                    break
-                obs = next_obs
-        with open(fname, "wb") as f:
-            pickle.dump(transitions, f)
-        return transitions
 
     def run(self):
         """Run primitive operator learning loop.
@@ -88,21 +49,15 @@ class Runner:
         episode_time_step = 0
         problem_idx = 0 
         itrs_on = None
-        prev_test_solve_rate = 0
 
         # Logging 
         success_rates = []
         results = []
         plan_ops_results = []
         episode_start_itrs = []
-        ops_changed_itrs = []
         planning_ops_changed_itrs = []
 
-        # problem_idx = 3
-        # self.train_env.fix_problem_index(problem_idx)
-        # obs, _ = self.train_env.reset()
-        # logging.info(f"***********************************New episode! Problem {problem_idx}:{obs.goal}***********************************")
-        # self.agent.reset_episode(obs, problem_idx)
+
         episode_time_step = 0
         prev_action = None
         episode_done = True
@@ -113,6 +68,11 @@ class Runner:
         # Learn the ops from demos
         if isinstance(self.agent, InitialPlanAgent):
             self.agent.learn(0)
+            logging.info("Learned operators:")
+            for op in self.agent.learned_operators:
+                logging.info(op.pddl_str())
+            # domain_fname = self.agent._planning_module._create_domain_file(use_learned_ops=True)
+            # logging.info(domain_fname)
             test_solve_rate = -1
             variational_dist = -1
             results.append((-1, test_solve_rate, variational_dist))
@@ -128,10 +88,35 @@ class Runner:
                 if uip != 'n':
                     with open(uip.strip(), 'wb') as f:
                         pickle.dump(self.agent._operator_learning_module._transitions, f)
+                logging.info(f"Dumping ops to ops.pkl...")
+                with open('ops.pkl', 'wb') as f:
+                    pickle.dump(self.agent.learned_operators, f)
+                uip = input("Evaluate operators? y or anything")
+                if uip == 'y':
+                    logging.info("Evaluating operators...")
+                    test_solve_rate, variational_dist, successes = self._evaluate_operators(use_learned_ops=True)
+                    logging.info(f"Result: {test_solve_rate} solve rate")
                 num_probs = len(self.train_env.problems)
                 uip = input(f"By default, all {num_probs} train problems are in the cycle. Press 'n' to enter manually the episodes, or anything else to accept.")
                 if uip == 'n':
-                    episodes_uip = input("Enter the episode indices, split by whitespace.") 
+                    episodes_uip = input("Enter the episode indices, split by whitespace.")  
+                    logging.info("Episode indices:")
+                    logging.info(episodes_uip)
+                    valid = True
+                    accept_uip =  input("Press y to accept")
+                    if not all(i < len(self.train_env.problems) for i in [int(j) for j in episodes_uip.split()]):
+                        logging.info("Invalid episodes. Try again.")
+                        valid = False
+                    while accept_uip != 'y' or not valid:
+                        episodes_uip = input("Enter the episode indices, split by whitespace.")  
+                        if not all(i < len(self.train_env.problems) for i in [int(j) for j in episodes_uip.split()]):
+                            logging.info("Invalid episodes. Try again.")
+                            valid = False
+                        else:
+                            valid = True
+                        logging.info("Episode indices:")
+                        logging.info(episodes_uip)
+                        accept_uip =  input("Press y to accept")
                     cycle = [int(i) for i in episodes_uip.split()]
                 else:
                     cycle = list(range(num_probs))
@@ -141,14 +126,14 @@ class Runner:
                 paths_invalid = True
                 while paths_invalid:
                     s = ''
-                    for i, path in enumerate(DEFAULT_SUBGOALS_TXT_PATHS):
+                    for i, path in zip(cycle, DEFAULT_SUBGOALS_TXT_PATHS):
                         s += f'problem {i}: {path}\n'
                     s += "Confirm the above paths. Press y to accept, or anything else to enter new paths."
                     if input(s) == 'y':
-                        subgoals_paths = {i: path for i, path in enumerate(DEFAULT_SUBGOALS_TXT_PATHS)}
+                        subgoals_paths = {i: path for i, path in zip(cycle, DEFAULT_SUBGOALS_TXT_PATHS)}
                         paths_invalid = False
                     else:
-                        uip = input("Enter the paths, in order of the episodes (" + ",".join(cycle) +  ") separated by white space.")
+                        uip = input("Enter the paths, in order of the episodes (" + ",".join([str(i) for i in cycle]) +  ") separated by white space.")
                         subgoals_paths = {i: p for i, p in zip(cycle, uip.split())}
                         if not all(os.path.exists(p) for p in subgoals_paths.values()):
                             paths_invalid = True
@@ -235,11 +220,12 @@ class Runner:
  
             else:
                 logging.info(f"Taking action {action}")
+                next_obs, rew, episode_done, _ = self.train_env.step(action)
                 if prev_action == action:
+                    # logging.info(f"Obs:\n{obs} \n\nNext obs:\n{next_obs}")
                     if input("Dump transitions? y/n") == 'y':
                         with open(f'transitions.pkl', 'wb') as f:
                             pickle.dump(self.agent._operator_learning_module._transitions, f)
-                next_obs, rew, episode_done, _ = self.train_env.step(action)
                 if round(rew) == 1: logging.info(f"***********************************Reached goal! {obs.goal}***********************************")
                 self.agent.observe(obs, action, next_obs, itr)
 
@@ -247,12 +233,8 @@ class Runner:
             prev_action = action
             episode_time_step += 1
 
-            log_data = False
-            log_ops = False
             if (episode_time_step == 1) and ('LNDR' in self.agent.operator_learning_name):
                 episode_start_itrs.append(itr)
-                log_data = True
-                log_ops = True
 
             # Learn and test
             if itr % ac.learning_interval[self.domain_name] == 0:
@@ -266,38 +248,13 @@ class Runner:
                 if (operators_changed or ac.planner_name[self.domain_name] == "ffreplan" or \
                    itr + ac.learning_interval[self.domain_name] >= self.num_train_iters):
                     if operators_changed:
-                        logging.info("Operators changed. Testing...")
+                        logging.info("Operators changed.")
                     logging.info("Learned operators:")
                     for op in self.agent.learned_operators:
                         logging.info(op.pddl_str())
 
-                    start = time.time()
-                    # Evaluation takes a very long time (>=2 min each time on a subset of the 20 tasks), so only evaluate after iteration 500
-                    if self.domain_name.lower() == 'bakingrealistic' and itr >= 100 or ( self.domain_name.lower() != 'bakingrealistic'):
-                        test_solve_rate, variational_dist, successes = self._evaluate_operators(use_learned_ops=True)
-                        logging.info(f"Evaluation took {time.time() - start} s")
-
-                        logging.info(f"Result: {test_solve_rate} {variational_dist}")
-
-                        if "oracle" in self.agent.curiosity_module_name and \
-                        test_solve_rate == 1 and ac.planner_name[self.domain_name] == "ff":
-                            # Oracle can be done when it reaches 100%, if deterministic env
-                            self.agent._curiosity_module.turn_off()
-                            self.agent._operator_learning_module.turn_off()
-                            if itrs_on is None:
-                                itrs_on = itr
-
-                        # Logging
-                        ops_changed_itrs.append(itr)
-                        log_ops = True
-                        if (test_solve_rate > prev_test_solve_rate) and ('LNDR' in self.agent.operator_learning_name):
-                            log_data = True
-                            success_rates.append([itr, test_solve_rate])
-
-                        prev_test_solve_rate = test_solve_rate
-                    else:
-                        test_solve_rate = -1
-                        variational_dist = -1
+                    test_solve_rate = -1
+                    variational_dist = -1
 
 
                 else:
@@ -311,49 +268,9 @@ class Runner:
 
                 if planning_operators_changed or \
                    itr + ac.learning_interval[self.domain_name] >= self.num_train_iters:
-                    # logging.debug("Testing planning operators...")
-                    # plan_ops_solve_rate, v_dist, plan_ops_successes = self._evaluate_operators(use_learned_ops=False)
-                    # logging.info(f"Planning Ops Result: {plan_ops_solve_rate}")
-                    log_ops = True
                     planning_ops_changed_itrs.append(itr)
  
                 results.append((itr, test_solve_rate, variational_dist))
-                # plan_ops_results.append((itr, plan_ops_solve_rate, v_dist))
-
-        #         if gc.dataset_logging:
-        #             if log_ops:
-        #                 path = os.path.join('results', 'LNDR', self.domain_name, self.agent.operator_learning_name, self.agent.curiosity_module_name, str(ec.seed), f'iter_{itr}' )
-        #                 os.makedirs(path, exist_ok=True)
-        #                 with open(os.path.join(path, 'planning_operators.pkl'), 'wb') as f:
-        #                     pickle.dump(list(self.agent.planning_operators), f)
-        #                 with open(os.path.join(path, 'learned_operators.pkl'), 'wb') as f:
-        #                     pickle.dump(list(self.agent.learned_operators), f)
-        #                 with open(os.path.join(path, 'ndrs.pkl'), 'wb') as f:
-        #                     pickle.dump(self.agent._operator_learning_module._ndrs, f)
-        #             if log_data:
-        #                 path = os.path.join('results', 'LNDR', self.domain_name, self.agent.operator_learning_name, self.agent.curiosity_module_name, str(ec.seed), f'iter_{itr}' )
-        #                 os.makedirs(path, exist_ok=True)
-        #                 np.savetxt(os.path.join(path, 'test_cases.txt'), np.array(successes), fmt='%1.3f')
-
-
-        # if gc.dataset_logging:
-        #     if ('LNDR' in self.agent.operator_learning_name):
-        #         path = os.path.join('results', 'LNDR', self.domain_name, self.agent.operator_learning_name, self.agent.curiosity_module_name, str(ec.seed))
-        #         os.makedirs(path, exist_ok=True)
-        #         np.savetxt(os.path.join(path, 'success_increases.txt'), np.array(success_rates), fmt='%1.3f')
-        #         np.savetxt(os.path.join(path, 'episode_start_iters.txt'), np.array(episode_start_itrs), fmt="%d")
-        #         np.savetxt(os.path.join(path, 'learned_ops_change_iters.txt'), np.array(ops_changed_itrs), fmt='%d')
-        #         np.savetxt(os.path.join(path, 'planning_ops_change_iters.txt'), np.array(planning_ops_changed_itrs), fmt='%d')
-        #         np.savetxt(os.path.join(path, 'first_nonNOP_iters.txt'), np.array(self.agent._operator_learning_module._first_nonNOP_itrs), fmt='%d')
-        #         os.makedirs(os.path.join(path, f'iter_{itr}'), exist_ok=True)
-
-        #         with open(os.path.join(path, f'iter_{itr}', 'transition_data.pkl'), 'wb') as f:
-        #             pickle.dump(self.agent._operator_learning_module._transitions, f)
- 
-
-        #         with open(os.path.join(path, 'skill_sequence.pkl'), 'wb') as f:
-        #             pickle.dump(self.agent._operator_learning_module._actions, f)
-
 
         if itrs_on is None:
             itrs_on = self.num_train_iters
@@ -404,7 +321,6 @@ class Runner:
         for problem_idx in problems:
             #FIXME: First get the operator learner to learn mixing. That is the bottleneck for the harder tasks.
             if self.domain_name.lower() == 'bakingrealistic':
-                if problem_idx <= 5: continue
                 if (problem_idx == 6) and (
                     # Problem 6 needs these cases to pass
                     18 not in passed_cases
@@ -480,7 +396,7 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_
 
     ac.seed = seed
     ec.seed = seed
-    ac.planner_timeout = 60 if "oracle" in curiosity_name else 180 
+    ac.planner_timeout = 60 if "oracle" in curiosity_name else 400 
 
     train_env = gym.make("PDDLEnv{}-v0".format(domain_name))
     train_env.seed(seed)

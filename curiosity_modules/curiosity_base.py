@@ -71,8 +71,18 @@ class BaseCuriosityModule:
         fname = "/tmp/{}_problem_{}.pddl".format(
             prefix, random.randint(0, 9999999))
         objects = state.objects
-        all_action_lits = self._action_space.all_ground_literals(state)
-        initial_state = frozenset([lit for lit in state.literals if lit.predicate.name != 'name-less-than']) | all_action_lits
+        initial_state = set([lit for lit in state.literals if lit.predicate.name != 'name-less-than'])
+        # inject differents
+        Different = structs.Predicate('different', 2)
+        for obj1 in objects:
+            for obj2 in objects:
+                if obj1 == obj2:
+                    continue
+          
+                if obj1.var_type == obj2.var_type:
+                    diff_lit = Different(obj1, obj2)
+                    initial_state.add(diff_lit)
+        initial_state = frozenset(initial_state)
         problem_name = "{}_problem".format(prefix)
         domain_name = self._planning_module.domain_name
         PDDLProblemParser.create_pddl_file(fname, objects, initial_state,

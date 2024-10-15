@@ -14,13 +14,13 @@ class PlannerTimeoutException(Exception):
 class NoPlanFoundException(Exception):
     pass
 
-
 class Planner:
     def __init__(self, planning_operators, learned_operators, domain_name, action_space, observation_space):
         self._planning_operators = planning_operators
         self._learned_operators = learned_operators
         self.domain_name = domain_name
         self._action_space = action_space
+        self._action_pred_names = set([p.name for p in action_space.predicates])
         self._observation_space = observation_space
         self._predicates = {p.name : p \
             for p in observation_space.predicates + action_space.predicates}
@@ -74,22 +74,26 @@ class Planner:
         param_strs = [str(param).replace(":", " - ") for param in operator.params]
         dom_str = "\n\n\t(:action {}".format(operator.name)
         dom_str += "\n\t\t:parameters ({})".format(" ".join(param_strs))
-        preconds_pddl_str = self._create_preconds_pddl_str(operator.preconds)
+        preconds_pddl_str = self._create_preconds_pddl_str(operator.preconds, operator.params)
         dom_str += "\n\t\t:precondition (and {})".format(preconds_pddl_str)
         indented_effs = operator.effects.pddl_str().replace("\n", "\n\t\t")
         dom_str += "\n\t\t:effect {}".format(indented_effs)
         dom_str += "\n\t)"
         return dom_str
 
-    def _create_preconds_pddl_str(self, preconds):
-        all_params = set()
+    def _create_preconds_pddl_str(self, preconds, operator_params):
+        # all_params = set()
         precond_strs = []
         for term in preconds.literals:
+            if term.predicate.name in self._action_pred_names:
+                continue
             params = set(map(str, term.variables))
+
             if term.negated_as_failure:
                 # Negative term. The variables to universally
                 # quantify over are those which we have not
                 # encountered yet in this clause.
+                raise Exception("Unexpected")
                 universally_quantified_vars = list(sorted(
                     params-all_params))
                 precond = ""
@@ -113,19 +117,23 @@ class Planner:
                 precond_strs.append(precond)
             else:
                 # Positive term.
-                all_params.update(params)
+                # all_params.update(params)
                 precond_strs.append(term.pddl_str())
 
-        all_params = list(sorted(all_params))
+        #TODO: a problem somewhere here: The params are only from the precond, not also in the effects...Should also be from the effects.
+        all_params = list(sorted([param._str for param in operator_params]))
         for param1 in all_params:
             param1_cleaned = param1[:param1.find(":")]
+            param1_type = param1[param1.find(':'):]
             for param2 in all_params:
                 if param1 >= param2:
                     continue
                 param2_cleaned = param2[:param2.find(":")]
+                param2_type = param2[param2.find(':'):]
                 if self.domain_name.lower() == 'bakingrealistic':
-                    precond_strs.append("(different {} {})".format(
-                        param1_cleaned, param2_cleaned))
+                    if param2_type == param1_type:
+                        precond_strs.append("(different {} {})".format(
+                            param1_cleaned, param2_cleaned))
                 else:
                     precond_strs.append("(Different {} {})".format(
                         param1_cleaned, param2_cleaned))
@@ -170,17 +178,18 @@ class Planner:
                         continue
                     initial_state.add(lit)
                 init_state = State(initial_state, problem_parser.objects, None)
-                act_lits = self._action_space.all_ground_literals(init_state, valid_only=False)
-                problem_parser.initial_state = frozenset(act_lits | init_state.literals)
-                    
-                Different = Predicate('different', 2)
+                # act_lits = self._action_space.all_ground_literals(init_state, valid_only=False)
+                # problem_parser.initial_state = frozenset(act_lits | init_state.literals)
+                problem_parser.initial_state = frozenset(init_state.literals)                   
+
+                # Different = Predicate('different', 2)
                 init_state = set(problem_parser.initial_state)
-                for obj1 in problem_parser.objects:
-                    for obj2 in problem_parser.objects:
-                        if obj1 == obj2:
-                            continue
-                        diff_lit = Different(obj1, obj2)
-                        init_state.add(diff_lit)
+                # for obj1 in problem_parser.objects:
+                #     for obj2 in problem_parser.objects:
+                #         if obj1 == obj2:
+                #             continue
+                #         diff_lit = Different(obj1, obj2)
+                #         init_state.add(diff_lit)
                 problem_parser.initial_state = frozenset(init_state)
                 # Also add 'different' pairs for goal if it's existential
                 if isinstance(problem_parser.goal, Exists):

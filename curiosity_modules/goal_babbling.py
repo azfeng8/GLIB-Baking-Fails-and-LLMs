@@ -103,11 +103,14 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
             try:
                 self._plan, self._operators = self._planning_module.get_plan(
                     problem_fname, use_cache=False, use_learned_ops=False)
+                os.remove(problem_fname)
             except NoPlanFoundException:
                 GOAL_BABBLING_LOGGER.info(f"No plan found.")
+                os.remove(problem_fname)
                 continue
             except PlannerTimeoutException:
                 GOAL_BABBLING_LOGGER.info(f"PLANNER TIMED OUT")
+                os.remove(problem_fname)
                 break
             planning_attempts += 1
 

@@ -12,6 +12,7 @@ from typing import Iterable
 import time
 import abc
 import itertools
+import logging
 
 
 ALPHA = 0.5 # Weight on rule set size penalty
@@ -610,7 +611,7 @@ class ExplainExamples(SearchOperator):
         variables = [next(variable_name_generator) for _ in a.variables]
         sigma = dict(zip(variables, a.variables))
         sigma_inverse = invert_sigma(sigma)
-        assert all(len(v) == 1 for v in sigma_inverse.values())
+        assert all(len(v) == 1 for v in sigma_inverse.values()), f"action: {a}\n variables: {variables}\n sigma: {sigma}\n sigma inverse: {sigma_inverse}"
         # Set r's action
         return a.predicate(*[sigma_inverse[val][0] for val in a.variables]), \
             variable_name_generator

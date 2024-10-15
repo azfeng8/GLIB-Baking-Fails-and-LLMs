@@ -108,13 +108,17 @@ class ZPKOperatorLearningModule:
             self._planning_operators.clear()
             self._learned_operators.clear()
             for ndr_set in self._ndrs.values():
-                for i, ndr in enumerate(ndr_set):
-                    operator = ndr.determinize(name_suffix=i)
+                i = 0
+                for ndr in ndr_set:
+                    # operator = ndr.determinize(name_suffix=i)
+                    operators = ndr.multi_determinize(name_suffix=i)
+                    i += len(operators)
                     # No point in adding an empty effect or noisy effect operator
-                    if len(operator.effects.literals) == 0 or NOISE_OUTCOME in operator.effects.literals:
-                        continue
-                    self._planning_operators.add(operator)
-                    self._learned_operators.add(operator)
+                    for operator in operators:
+                        if len(operator.effects.literals) == 0 or NOISE_OUTCOME in operator.effects.literals:
+                            continue
+                        self._planning_operators.add(operator)
+                        self._learned_operators.add(operator)
 
             # print_rule_set(self._ndrs)
 
