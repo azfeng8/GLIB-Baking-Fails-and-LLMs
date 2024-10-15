@@ -213,7 +213,8 @@ class InitialPlanAgent(Agent):
         self.obs_space = observation_space
 
         # Load the demos
-        with open('bakingrealistic_demonstrations.pkl', 'rb') as f:
+        # with open('bakingrealistic_demonstrations.pkl', 'rb') as f:
+        with open('transitions.pkl', 'rb') as f:
             transitions = pickle.load(f)
         self._operator_learning_module._transitions = transitions
         for action_pred in transitions:
@@ -224,6 +225,7 @@ class InitialPlanAgent(Agent):
         # Get the subgoals.
         # Keep track of the action seq to get to the last achieved subgoal.
         self.action_seq = []
+        self._plan_to_next_subgoal = None
         self.next_subgoal_idx = 0
         self.subgoals = []
         self._loaded_subgoals = False
@@ -460,10 +462,24 @@ class InitialPlanAgent(Agent):
         assert self.next_subgoal_idx < len(self.subgoals), f"Last subgoal in subgoals must reach the goal of the episode: {self.subgoals}"
 
         logging.info("Getting plan to next subgoal...")
+        if self._plan_to_next_subgoal is not None and len(self._plan_to_next_subgoal[0]) > 0:
+            return self._plan_to_next_subgoal[0].pop(0)
         # Get a plan to the next subgoal
-        in_plan, op_name, action = self._curiosity_module.get_action(state, self.subgoals[self.next_subgoal_idx])
-
-        if not in_plan:
+        problem_fname = self._curiosity_module._create_problem_pddl(state, self.subgoals[self.next_subgoal_idx], prefix='glibg1_subgoal')
+        plan = None
+        try:
+            plan, _ = self._planning_module.get_plan(
+                problem_fname, use_cache=False, use_learned_ops=True)
+            os.remove(problem_fname)
+        except NoPlanFoundException:
+            logging.info(f"No plan found.")
+        except PlannerTimeoutException:
+            logging.info(f"Planner timed out.")
+        if plan:
+            self._action_in_plan = True
+            self._plan_to_next_subgoal = (plan, tuple(plan))
+            return self._plan_to_next_subgoal[0].pop(0)
+        else:
             # print ops, action seq, and current state
             pprint(sorted(state.literals))
             # for o in self._operator_learning_module._learned_operators:
@@ -542,10 +558,7 @@ class InitialPlanAgent(Agent):
             return None
         self.curiosity_time += time.time()-start_time
 
-        if in_plan:
-            self._action_in_plan = op_name
-        else:
-            self._action_in_plan = False
+
         return action
     
     def _safe_action_input(self, state):
@@ -599,10 +612,13 @@ class InitialPlanAgent(Agent):
                 self._visited_preconds_actions.add(self._last_preconds_action)
                 self._last_preconds_action = None
                 self._preconds_plan = []
+                
+        else:
+            if len(effects) == 0:
+                self._plan_to_next_subgoal = None
 
         # Check if planned to the next subgoal
         if self._action_in_plan and self.next_subgoal_idx < len(self.subgoals):
-            #TODO: bug. if the subgoal is two actions away, this fails.
             assignments = find_satisfying_assignments(next_state.literals, self.subgoals[self.next_subgoal_idx].literals, allow_redundant_variables=False)
             if len(assignments) > 0:
                 for assignment in assignments:
@@ -611,15 +627,10 @@ class InitialPlanAgent(Agent):
                         self._precondition_targeting = True
                         logging.info(f"ACHIEVED SUBGOAL {self.subgoals[self.next_subgoal_idx]}")
                         self.next_subgoal_idx += 1
-                        self.action_seq.append(action)
+                        self.action_seq.extend(self._plan_to_next_subgoal[1])
+                        self._plan_to_next_subgoal = None
                         break
 
-        # Set the info about the operator executed in the plan for the learning module.
-        # If the action is not in a plan, this is None. Interested when the action is in a plan, and the operator executed has no effects (the operator fails).
-        if (len(effects) == 0) and self._action_in_plan:
-            self._skill_to_edit = (action.predicate, self._action_in_plan)
-        else:
-            self._skill_to_edit = None
         
     def _parse_action_from_string(self, action_string, objects_frozenset):
         """Given action string (pred obj-0 obj-1...), parse the pddlgym action.

@@ -91,6 +91,10 @@ class Runner:
                 logging.info(f"Dumping ops to ops.pkl...")
                 with open('ops.pkl', 'wb') as f:
                     pickle.dump(self.agent.learned_operators, f)
+                
+                if isinstance(self.agent, InitialPlanAgent):
+                    with open('visited_preconds_actions.pkl', 'wb') as f:
+                        pickle.dump(self.agent._visited_preconds_actions, f)
                 uip = input("Evaluate operators? y or anything")
                 if uip == 'y':
                     logging.info("Evaluating operators...")
