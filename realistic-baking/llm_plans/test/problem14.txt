@@ -1,1 +1,1 @@
-(remove-pan-from-oven pan-0)
+(transfer-egg-from-pan-or-bowl bowl-0 bowl-1 egg-0)

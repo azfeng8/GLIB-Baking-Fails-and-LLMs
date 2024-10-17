@@ -22,7 +22,6 @@ skills_strings = \
 (set-oven-with-souffle-bake-time-and-press-start ?arg0 - oven ?arg1 - dessert_hypothetical)
 (transfer-butter-from-pan-or-bowl ?arg0 - container ?arg1 - container ?arg2 - butter_hypothetical)
 (transfer-egg-from-pan-or-bowl ?arg0 - container ?arg1 - container ?arg2 - egg_hypothetical)
-(use-stand-mixer ?arg0 - electric_stand_mixer ?arg1 - container ?arg2 - mixture_hypothetical)
 """
 
 
