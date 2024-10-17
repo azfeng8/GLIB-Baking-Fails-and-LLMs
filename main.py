@@ -383,7 +383,7 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_
     # learner, which uses the environment to access the predicates and
     # action names.
     ac.train_env = train_env
-    agent = InitialPlanAgent(domain_name, train_env.action_space,
+    agent = DemonstrationsAgent(domain_name, train_env.action_space,
                 train_env.observation_space, curiosity_name, learning_name, log_llm_path=log_llmi_path,
                 planning_module_name=ac.planner_name[domain_name])
         
