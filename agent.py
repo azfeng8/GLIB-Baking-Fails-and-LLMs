@@ -213,14 +213,20 @@ class InitialPlanAgent(Agent):
         self.obs_space = observation_space
 
         # Load the demos
-        # with open('bakingrealistic_demonstrations.pkl', 'rb') as f:
-        with open('transitions.pkl', 'rb') as f:
+        with open('bakingrealistic_demonstrations.pkl', 'rb') as f:
+        # with open('transitions.pkl', 'rb') as f:
             transitions = pickle.load(f)
         self._operator_learning_module._transitions = transitions
+
         for action_pred in transitions:
             self._operator_learning_module._fits_all_data[action_pred] = False
         
-        self.reset = False
+        # with open('ops.pkl', 'rb') as f:
+        #     ops = pickle.load(f)
+        
+        # for op in ops:
+        #     self.learned_operators.add(op)
+        #     self.planning_operators.add(op)
 
         # Get the subgoals.
         # Keep track of the action seq to get to the last achieved subgoal.
@@ -239,17 +245,16 @@ class InitialPlanAgent(Agent):
 
         # Planning to preconditions
         self._precondition_targeting = True
-        self._visited_preconds_actions = set()
         self._preconds_plan = []
         # This is set by the Runner.run() method and also self._get_action_with_preconds_as_goals()
         self.finished_preconds_plan = False
         self._last_preconds_action = None
 
-        # Keeps track of unreachable preconditions from certain states
-        self._visited_preconds_states = set()
+        # Keeps track of preconditions already planned to from states
+        self._visited_preconds_states = {a: set() for a in action_space.predicates} # Map from action predciate to set
 
     def reset_episode(self, state, problem_idx, subgoals_path):
-        self._load_subgoals(state, problem_idx, subgoals_path) 
+        self._load_subgoals(state, subgoals_path) 
         self.next_subgoal_idx = 0
         self.action_seq = []
         obs_literals = set()
@@ -266,7 +271,7 @@ class InitialPlanAgent(Agent):
         self.episode_start = True
 
 
-    def _load_subgoals(self, state, problem_idx, subgoals_file):
+    def _load_subgoals(self, state, subgoals_file):
         """Loads the subgoals into grounded goals."""
         with open(subgoals_file, 'r') as f:
             lines = f.readlines()
@@ -287,6 +292,7 @@ class InitialPlanAgent(Agent):
             #TODO: need to modify the goal for lifted mode too
             subgoals.append(LiteralConjunction(goal_lits))
         self.subgoals = subgoals
+        self.next_subgoal_idx = 0
         logging.info("Loaded subgoals.")
         # logging.info(self.subgoals)
     
@@ -309,8 +315,6 @@ class InitialPlanAgent(Agent):
         """
         if len(self._preconds_plan) == 1:
             self.finished_preconds_plan = True
-            self._visited_preconds_actions.add(self._last_preconds_action)
-            self._last_preconds_action = None
             logging.info(f"FOLLOWING PLAN: {self._preconds_plan}")
             return self._preconds_plan.pop()
 
@@ -325,31 +329,24 @@ class InitialPlanAgent(Agent):
         action_predicates = set(p.name for p in self.action_space.predicates)
         for op in self.learned_operators:
             preconds = op.preconds.literals
-            lifted_act = [p for p in preconds if p.predicate.name in action_predicates][0]
-            if tuple(preconds) in self._visited_preconds_actions:
-                continue
-            if (tuple(preconds), state) in self._visited_preconds_states:
-                continue
+
             logging.info(f"Trying preconds for op: {op.name}: {preconds}")
-            #TODO: ground preconds don't have to be randomized by objects: 
-            #           for mix operators: if there are the (is-*) predicates in the state and precondition, these don't change, and can narrow down the objects to be assigned to variables.
-            #           for bake operators: restrict the container to be a pan 
             ground_preconds_list = self._get_ground_preconds(op, state)
             for i in np.random.permutation(len(ground_preconds_list))[:NUM_TRIES]:
                 grounded_precond = ground_preconds_list[i]
+                preconds_hash = get_hashable_preconds_action(grounded_precond)
                 ground_act = [p for p in grounded_precond if p.predicate.name in action_predicates][0]
+                if (preconds_hash, state) in self._visited_preconds_states[ground_act.predicate]:
+                    continue
                 grounded_precond_no_act = [p for p in grounded_precond if p.predicate.name not in action_predicates]
                 plan = self._get_plan_to_preconds(grounded_precond_no_act, state)
+                self._visited_preconds_states[ground_act.predicate].add((preconds_hash, state))
                 if plan is not None:
                     self._preconds_plan = plan + [ground_act]
                     logging.info(f"PLAN: {self._preconds_plan}")
-                    self._last_preconds_action = tuple(preconds)
                     if len(self._preconds_plan) == 1:
                         self.finished_preconds_plan = True
-                        self._visited_preconds_actions.add(self._last_preconds_action)
-                        self._last_preconds_action = None
                     return self._preconds_plan.pop(0)
-            self._visited_preconds_states.add((tuple(preconds), state))
 
         # once done, proceed to the next subgoal in the file.
         return None
@@ -443,8 +440,6 @@ class InitialPlanAgent(Agent):
                     obs_literals.add(lit)
             state = State(frozenset(obs_literals), state.objects, state.goal)
 
-        start_time = time.time()
-
         # Before getting to a new subgoal, try out all the operator preconditions if they haven't been tried before, to refine incorrect preconditions.
         if self._precondition_targeting:
             self._action_in_plan = False
@@ -459,7 +454,8 @@ class InitialPlanAgent(Agent):
         else:
                self._action_in_plan_to_preconds = False
 
-        assert self.next_subgoal_idx < len(self.subgoals), f"Last subgoal in subgoals must reach the goal of the episode: {self.subgoals}"
+        if self.next_subgoal_idx == len(self.subgoals):
+            return self._prompt_demos_or_subgoals(state)
 
         logging.info("Getting plan to next subgoal...")
         if self._plan_to_next_subgoal is not None and len(self._plan_to_next_subgoal[0]) > 0:
@@ -480,16 +476,19 @@ class InitialPlanAgent(Agent):
             self._plan_to_next_subgoal = (plan, tuple(plan))
             return self._plan_to_next_subgoal[0].pop(0)
         else:
-            # print ops, action seq, and current state
-            pprint(sorted(state.literals))
-            # for o in self._operator_learning_module._learned_operators:
-                # logging.info(o.pddl_str())
-            print_rule_set(self._operator_learning_module._ndrs)
-            logging.info("Action sequence thus far")
-            for act in self.action_seq:
-                logging.info(act)
-            self.action_seq_reset = []
-            option_str = \
+            return self._prompt_demos_or_subgoals(state)
+
+    def _prompt_demos_or_subgoals(self, state):
+        # print ops, action seq, and current state
+        pprint(sorted(state.literals))
+        # for o in self._operator_learning_module._learned_operators:
+            # logging.info(o.pddl_str())
+        print_rule_set(self._operator_learning_module._ndrs)
+        logging.info("Action sequence thus far")
+        for act in self.action_seq:
+            logging.info(act)
+        self.action_seq_reset = []
+        option_str = \
 """Please pick an option:
 
 [0] Enter an action. Execute it, and observe the transition. Then, reset to the previous achieved subgoal.
@@ -497,69 +496,84 @@ class InitialPlanAgent(Agent):
 [2] Enter an action sequence. Reset to start, then execute it, and observe the last transition. Then, reset back to the previous subgoal.
 [3] Execute a random action, observe it, and reset to the previous achieved subgoal.
 [4] Execute a sequence of actions, observing all of them. Don't reset.
-[5] Dump the transitions, and take a random action, observing it. Then reset to the previous achieved subgoal.
+[5] Dump the transitions and operators.
 [6] Execute a sequence of actions, observing all of them. Reset to previous subgoal.
+[7] Abandon this subgoals list, and enter a new curriculum to execute from this state.
+[8] Abandon this subgoals list, reset the episode, and try the new curriculum.
 """
-            option = int(input(option_str))
-            # 1. Execute the action, and observe that transition. Then, reset.
-            self.option = option
-            if option == 0:
-                action = self._safe_action_input(state)
-                self.next_action = action
-            elif option == 1 or option == 2:
-                action_str = input("Enter the next action, or q to quit: ")
-                while action_str != 'q':
-                    loop = True
-                    while loop and action_str != 'q':
-                        try:
-                            action = self._parse_action_from_string(action_str, state.objects)
-                            loop = False
-                        except:
-                            action_str = input("Error parsing. Re-enter the action, or enter q to quit:")
-                    if action_str == 'q': break
-                    self.action_seq_reset.append(action)
-                    action_str = input("Enter the next action: ")
-                if option == 1:
-                    if input("Enter 'y' to observe the last transition (needs lowercase):") == 'y':
-                        self.observe_last_transition = True
-            elif option == 3:
-                self.next_action = self.action_space.sample(state)
-            elif option == 4:
-                action_str = input("Enter the next action, or q to quit: ")
-                while action_str != 'q':
-                    loop = True
-                    while loop and action_str != 'q':
-                        try:
-                            action = self._parse_action_from_string(action_str, state.objects)
-                            loop = False
-                        except:
-                            action_str = input("Error parsing. Re-enter the action, or enter q to quit:")
-                    if action_str == 'q': break
-                    self.action_seq_reset.append(action)
-                    action_str = input("Enter the next action: ")
-            elif option == 5:
-                self.next_action = self.action_space.sample(state)
-                with open('transitions.pkl', 'wb') as f:
-                    pickle.dump(self._operator_learning_module._transitions, f)
-            elif option == 6:
-                action_str = input("Enter the next action, or q to quit: ")
-                while action_str != 'q':
-                    loop = True
-                    while loop and action_str != 'q':
-                        try:
-                            action = self._parse_action_from_string(action_str, state.objects)
-                            loop = False
-                        except:
-                            action_str = input("Error parsing. Re-enter the action, or enter q to quit:")
-                    if action_str == 'q': break
-                    self.action_seq_reset.append(action)
-                    action_str = input("Enter the next action: ")
-            self._action_in_plan = False
-            return None
-        self.curiosity_time += time.time()-start_time
+        option = int(input(option_str))
+        # 1. Execute the action, and observe that transition. Then, reset.
+        self.option = option
+        if option == 0:
+            action = self._safe_action_input(state)
+            self.next_action = action
+        elif option == 1 or option == 2:
+            action_str = input("Enter the next action, or q to quit: ")
+            while action_str != 'q':
+                loop = True
+                while loop and action_str != 'q':
+                    try:
+                        action = self._parse_action_from_string(action_str, state.objects)
+                        loop = False
+                    except:
+                        action_str = input("Error parsing. Re-enter the action, or enter q to quit:")
+                if action_str == 'q': break
+                self.action_seq_reset.append(action)
+                action_str = input("Enter the next action: ")
+            if option == 1:
+                if input("Enter 'y' to observe the last transition (needs lowercase):") == 'y':
+                    self.observe_last_transition = True
+        elif option == 3:
+            self.next_action = self.action_space.sample(state)
+        elif option == 4:
+            action_str = input("Enter the next action, or q to quit: ")
+            while action_str != 'q':
+                loop = True
+                while loop and action_str != 'q':
+                    try:
+                        action = self._parse_action_from_string(action_str, state.objects)
+                        loop = False
+                    except:
+                        action_str = input("Error parsing. Re-enter the action, or enter q to quit:")
+                if action_str == 'q': break
+                self.action_seq_reset.append(action)
+                action_str = input("Enter the next action: ")
+        elif option == 5:
+            self.next_action = self.action_space.sample(state)
+            with open('transitions.pkl', 'wb') as f:
+                pickle.dump(self._operator_learning_module._transitions, f)
+            with open('ops.pkl', 'wb') as f:
+                pickle.dump(self.learned_operators, f)
+        elif option == 6:
+            action_str = input("Enter the next action, or q to quit: ")
+            while action_str != 'q':
+                loop = True
+                while loop and action_str != 'q':
+                    try:
+                        action = self._parse_action_from_string(action_str, state.objects)
+                        loop = False
+                    except:
+                        action_str = input("Error parsing. Re-enter the action, or enter q to quit:")
+                if action_str == 'q': break
+                self.action_seq_reset.append(action)
+                action_str = input("Enter the next action: ")
+        elif option == 7:
+            logging.info(f"Starting new curriculum from current state.")
+            subgoals_list_fname = input("Enter the new subgoals list: ")
+            while not os.path.exists(subgoals_list_fname):
+                subgoals_list_fname = input("Enter the new subgoals list: ")               
+            self._load_subgoals(state, subgoals_list_fname)
+        elif option == 8:           
+            logging.info(f"Starting new curriculum from start of episode.")
+            subgoals_list_fname = input("Enter the new subgoals list: ")
+            while not os.path.exists(subgoals_list_fname):
+                subgoals_list_fname = input("Enter the new subgoals list: ")               
+            self._load_subgoals(state, subgoals_list_fname)
+            self.action_seq = []
+            self.action_seq_reset = []
 
-
-        return action
+        self._action_in_plan = False
+        return None
     
     def _safe_action_input(self, state):
         loop = True
@@ -609,8 +623,6 @@ class InitialPlanAgent(Agent):
             # Stop executing the plan if it failed in the middle.
             if len(effects) == 0:
                 self.finished_preconds_plan = True
-                self._visited_preconds_actions.add(self._last_preconds_action)
-                self._last_preconds_action = None
                 self._preconds_plan = []
                 
         else:
@@ -768,3 +780,12 @@ class DemonstrationsAgent(Agent):
         self.curiosity_time += time.time()-start_time
         self.episode_start = True
 
+
+def get_hashable_preconds_action(preconds):
+    # Sort preconditions by alphabetical order of its string representation.
+    strings = []
+    for pre in preconds:
+        strings.append(f'{pre.predicate.name}(' + ','.join(pre.pddl_variables()) + ')')
+    s = ','.join(sorted(strings))
+    return s
+    

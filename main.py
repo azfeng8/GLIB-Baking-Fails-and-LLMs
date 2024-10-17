@@ -40,9 +40,6 @@ class Runner:
         self.curiosity_name = curiosity_name
         self.num_train_iters = ac.num_train_iters[domain_name]
 
-        self.dumped_mix_cake = False
-        self.dumped_mix_souffle = False
-
     def run(self):
         """Run primitive operator learning loop.
         """
@@ -71,8 +68,6 @@ class Runner:
             logging.info("Learned operators:")
             for op in self.agent.learned_operators:
                 logging.info(op.pddl_str())
-            # domain_fname = self.agent._planning_module._create_domain_file(use_learned_ops=True)
-            # logging.info(domain_fname)
             test_solve_rate = -1
             variational_dist = -1
             results.append((-1, test_solve_rate, variational_dist))
@@ -84,17 +79,18 @@ class Runner:
             if len(cycle) == 0 and episode_done:
                 uip = input("Cycle finished. Dumping transitions. Filename or n to quit?")
                 while not uip.endswith('.pkl') and uip != 'n':
-                    uip = input("Cycle finished. Dumping transitions. Filename or n to quit?")
+                    uip = input("Cycle finished. Dumping transitions, ops, and visited planning set. Filename or n to quit?")
                 if uip != 'n':
                     with open(uip.strip(), 'wb') as f:
                         pickle.dump(self.agent._operator_learning_module._transitions, f)
-                logging.info(f"Dumping ops to ops.pkl...")
-                with open('ops.pkl', 'wb') as f:
-                    pickle.dump(self.agent.learned_operators, f)
-                
-                if isinstance(self.agent, InitialPlanAgent):
-                    with open('visited_preconds_actions.pkl', 'wb') as f:
-                        pickle.dump(self.agent._visited_preconds_actions, f)
+                    logging.info(f"Dumping ops to ops.pkl...")
+                    with open('ops.pkl', 'wb') as f:
+                        pickle.dump(self.agent.learned_operators, f)
+                    
+                    logging.info("Dumping visited set to visited_preconds.pkl")
+                    if isinstance(self.agent, InitialPlanAgent):
+                        with open('visited_preconds.pkl', 'wb') as f:
+                            pickle.dump(self.agent._visited_preconds_states, f)
                 uip = input("Evaluate operators? y or anything")
                 if uip == 'y':
                     logging.info("Evaluating operators...")
@@ -196,7 +192,7 @@ class Runner:
                     next_obs = obs
                     for action in self.agent.action_seq:
                         next_obs, rew, episode_done, _ = self.train_env.step(action)
-                elif self.agent.option == 3 or self.agent.option == 5:
+                elif self.agent.option == 3:
                     action = self.agent.next_action
                     logging.info(f"Observing action {action}")
                     next_obs, rew, episode_done, _ = self.train_env.step(action)
@@ -221,15 +217,20 @@ class Runner:
                     next_obs = obs
                     for action in self.agent.action_seq:
                         next_obs, rew, episode_done, _ = self.train_env.step(action)
+                elif self.agent.option == 8:
+                    logging.info(f"Resetting to start of episode")
+                    obs, _ = self.train_env.reset()
  
             else:
                 logging.info(f"Taking action {action}")
                 next_obs, rew, episode_done, _ = self.train_env.step(action)
                 if prev_action == action:
                     # logging.info(f"Obs:\n{obs} \n\nNext obs:\n{next_obs}")
-                    if input("Dump transitions? y/n") == 'y':
+                    if input("Dump transitions and ops? y/n") == 'y':
                         with open(f'transitions.pkl', 'wb') as f:
                             pickle.dump(self.agent._operator_learning_module._transitions, f)
+                        with open('ops.pkl', 'wb') as f:
+                            pickle.dump(self.agent.learned_operators, f)
                 if round(rew) == 1: logging.info(f"***********************************Reached goal! {obs.goal}***********************************")
                 self.agent.observe(obs, action, next_obs, itr)
 
@@ -323,23 +324,6 @@ class Runner:
         else:
             problems = range(num_problems)
         for problem_idx in problems:
-            #FIXME: First get the operator learner to learn mixing. That is the bottleneck for the harder tasks.
-            if self.domain_name.lower() == 'bakingrealistic':
-                if (problem_idx == 6) and (
-                    # Problem 6 needs these cases to pass
-                    18 not in passed_cases
-                    or 19 not in passed_cases 
-                    or 15 not in passed_cases
-                ):
-                    continue
-                if (problem_idx == 7) and (
-                    # Problem 7 needs these cases to pass
-                    9 not in passed_cases
-                    or 18 not in passed_cases
-                    or 19 not in passed_cases 
-                    or 15 not in passed_cases
-                ):
-                    continue
             self.test_env.fix_problem_index(problem_idx)
             obs, debug_info = self.test_env.reset()
             try:
@@ -383,15 +367,6 @@ class Runner:
                 problem_idx+1, num_problems, num_successes))#, end="\r")
  
         variational_dist = 0
-        if 6 in passed_cases and not self.dumped_mix_cake: 
-            with open('mix-for-cake.pkl', 'wb') as f:
-                pickle.dump(self.agent._operator_learning_module._transitions, f)
-            self.dumped_mix_cake = True
-        if 7 in passed_cases and not self.dumped_mix_souffle:
-            with open('mix-for-souffle.pkl', 'wb') as f:
-                pickle.dump(self.agent._operator_learning_module._transitions, f)
-            self.dumped_mix_souffle = True
- 
 
         return float(num_successes)/num_problems, variational_dist, successes
 
