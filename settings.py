@@ -184,7 +184,7 @@ class AgentConfig:
         "Baking": 1799,
         "Travel": 1501,
         "Minecraft": 1799,
-        "Bakingrealistic": 3000
+        "Bakingrealistic": 10 #3000
     }
 
     ## Constants for curiosity modules. ##
