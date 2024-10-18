@@ -117,7 +117,6 @@ from agent import Agent
 
 domain_name = 'Bakingrealistic'
 
-
 test_env = pddlgym.make("PDDLEnvBakingrealisticTest-v0")
 
 ac.seed = 10

@@ -4,7 +4,7 @@ from flags import parse_flags
 
 import matplotlib
 matplotlib.use("Agg")
-from agent import Agent, InitialPlanAgent, DemonstrationsAgent
+from agent import Agent, InteractiveAgent, DemonstrationsAgent
 from planning_modules.base_planner import PlannerTimeoutException, \
     NoPlanFoundException
 from plotting import plot_results
@@ -31,8 +31,8 @@ class Runner:
     """
 
 
-    def __init__(self, agent:Agent, train_env, test_env, domain_name, curiosity_name):
-        self.agent:Agent = agent
+    def __init__(self, agent, train_env, test_env, domain_name, curiosity_name):
+        self.agent = agent
         self.train_env = train_env
         self.num_train_problems = len(self.train_env.problems)
         self.test_env = test_env
@@ -40,43 +40,76 @@ class Runner:
         self.curiosity_name = curiosity_name
         self.num_train_iters = ac.num_train_iters[domain_name]
 
+        if isinstance(agent, InteractiveAgent) or isinstance(agent, DemonstrationsAgent):
+            self.AUTO_EVAL = False
+        elif isinstance(agent, Agent):
+            self.AUTO_EVAL = True
+        else:
+            raise Exception("Not supported agent type")
+
     def run(self):
         """Run primitive operator learning loop.
         """
-        episode_time_step = 0
+        def learn_and_test():
+            # Learn and test
+            if itr % ac.learning_interval[self.domain_name] == 0:
+
+                operators_changed, _ = self.agent.learn(itr)
+
+                if operators_changed:
+                    logging.info("Operators changed.")
+                    ops_change_iterations.append(itr)
+
+                # Only rerun tests if operators have changed, or stochastic env
+                if self.AUTO_EVAL and ((operators_changed or ac.planner_name[self.domain_name] == "ffreplan" or \
+                   itr + ac.learning_interval[self.domain_name] >= self.num_train_iters)):
+                    successes_list = self._evaluate_operators(use_learned_ops=True)
+                    test_solve_rate = sum(successes_list) / len(successes_list)
+                    logging.info(f"Result: {test_solve_rate} solve rate")
+                    results["successes"].append((itr, successes_list))
+
+                    logging.info("Learned operators:")
+
+                    for op in self.agent.learned_operators:
+                        logging.info(op.pddl_str())
+
+                else:
+                    assert results, "operators_changed is False but never learned any operators..."
+                    logging.debug("No operators changed, continuing...")
+
+
         problem_idx = 0 
-        itrs_on = None
 
         # Logging 
-        success_rates = []
-        results = []
-        plan_ops_results = []
-        episode_start_itrs = []
-        planning_ops_changed_itrs = []
+        if isinstance(self.agent, InteractiveAgent):
+            results = {"mode": "needs_eval", "transitions": [], "ops_changed_iterations": []}
+        else:
+            results = {"mode": "evaluated", "successes": []} 
 
+        ops_change_iterations = []
 
-        episode_time_step = 0
         prev_action = None
         episode_done = True
         # One cycle goes through all of the specified training episodes in the cycle once.
         cycle = []
         subgoals_paths = {}
 
+        transitions = []
+
         # Learn the ops from demos
-        if isinstance(self.agent, InitialPlanAgent):
+        if isinstance(self.agent, InteractiveAgent):
             self.agent.learn(0)
             logging.info("Learned operators:")
             for op in self.agent.learned_operators:
                 logging.info(op.pddl_str())
-            test_solve_rate = -1
-            variational_dist = -1
-            results.append((-1, test_solve_rate, variational_dist))
 
-        for itr in range(self.num_train_iters):
+        itr = 0
+
+        while itr < self.num_train_iters:
             logging.info("Iteration {} of {}".format(itr, self.num_train_iters))
 
             # ask user to input which episodes to do in the next cycle
-            if len(cycle) == 0 and episode_done:
+            if not self.AUTO_EVAL and len(cycle) == 0 and episode_done:
                 uip = input("Cycle finished. Dumping transitions. Filename or n to quit?")
                 while not uip.endswith('.pkl') and uip != 'n':
                     uip = input("Cycle finished. Dumping transitions, ops, and visited planning set. Filename or n to quit?")
@@ -88,13 +121,14 @@ class Runner:
                         pickle.dump(self.agent.learned_operators, f)
                     
                     logging.info("Dumping visited set to visited_preconds.pkl")
-                    if isinstance(self.agent, InitialPlanAgent):
+                    if isinstance(self.agent, InteractiveAgent):
                         with open('visited_preconds.pkl', 'wb') as f:
                             pickle.dump(self.agent._visited_preconds_states, f)
                 uip = input("Evaluate operators? y or anything")
                 if uip == 'y':
                     logging.info("Evaluating operators...")
-                    test_solve_rate, variational_dist, successes = self._evaluate_operators(use_learned_ops=True)
+                    successes = self._evaluate_operators(use_learned_ops=True)
+                    test_solve_rate = sum(successes) / len(successes)
                     logging.info(f"Result: {test_solve_rate} solve rate")
                 num_probs = len(self.train_env.problems)
                 uip = input(f"By default, all {num_probs} train problems are in the cycle. Press 'n' to enter manually the episodes, or anything else to accept.")
@@ -142,14 +176,16 @@ class Runner:
                 episode_done = True
 
             if episode_done:
-                problem_idx = cycle.pop(0)
+                if self.AUTO_EVAL:
+                    problem_idx = (problem_idx + 1) % self.num_train_problems
+                else:
+                    problem_idx = cycle.pop(0)
                 self.train_env.fix_problem_index(problem_idx)
                 obs, _ = self.train_env.reset()
                 logging.info(f"***********************************New episode! Problem {problem_idx}:{obs.goal}***********************************")
-                self.agent.reset_episode(obs, problem_idx, subgoals_paths[problem_idx])
-                episode_time_step = 0
+                self.agent.reset_episode(obs, '' if self.AUTO_EVAL else subgoals_paths[problem_idx])
 
-            if self.agent.finished_preconds_plan:
+            if (not self.AUTO_EVAL) and self.agent.finished_preconds_plan:
                 # Reset to previous subgoal
                 self.agent.finished_preconds_plan = False
                 obs, _ = self.train_env.reset()
@@ -165,11 +201,16 @@ class Runner:
                     next_obs, rew, episode_done, _  =  self.train_env.step(action)
                     logging.info(f"Observing action {action}")
                     self.agent.observe(obs, action, next_obs, itr)
+                    transitions.append(self.agent._operator_learning_module._transitions[action.predicate][-1])
+                    learn_and_test()
+                    itr += 1
                     obs, _ = self.train_env.reset()
                     logging.info(f"Resetting to prev subgoal, executing actions:\n{self.agent.action_seq}")
                     next_obs = obs
                     for action in self.agent.action_seq:
                         next_obs, rew, episode_done, _ = self.train_env.step(action)
+                    prev_action = action
+                    obs = next_obs
                 elif self.agent.option == 1:
                     obs, _ = self.train_env.reset()
                     logging.info(f"Resetting to start, and executing actions:\n{self.agent.action_seq_reset}")
@@ -178,7 +219,11 @@ class Runner:
                         if i == len(self.agent.action_seq_reset) - 1 and self.agent.observe_last_transition:
                             logging.info(f"Observing action {action}")
                             self.agent.observe(obs, action, next_obs, itr)
+                            learn_and_test()
+                            transitions.append(self.agent._operator_learning_module._transitions[action.predicate][-1])
+                            itr += 1
                         obs = next_obs
+                    prev_action = action
                 elif self.agent.option == 2:
                     obs, _ = self.train_env.reset()
                     logging.info(f"Resetting to start, and executing actions:\n{self.agent.action_seq_reset}. Then resetting to prev subgoal")
@@ -187,40 +232,52 @@ class Runner:
                         if i == len(self.agent.action_seq_reset) - 1 and self.agent.observe_last_transition:
                             logging.info(f"Observing action {action}")
                             self.agent.observe(obs, action, next_obs, itr)
+                            learn_and_test()
+                            transitions.append(self.agent._operator_learning_module._transitions[action.predicate][-1])
+                            itr += 1
                         obs = next_obs                   
                     obs, _ = self.train_env.reset()
-                    next_obs = obs
                     for action in self.agent.action_seq:
                         next_obs, rew, episode_done, _ = self.train_env.step(action)
+                    prev_action = action
                 elif self.agent.option == 3:
                     action = self.agent.next_action
                     logging.info(f"Observing action {action}")
                     next_obs, rew, episode_done, _ = self.train_env.step(action)
                     self.agent.observe(obs, action, next_obs, itr)
+                    learn_and_test()
+                    transitions.append(self.agent._operator_learning_module._transitions[action.predicate][-1])
+                    itr += 1
                     obs, _ = self.train_env.reset()
-                    next_obs = obs
                     for action in self.agent.action_seq:
                         next_obs, rew, episode_done, _ = self.train_env.step(action)
+                    prev_action = action
                 elif self.agent.option == 4:
                     for action in self.agent.action_seq_reset:
                         next_obs, rew, episode_done, _ = self.train_env.step(action) 
                         self.agent.observe(obs, action, next_obs, itr)
+                        learn_and_test()
+                        transitions.append(self.agent._operator_learning_module._transitions[action.predicate][-1])
                         obs = next_obs
                         itr += 1
+                        prev_action = action
                 elif self.agent.option == 6:
                     for action in self.agent.action_seq_reset:
                         next_obs, rew, episode_done, _ = self.train_env.step(action) 
                         self.agent.observe(obs, action, next_obs, itr)
+                        learn_and_test()
+                        transitions.append(self.agent._operator_learning_module._transitions[action.predicate][-1])
                         obs = next_obs
                         itr += 1                   
                     obs, _ = self.train_env.reset()
                     next_obs = obs
                     for action in self.agent.action_seq:
                         next_obs, rew, episode_done, _ = self.train_env.step(action)
+                    prev_action = action
                 elif self.agent.option == 8:
                     logging.info(f"Resetting to start of episode")
                     obs, _ = self.train_env.reset()
- 
+
             else:
                 logging.info(f"Taking action {action}")
                 next_obs, rew, episode_done, _ = self.train_env.step(action)
@@ -234,58 +291,23 @@ class Runner:
                 if round(rew) == 1: logging.info(f"***********************************Reached goal! {obs.goal}***********************************")
                 self.agent.observe(obs, action, next_obs, itr)
 
-            obs = next_obs
-            prev_action = action
-            episode_time_step += 1
+                obs = next_obs
+                prev_action = action
 
-            if (episode_time_step == 1) and ('LNDR' in self.agent.operator_learning_name):
-                episode_start_itrs.append(itr)
+                learn_and_test()
+                itr += 1
+                transitions.append(self.agent._operator_learning_module._transitions[action.predicate][-1])
 
-            # Learn and test
-            if itr % ac.learning_interval[self.domain_name] == 0:
+        curiosity_avg_time = self.agent.curiosity_time/self.num_train_iters
 
-                if self.domain_name == "PybulletBlocks" and self.curiosity_name == "oracle":
-                    operators_changed = True
-                else:
-                    operators_changed, planning_operators_changed = self.agent.learn(itr)
-
-                # Only rerun tests if operators have changed, or stochastic env
-                if (operators_changed or ac.planner_name[self.domain_name] == "ffreplan" or \
-                   itr + ac.learning_interval[self.domain_name] >= self.num_train_iters):
-                    if operators_changed:
-                        logging.info("Operators changed.")
-                    logging.info("Learned operators:")
-                    for op in self.agent.learned_operators:
-                        logging.info(op.pddl_str())
-
-                    test_solve_rate = -1
-                    variational_dist = -1
-
-
-                else:
-                    # assert results, "operators_changed is False but never learned any operators..."
-                    logging.debug("No operators changed, continuing...")
-
-                    test_solve_rate = results[-1][1]
-                    variational_dist = results[-1][2]
-                    logging.info(f"Result: {test_solve_rate} {variational_dist}")
-
-
-                if planning_operators_changed or \
-                   itr + ac.learning_interval[self.domain_name] >= self.num_train_iters:
-                    planning_ops_changed_itrs.append(itr)
- 
-                results.append((itr, test_solve_rate, variational_dist))
-
-        if itrs_on is None:
-            itrs_on = self.num_train_iters
-        curiosity_avg_time = self.agent.curiosity_time/itrs_on
+        if not self.AUTO_EVAL:
+            results['transitions'] = transitions
+            results['ops_changed_iterations'] = ops_change_iterations
         
-        return results, curiosity_avg_time, plan_ops_results
+        return results, curiosity_avg_time
 
     def _evaluate_operators(self, use_learned_ops=True):
-        """Test current operators. Return (solve rate on test suite,
-        average variational distance).
+        """Test current operators. Return list of pass or fails (1s or 0s).
         """
         BAKING_REALISTIC_TEST_CASES_DESCRIPTIONS = {
             0: "Bake 2 souffles and put them on plates",
@@ -312,20 +334,14 @@ class Runner:
             21: "put-butter-in-container-from-measuring-cup",
         }
 
-        if self.domain_name == "PybulletBlocks" and self.curiosity_name == "oracle":
-            # Disable oracle for pybullet.
-            return 0.0, 1.0
         num_successes = 0
         if self.domain_name in ec.num_test_problems:
             num_problems = ec.num_test_problems[self.domain_name]
         else:
             num_problems = len(self.test_env.problems)
+
         successes = []
-        passed_cases = set()
-        if self.domain_name.lower() == 'bakingrealistic':
-            problems = range(num_problems-1, -1, -1)
-        else:
-            problems = range(num_problems)
+        problems = range(num_problems)
         for problem_idx in problems:
             self.test_env.fix_problem_index(problem_idx)
             obs, debug_info = self.test_env.reset()
@@ -356,7 +372,6 @@ class Runner:
             if reward == 1.:
                 num_successes += 1
                 successes.append(1)
-                passed_cases.add(problem_idx)
             else:
                 assert reward == 0.
                 successes.append(0)
@@ -369,15 +384,14 @@ class Runner:
                 logging.info("\tTest case {} of {}, {} successes so far".format(
                 problem_idx+1, num_problems, num_successes))#, end="\r")
  
-        variational_dist = 0
-
-        return float(num_successes)/num_problems, variational_dist, successes
+        return successes
 
 def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_path:str):
     start = time.time()
 
     ac.seed = seed
     ec.seed = seed
+    np.random.seed(seed)
     ac.planner_timeout = 60 if "oracle" in curiosity_name else 400 
 
     train_env = gym.make("PDDLEnv{}-v0".format(domain_name))
@@ -386,12 +400,12 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_
     # learner, which uses the environment to access the predicates and
     # action names.
     ac.train_env = train_env
-    agent = DemonstrationsAgent(domain_name, train_env.action_space,
+    agent = Agent(domain_name, train_env.action_space,
                 train_env.observation_space, curiosity_name, learning_name, log_llm_path=log_llmi_path,
                 planning_module_name=ac.planner_name[domain_name])
         
     test_env = gym.make("PDDLEnv{}Test-v0".format(domain_name))
-    results, curiosity_avg_time, plan_ops_results  = Runner(agent, train_env, test_env, domain_name, curiosity_name).run()
+    results, curiosity_avg_time  = Runner(agent, train_env, test_env, domain_name, curiosity_name).run()
     with open("results/timings/{}_{}_{}_{}.txt".format(domain_name, curiosity_name, learning_name, seed), "w") as f:
         f.write("{} {} {} {} {}\n".format(domain_name, curiosity_name, learning_name, seed, curiosity_avg_time))
 
@@ -402,14 +416,14 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_
     
     os.makedirs(outdir, exist_ok=True)
     os.makedirs(plan_ops_outdir, exist_ok=True)
-    cache_file = os.path.join(outdir, "{}_{}_{}_{}.pkl".format(
-        domain_name, learning_name, curiosity_name, seed))
+    cache_file = os.path.join(outdir, "{}_{}_{}_{}_{}.pkl".format(
+        domain_name, learning_name, curiosity_name, agent.name, seed))
     with open(cache_file, 'wb') as f:
         pickle.dump(results, f)
         logging.info("Dumped results to {}".format(cache_file))
-    with open(os.path.join(plan_ops_outdir, "{}_{}_{}_{}.pkl".format(
-        domain_name, learning_name, curiosity_name, seed)), 'wb') as f:
-        pickle.dump(plan_ops_results, f)
+    # with open(os.path.join(plan_ops_outdir, "{}_{}_{}_{}.pkl".format(
+    #     domain_name, learning_name, curiosity_name, seed)), 'wb') as f:
+    #     pickle.dump(plan_ops_results, f)
 
     if gc.dataset_logging:
         if "GLIB" in curiosity_name:
@@ -451,13 +465,14 @@ def _main():
 
                 single_seed_results = _run_single_seed(
                     seed, domain_name, curiosity_name, ac.learning_name, llm_iterative_log_path)
-                for cur_name, results in single_seed_results.items():
-                    all_results[cur_name].append(results)
-                plot_results(domain_name, ac.learning_name, all_results)
-                plot_results(domain_name, ac.learning_name, all_results, dist=True)
+                #TODO: write updated plotting code
+                # for cur_name, results in single_seed_results.items():
+                #     all_results[cur_name].append(results)
+                # plot_results(domain_name, ac.learning_name, all_results)
+                # plot_results(domain_name, ac.learning_name, all_results, dist=True)
 
-        plot_results(domain_name, ac.learning_name, all_results)
-        plot_results(domain_name, ac.learning_name, all_results, dist=True)
+        # plot_results(domain_name, ac.learning_name, all_results)
+        # plot_results(domain_name, ac.learning_name, all_results, dist=True)
 
     logging.info("\n\n\n\n\nFinished in {} seconds".format(time.time()-start))
 

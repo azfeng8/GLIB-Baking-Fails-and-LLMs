@@ -184,7 +184,7 @@ class AgentConfig:
         "Baking": 1799,
         "Travel": 1501,
         "Minecraft": 1799,
-        "Bakingrealistic": 3000
+        "Bakingrealistic": 10 #3000
     }
 
     ## Constants for curiosity modules. ##
@@ -330,29 +330,31 @@ class LLMConfig:
 class PlottingConfig:
     """Plotting from cached results.
     """
+    seeds = [1]
+    learner_explorer = [("LNDR", "GLIB_G1")]
 
-    num_experiment_sets = 10 
+    # num_experiment_sets = 10 
 
-    # One string per plot
-    domains = []
-    for _ in range(num_experiment_sets):
-        for domain in ["Minecraft", "Baking", "Travel", "Blocks", "Glibdoors", "Easygripper"]:
-            domains.append(domain)
-            domains.append(domain)
+    # # One string per plot
+    # domains = []
+    # for _ in range(num_experiment_sets):
+    #     for domain in ["Minecraft", "Baking", "Travel", "Blocks", "Glibdoors", "Easygripper"]:
+    #         domains.append(domain)
+    #         domains.append(domain)
     
-    # One list of ranges per plot
-    seeds = []
-    # for i in range(570, 670, 10):
-    # for i in range(790, 850, 10):
-    for i in range(1000, 1030, 10):
-    # for i in range(690, 790, 10):
-        for _ in range(8):
-            seeds.append([range(i, i+10), range(100, 110)])
-        for _ in range(4):
-            seeds.append([(range(i, i+10)), range(110, 120)])
+    # # One list of ranges per plot
+    # seeds = []
+    # # for i in range(570, 670, 10):
+    # # for i in range(790, 850, 10):
+    # for i in range(1000, 1030, 10):
+    # # for i in range(690, 790, 10):
+    #     for _ in range(8):
+    #         seeds.append([range(i, i+10), range(100, 110)])
+    #     for _ in range(4):
+    #         seeds.append([(range(i, i+10)), range(110, 120)])
     
-    # One list of (learning_name, curiosity_name) per plot
-    methods = []
-    for _ in range(6 * num_experiment_sets):
-        methods.append([("LLMWarmStart+LNDR", "GLIB_G1"), ("LNDR", "GLIB_G1")])
-        methods.append([("LLMWarmStart+LNDR", "GLIB_L2"), ("LNDR", "GLIB_L2")])
+    # # One list of (learning_name, curiosity_name) per plot
+    # methods = []
+    # for _ in range(6 * num_experiment_sets):
+    #     methods.append([("LLMWarmStart+LNDR", "GLIB_G1"), ("LNDR", "GLIB_G1")])
+    #     methods.append([("LLMWarmStart+LNDR", "GLIB_L2"), ("LNDR", "GLIB_L2")])

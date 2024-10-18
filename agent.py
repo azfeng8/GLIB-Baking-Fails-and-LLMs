@@ -46,6 +46,7 @@ class Agent:
             planning_module_name (str): 
             log_llm_path (str or None): Path to log the LLM output.
         """
+        self.name = "agent"
         self.curiosity_time = 0.0
         self.domain_name = domain_name
         self.curiosity_module_name = curiosity_module_name
@@ -166,7 +167,7 @@ class Agent:
         #     print(str(v))
         return some_learned_operator_changed, some_planning_operator_changed
 
-    def reset_episode(self, state):
+    def reset_episode(self, state, _):
         obs_literals = set()
         if self.domain_name.lower() == 'bakingrealistic':
             for lit in state.literals:
@@ -191,7 +192,7 @@ class Agent:
         """Get a plan given the learned operators and a PDDL problem file."""
         return self._planning_module.get_policy(problem_fname, use_learned_ops)
 
-class InitialPlanAgent(Agent):
+class InteractiveAgent(Agent):
     """An agent with initial demonstration data to each of the 4 train tasks."""
     def __init__(self, domain_name, action_space, observation_space,
                  curiosity_module_name, operator_learning_name,
@@ -200,6 +201,7 @@ class InitialPlanAgent(Agent):
                  curiosity_module_name, operator_learning_name,
                  planning_module_name, log_llm_path)
         
+        self.name = 'interactive'
         # dict: problem index -> step in the plan to execute next
         self.problem_to_plan_step = {i: 0 for i in range(len(ac.train_env.problems))}
 
@@ -253,7 +255,7 @@ class InitialPlanAgent(Agent):
         # Keeps track of preconditions already planned to from states
         self._visited_preconds_states = {a: set() for a in action_space.predicates} # Map from action predciate to set
 
-    def reset_episode(self, state, problem_idx, subgoals_path):
+    def reset_episode(self, state, subgoals_path):
         self._load_subgoals(state, subgoals_path) 
         self.next_subgoal_idx = 0
         self.action_seq = []
@@ -327,7 +329,7 @@ class InitialPlanAgent(Agent):
         NUM_TRIES = 200
 
         action_predicates = set(p.name for p in self.action_space.predicates)
-        for op in self.learned_operators:
+        for op in sorted(self.learned_operators, key=lambda op: op.name):
             preconds = op.preconds.literals
 
             logging.info(f"Trying preconds for op: {op.name}: {preconds}")
@@ -766,7 +768,7 @@ class DemonstrationsAgent(Agent):
             with open(filepath, 'r') as f:
                 self.plans[problem_i] = [l for l in f.readlines() if l.strip() != '']
     
-    def reset_episode(self, state, problem_idx, subgoals_path):
+    def reset_episode(self, state, subgoals_path):
         obs_literals = set()
         if self.domain_name.lower() == 'bakingrealistic':
             for lit in state.literals:
