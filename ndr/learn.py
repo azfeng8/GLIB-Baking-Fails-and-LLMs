@@ -39,6 +39,8 @@ def run_greedy_search(search_operators:list[SearchOperator], init_state, init_sc
                       max_timeout=None, max_node_expansions=1000, rng=None, verbose=False):
     """Greedy search
 
+    Called by run_main_search, induceoutcomes
+
     Args:
         init_state (NDRSet)
     """
@@ -65,7 +67,8 @@ def run_greedy_search(search_operators:list[SearchOperator], init_state, init_sc
                     state = child
                     best_score = score
                     found_improvement = True
-                    if verbose:
+                    # if verbose:
+                    if VERBOSE:
                         print("New best score:", best_score)
                         print("New best state:", state)
                         print("from operator:", search_operator)
@@ -741,7 +744,7 @@ class ExplainExamples(SearchOperator):
         # and filling in the outcomes using InduceOutcomes until R's score stops improving
         op = TrimPreconditionsSearchOperator(rule, transitions_for_action,
             ndr_settings=ndr_settings)
-        init_state = list(rule.preconditions)
+        init_state = sorted(rule.preconditions) # This used to be list(rule.preconditions); changed for deterministic order.
         init_score = op.get_score(init_state, ndr_settings=ndr_settings)
         best_preconditions = run_greedy_search([op], init_state, init_score,
             greedy_break=True, ndr_settings=ndr_settings)
@@ -776,7 +779,7 @@ class ExplainExamples(SearchOperator):
             if keep_rule:
                 new_rules.append(rule)
         # New rule set
-        new_rule_set = NDRSet(new_rule.action, new_rules,
+        new_rule_set:NDRSet = NDRSet(new_rule.action, new_rules,
             allow_redundant_variables=allow_redundant_variables)
         # Recompute the parameters of the new rule and default rule
         default_rule = new_rule_set.default_ndr
@@ -798,25 +801,37 @@ class ExplainExamples(SearchOperator):
                     len(transitions)), end='\r')
                 if i == len(transitions) -1:
                     print()
-            if DEBUG: print("Considering explaining example for transition")
-            if DEBUG: print_transition(transition)
+                print("Considering explaining example for transition")
+                print_transition(transition)
 
+            if VERBOSE:
+                print("Initializing new rule")
             # Step 1: Create a new rule
             new_rule = self._initialize_new_rule(transition, ndr_settings=ndr_settings)
             # If preconditions are empty, don't enumerate; this should be covered by the default rule
             if len(new_rule.preconditions) == 0:
                 continue
+            if VERBOSE:
+                print("Effects are referenced")
             # Filter out if not all effects explained
             if not new_rule.effects_are_referenced(transition):
                 continue
+
+            if VERBOSE:
+                print("Trimming precondition")
             # Step 2: Trim literals from r
             self.trim_preconditions(new_rule, self.transitions_for_action, ndr_settings=ndr_settings)
             # If preconditions are empty, don't enumerate; this should be covered by the default rule
             if len(new_rule.preconditions) == 0:
                 continue
             
+            if VERBOSE:
+                print("Creating new rule set")
             # Step 3: Create a new rule set containing r
             new_rule_set:NDRSet = self._create_new_rule_set(action_rule_set, new_rule, ndr_settings=ndr_settings)
+
+            if VERBOSE:
+                print("Scoring ruleset")
             # Add R' to the return rule sets R_O
             score = score_action_rule_set(new_rule_set, self.transitions_for_action, ndr_settings=ndr_settings)
             yield score, new_rule_set

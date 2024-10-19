@@ -70,7 +70,7 @@ class Runner:
 
                     logging.info("Learned operators:")
 
-                    for op in self.agent.learned_operators:
+                    for op in sorted(self.agent.learned_operators, key=lambda op: op.name):
                         logging.info(op.pddl_str())
 
                 else:
@@ -100,7 +100,7 @@ class Runner:
         if isinstance(self.agent, InteractiveAgent):
             self.agent.learn(0)
             logging.info("Learned operators:")
-            for op in self.agent.learned_operators:
+            for op in sorted(self.agent.learned_operators, key=lambda x: x.name):
                 logging.info(op.pddl_str())
 
         itr = 0
@@ -400,7 +400,7 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_
     # learner, which uses the environment to access the predicates and
     # action names.
     ac.train_env = train_env
-    agent = Agent(domain_name, train_env.action_space,
+    agent = InteractiveAgent(domain_name, train_env.action_space,
                 train_env.observation_space, curiosity_name, learning_name, log_llm_path=log_llmi_path,
                 planning_module_name=ac.planner_name[domain_name])
         

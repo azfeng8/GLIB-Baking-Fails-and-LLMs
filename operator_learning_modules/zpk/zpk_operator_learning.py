@@ -651,34 +651,34 @@ def get_ops_with_same_preconds(op, ops) -> list[Operator]:
 
 
 
-# Debug code
-if __name__ == '__main__':
-    def get_batch_probs(data):
-        assert False, "Assumed off"
-        # Favor more recent data
-        p = np.log(np.arange(1, len(data)+1)) + 1e-5
-        # Downweight empty transitions
-        for i in range(len(p)):
-            if len(data[i][2]) == 0:
-                p[i] /= 2.
-        p = p / p.sum()
-        return p
+# # Debug code
+# if __name__ == '__main__':
+#     def get_batch_probs(data):
+#         assert False, "Assumed off"
+#         # Favor more recent data
+#         p = np.log(np.arange(1, len(data)+1)) + 1e-5
+#         # Downweight empty transitions
+#         for i in range(len(p)):
+#             if len(data[i][2]) == 0:
+#                 p[i] /= 2.
+#         p = p / p.sum()
+#         return p
 
 
-    with open('/home/catalan/temp/cleanpan_data.pkl', 'rb') as f:
-        data = pickle.load(f)
-    with open('/home/catalan/temp/cleanpan_ndrs.pkl', 'rb') as f:
-        ndrs = pickle.load(f)
-    with open('/home/catalan/temp/cleanpan_pred.pkl', 'rb') as f:
-        pred = pickle.load(f)
-    ndrs = learn_ndrs({pred: data}, max_timeout=ac.max_zpk_learning_time, max_action_batch_size=ac.max_zpk_action_batch_size['Baking'], get_batch_probs=get_batch_probs,init_rule_sets=None, rng=np.random.RandomState(seed=ac.seed), max_ee_transitions= ac.max_zpk_explain_examples_transitions["Baking"])
-    for ndr in ndrs[pred]:
-        print(ndr.determinize())
+#     with open('/home/catalan/temp/cleanpan_data.pkl', 'rb') as f:
+#         data = pickle.load(f)
+#     with open('/home/catalan/temp/cleanpan_ndrs.pkl', 'rb') as f:
+#         ndrs = pickle.load(f)
+#     with open('/home/catalan/temp/cleanpan_pred.pkl', 'rb') as f:
+#         pred = pickle.load(f)
+#     ndrs = learn_ndrs({pred: data}, max_timeout=ac.max_zpk_learning_time, max_action_batch_size=ac.max_zpk_action_batch_size['Baking'], get_batch_probs=get_batch_probs,init_rule_sets=None, rng=np.random.RandomState(seed=ac.seed), max_ee_transitions= ac.max_zpk_explain_examples_transitions["Baking"])
+#     for ndr in ndrs[pred]:
+#         print(ndr.determinize())
     
-    nonnoop = []
-    for s,a,e in data:
-        if e != set():
-            nonnoop.append((s,a,e))
-    ndrs_nonnoop = learn_ndrs({pred: nonnoop}, max_timeout=ac.max_zpk_learning_time, max_action_batch_size=ac.max_zpk_action_batch_size['Baking'], get_batch_probs=get_batch_probs,init_rule_sets=None, rng=np.random.RandomState(seed=ac.seed), max_ee_transitions= ac.max_zpk_explain_examples_transitions["Baking"])
-    for ndr in ndrs_nonnoop[pred]:
-        print(ndr.determinize())
+#     nonnoop = []
+#     for s,a,e in data:
+#         if e != set():
+#             nonnoop.append((s,a,e))
+#     ndrs_nonnoop = learn_ndrs({pred: nonnoop}, max_timeout=ac.max_zpk_learning_time, max_action_batch_size=ac.max_zpk_action_batch_size['Baking'], get_batch_probs=get_batch_probs,init_rule_sets=None, rng=np.random.RandomState(seed=ac.seed), max_ee_transitions= ac.max_zpk_explain_examples_transitions["Baking"])
+#     for ndr in ndrs_nonnoop[pred]:
+#         print(ndr.determinize())

@@ -19,7 +19,7 @@ from planning_modules.base_planner import Planner, PlannerTimeoutException, \
 from agent import Agent
 
 
-def learn_and_test(dataset):
+def learn_and_test(dataset, seed):
     """evaluates the dataset on Bakingrealistic and returns the successes list."""
     MAX_EE_TRANSITIONS = ac.max_zpk_explain_examples_transitions['Bakingrealistic']
 
@@ -27,7 +27,7 @@ def learn_and_test(dataset):
         assert False, 'assumed off'
 
     init_rule_sets = None
-    _rand_state = np.random.RandomState(seed=1)
+    _rand_state = np.random.RandomState(seed=seed)
 
 
     rule_set = {}
@@ -49,7 +49,6 @@ def learn_and_test(dataset):
             op_name = "{}{}".format(ndr.action.predicate.name, name_suffix)
             indices = [i for i, eff in enumerate(ndr.effects) if len(eff) > 0 ]
             effs = ndr.effects
-            ops = []
             for idx in indices:
                 op_name = "{}{}".format(ndr.action.predicate.name, name_suffix)
                 effects = LiteralConjunction(sorted(effs[idx]))
@@ -115,7 +114,7 @@ def learn_and_test(dataset):
 
     return successes
 
-def evaluate(results_dict):
+def evaluate(results_dict, seed):
     """Learns the operators and outputs success arrays at each of the iterations where operators changed."""
     assert results_dict['mode'] == 'needs_eval'
     success_lists = [] # (itr, success list)
@@ -132,7 +131,7 @@ def evaluate(results_dict):
         dataset.setdefault(t[1].predicate, [])
         dataset[t[1].predicate].append(t)
         if i in iterations_to_eval:
-            successes = learn_and_test(dataset)
+            successes = learn_and_test(dataset, seed)
             success_lists.append((i, successes))
 
     return success_lists
@@ -189,11 +188,13 @@ def get_plots_for_bakinglarge(results_dict, results_filepaths_dict):
         for i,results in enumerate(results_list):
             if results['mode'] == 'needs_eval':
                 print(f"Evaluating for curve_name, {i}th result...")
-                success_lists = evaluate(results)
+                filepath = results_filepaths_dict[curve_name][i]
+                seed = int(filepath[:-len('.pkl')].split('_')[-1])
+                success_lists = evaluate(results, seed)
                 results['mode'] = 'evaluated'
                 results['successes'] = success_lists
                 print("Dumping success lists from evaluated transitions...")
-                with open(results_filepaths_dict[curve_name][i], 'wb') as f:
+                with open(filepath, 'wb') as f:
                     pickle.dump(results, f)
 
     min_seeds = np.inf 
