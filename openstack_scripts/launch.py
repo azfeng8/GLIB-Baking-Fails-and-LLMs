@@ -3,7 +3,7 @@
 Requires a file that contains a list of IP addresses for instances that are:
     - Turned on
     - Accessible via ssh for the user of this file
-    - Configured with an llm_glib image (current snapshot name: llm_glib-v1)
+    - Configured with an llm_glib image (current snapshot name: llm_glibv2)
     - Sufficient in number to run all of the experiments in the config file
 Make sure to place this file within the openstack_scripts folder.
     

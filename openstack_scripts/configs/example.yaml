@@ -1,16 +1,21 @@
 # Example config for launching OpenStack experiments.
 ---
 # This specifies the curiosity method argument.
-APPROACHES:
-  glib_l2_warmstartLNDR:
-    NAME: "GLIB_L2"
-    FLAGS:
-      learning_name: LLMWarmStart+LNDR
+EXPERIMENT_SETS:
+  - APPROACHES:
+      glib_l2LNDR:
+        NAME: "GLIB_L2"
+        FLAGS:
+          learning_name: LNDR
+      glib_g1LNDR:
+        NAME: "GLIB_G1"
+        FLAGS:
+          learning_name: LNDR
 # Environments to run on.
-ENVS:
-  baking:
-    NAME: "Baking"
-ARGS: []
-FLAGS: {}
-START_SEED: 1
-NUM_SEEDS: 1
+    ENVS:
+      bakingrealistic:
+        NAME: "Bakingrealistic"
+    ARGS: []
+    FLAGS: {}
+    START_SEED: 1
+    NUM_SEEDS: 10

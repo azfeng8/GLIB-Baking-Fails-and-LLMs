@@ -7,7 +7,7 @@ from settings import AgentConfig as ac
 from curiosity_modules.goal_babbling import GoalBabblingCuriosityModule
 from pddlgym import structs
 from operator_learning_modules.llm_plus.operator_search import ground_literals
-from itertools import combinations
+import itertools
 import logging
 
 class GLIBG1CuriosityModule(GoalBabblingCuriosityModule):
@@ -19,6 +19,7 @@ class GLIBG1CuriosityModule(GoalBabblingCuriosityModule):
         self._name = "glibg1"
         self._static_preds = self._compute_static_preds()
         self._visited_state_action_pairs = set()
+        self._last_action = None
         # Keep track of the number of times that we follow a plan
         self.line_stats = []
         self.llm_line_stats = []
@@ -30,41 +31,44 @@ class GLIBG1CuriosityModule(GoalBabblingCuriosityModule):
             state (pddlgym.structs.State): Starting state.
             ops (set[Operator], optional): New ops from LLM-iterative method, if they exist. Defaults to None.
         """
+        self._sampling_iterator = self._yield_goal_action_pairs(state)
+        self._visited_state_action_pairs = set() # Reset novelty, just as in original implementation
         self._start_state = state
-        self._visited_state_action_pairs = None
         self._last_state = set()
         self._plan = []
 
     def _get_action(self, state, goal):
-        if self._visited_state_action_pairs is None:
-            self._visited_state_action_pairs = set()
-            self._start_state = state
         in_plan, operator_name, action = super()._get_action(state, goal)
-        for lit in state:  # update novelty
-            self._visited_state_action_pairs.add(((lit, action)))
         return in_plan, operator_name, action
 
     def learning_callback(self):
         super().learning_callback()
         self._static_preds = self._compute_static_preds()
-        self._visited_state_action_pairs = None
 
-    def _sample_grounding(self, predicate, objects):
-        """Sample a grounded predicate given the list of objects (pddlgym.TypedEntity)."""
-        args = []
-        for i in self._rand_state.permutation(np.arange(len(objects))):
-            o = objects[i]
-            next_idx = len(args)
-            if len(predicate.var_types) < next_idx + 1:
-                break
-            object_name, object_type = o._str.split(':')
-            if object_type == predicate.var_types[next_idx]:
-                args.append(o)
-        if len(args) == len(predicate.var_types):
-            ground_pred = predicate(*args)
-            return ground_pred
-        else:
-            return None
+    def _yield_goal_action_pairs(self, state):
+        """Generate all grounded (goal, action) pairs in a uniformly random order."""
+        goals = sorted([p for p in self._observation_space.all_ground_literals(state) if p.predicate.name not in ('different', 'name-less-than')])
+        actions = sorted(self._action_space.all_ground_literals(state))
+
+        items = [np.arange(len(goals))] + [np.arange(len(actions))]
+        gen = itertools.product(*items)
+        num_in_gen = len(goals) * len(actions)
+        generated_items = {} # Map from generation index to the item generated at that index
+        next_idx_to_generate = 0
+        for index in self._rand_state.permutation(num_in_gen):
+            if index in generated_items:
+                goal, action = generated_items[index]
+                del generated_items[index]
+                yield (goal, action)
+            else:
+                while next_idx_to_generate < index:
+                    goal_i, action_i = next(gen)
+                    generated_items[next_idx_to_generate] = (goals[goal_i], actions[action_i])
+                    next_idx_to_generate += 1
+                goal_i, action_i = next(gen)
+                next_idx_to_generate += 1
+                yield (goals[goal_i], actions[action_i])
+
     def _sample_goal(self, state):
         """
         Returns:
@@ -72,28 +76,14 @@ class GLIBG1CuriosityModule(GoalBabblingCuriosityModule):
             from_llm (bool): False, the goal is not from the LLM
         
         """
-        if self._visited_state_action_pairs is None:
+        try:
+            goal, action = next(self._sampling_iterator)
+            while (goal, action) in self._visited_state_action_pairs:
+                goal, action = next(self._sampling_iterator)
+            self._last_action = action
+            return goal, False
+        except StopIteration:
             return None, False
-
-        goal_act = None
-        while goal_act is None or goal_act in self._visited_state_action_pairs:
-            # Sample a random goal
-            if self._domain_name.lower() == 'bakingrealistic':
-                goal_pred = self._rand_state.choice([p for p in self._observation_space.predicates if p.name not in ('different', 'name-less-than')])
-            else:
-                goal_pred = self._rand_state.choice(self._observation_space.predicates)
-            ground_goal = self._sample_grounding(goal_pred, sorted(state.objects))
-            if ground_goal is None or ground_goal in self._static_preds:
-                goal_act = None
-                continue
-            act_pred = self._rand_state.choice(self._action_space.predicates)
-            ground_action = self._sample_grounding(act_pred, sorted(state.objects))
-            if ground_action is None:
-                goal_act = None
-                continue
-            goal_act = (ground_goal, ground_action)
-        goal, act = goal_act
-        return goal, False
 
     def _goal_is_valid(self, goal):
         return not (goal is None)
@@ -102,10 +92,13 @@ class GLIBG1CuriosityModule(GoalBabblingCuriosityModule):
         self._last_state = None
         if len(plan) == 0:
             self.line_stats.append('EMPTY PLAN - babbled')
-        return plan
+        action = self._last_action
+        self._last_action = None
+        return plan + [action]
 
     def observe(self, state, action, effects):
-        pass
+        for lit in state:  # update novelty
+            self._visited_state_action_pairs.add(((lit, action)))
 
 # class GLIBG2CuriosityModule(GoalBabblingCuriosityModule):
 #     #TODO: mutex goals
