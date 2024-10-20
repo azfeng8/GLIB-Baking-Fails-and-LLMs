@@ -52,7 +52,7 @@ class GLIBG1CuriosityModule(GoalBabblingCuriosityModule):
     def _sample_grounding(self, predicate, objects):
         """Sample a grounded predicate given the list of objects (pddlgym.TypedEntity)."""
         args = []
-        for i in np.random.permutation(np.arange(len(objects))):
+        for i in self._rand_state.permutation(np.arange(len(objects))):
             o = objects[i]
             next_idx = len(args)
             if len(predicate.var_types) < next_idx + 1:
@@ -70,22 +70,24 @@ class GLIBG1CuriosityModule(GoalBabblingCuriosityModule):
         Returns:
             goal
             from_llm (bool): False, the goal is not from the LLM
+        
         """
-        if not self._visited_state_action_pairs:
+        if self._visited_state_action_pairs is None:
             return None, False
+
         goal_act = None
         while goal_act is None or goal_act in self._visited_state_action_pairs:
             # Sample a random goal
             if self._domain_name.lower() == 'bakingrealistic':
-                goal_pred = np.random.permutation([p for p in self._observation_space.predicates if p.name not in ('different', 'name-less-than')])[0]
+                goal_pred = self._rand_state.choice([p for p in self._observation_space.predicates if p.name not in ('different', 'name-less-than')])
             else:
-                goal_pred = np.random.permutation(self._observation_space.predicates)[0]
-            ground_goal = self._sample_grounding(goal_pred, list(self._start_state.objects))
+                goal_pred = self._rand_state.choice(self._observation_space.predicates)
+            ground_goal = self._sample_grounding(goal_pred, sorted(state.objects))
             if ground_goal is None or ground_goal in self._static_preds:
                 goal_act = None
                 continue
-            act_pred = np.random.permutation(self._action_space.predicates)[0]
-            ground_action = self._sample_grounding(act_pred, list(self._start_state.objects))
+            act_pred = self._rand_state.choice(self._action_space.predicates)
+            ground_action = self._sample_grounding(act_pred, sorted(state.objects))
             if ground_action is None:
                 goal_act = None
                 continue

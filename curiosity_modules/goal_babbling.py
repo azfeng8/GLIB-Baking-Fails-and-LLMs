@@ -87,7 +87,7 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
         while (planning_attempts < ac.max_planning_tries and sampling_attempts < ac.max_sampling_tries):
             if SAMPLE_GOAL:
                 goal, self._goal_from_llm = self._sample_goal(state)
-                GOAL_BABBLING_LOGGER.debug(f"SAMPLED GOAL: {goal}")
+                GOAL_BABBLING_LOGGER.info(f"SAMPLED GOAL: {goal}")
             else:
                 GOAL_BABBLING_LOGGER.info(f"USING GIVEN GOAL: {goal}")
                 
