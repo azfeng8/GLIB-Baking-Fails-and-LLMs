@@ -120,7 +120,7 @@ class Planner:
                 # all_params.update(params)
                 precond_strs.append(term.pddl_str())
 
-        #TODO: a problem somewhere here: The params are only from the precond, not also in the effects...Should also be from the effects.
+        # There was a problem somewhere here: The params are only from the precond, not also in the effects...Should also be from the effects. FIXED
         all_params = list(sorted([param._str for param in operator_params]))
         for param1 in all_params:
             param1_cleaned = param1[:param1.find(":")]
@@ -192,17 +192,17 @@ class Planner:
                 #         init_state.add(diff_lit)
                 problem_parser.initial_state = frozenset(init_state)
                 # Also add 'different' pairs for goal if it's existential
-                if isinstance(problem_parser.goal, Exists):
-                    diffs = []
-                    for var1 in problem_parser.goal.variables:
-                        for var2 in problem_parser.goal.variables:
-                            if var1 == var2:
-                                continue
-                            diffs.append(Different(var1, var2))
-                    problem_parser.goal = Exists(
-                        problem_parser.goal.variables,
-                        type(problem_parser.goal.body)(
-                            problem_parser.goal.body.literals+diffs))
+                # if isinstance(problem_parser.goal, Exists):
+                    # diffs = []
+                    # for var1 in problem_parser.goal.variables:
+                    #     for var2 in problem_parser.goal.variables:
+                    #         if var1 == var2:
+                    #             continue
+                    #         diffs.append(Different(var1, var2))
+                    # problem_parser.goal = Exists(
+                    #     problem_parser.goal.variables,
+                    #     type(problem_parser.goal.body)(
+                    #         problem_parser.goal.body.literals+diffs))
             # Write out new temporary problem file
                 problem_parser.write(problem_fname, fast_downward_order=True)
             else:

@@ -51,7 +51,8 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
             op_name (Optional[str]): name of the operator executed in the plan, or None if action is not in a plan
             action (Literal): action literal taken
             """
-        logging.info(f"Getting plan to subgoal {goal}")
+        if goal is not None:
+            logging.info(f"Getting plan to subgoal {goal}")
         in_plan, op_name, action = self._get_action(state, goal)
         self._num_steps += 1
         return in_plan, op_name, action
@@ -79,10 +80,12 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
             else:
                 return in_plan, None, self._plan.pop(0)
 
+        SAMPLE_GOAL = goal is None
+
         # Try to sample a goal for which we can find a plan
         sampling_attempts = planning_attempts = 0
         while (planning_attempts < ac.max_planning_tries and sampling_attempts < ac.max_sampling_tries):
-            if goal is None:
+            if SAMPLE_GOAL:
                 goal, self._goal_from_llm = self._sample_goal(state)
                 GOAL_BABBLING_LOGGER.debug(f"SAMPLED GOAL: {goal}")
             else:
@@ -91,6 +94,7 @@ class GoalBabblingCuriosityModule(BaseCuriosityModule):
             sampling_attempts += 1
 
             if not self._goal_is_valid(goal):
+                GOAL_BABBLING_LOGGER.info(f"Goal invalid!")
                 continue
 
 

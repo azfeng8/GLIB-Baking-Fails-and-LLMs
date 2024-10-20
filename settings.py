@@ -184,12 +184,12 @@ class AgentConfig:
         "Baking": 1799,
         "Travel": 1501,
         "Minecraft": 1799,
-        "Bakingrealistic": 10 #3000
+        "Bakingrealistic": 100 #3000
     }
 
     ## Constants for curiosity modules. ##
-    max_sampling_tries = 1
-    max_planning_tries = 2
+    max_sampling_tries = 50
+    max_planning_tries = 30 
     oracle_max_depth = 2
 
     ## Constants for mutex detection. ##

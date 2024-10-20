@@ -281,13 +281,14 @@ class Runner:
             else:
                 logging.info(f"Taking action {action}")
                 next_obs, rew, episode_done, _ = self.train_env.step(action)
-                if prev_action == action:
-                    # logging.info(f"Obs:\n{obs} \n\nNext obs:\n{next_obs}")
-                    if input("Dump transitions and ops? y/n") == 'y':
-                        with open(f'transitions.pkl', 'wb') as f:
-                            pickle.dump(self.agent._operator_learning_module._transitions, f)
-                        with open('ops.pkl', 'wb') as f:
-                            pickle.dump(self.agent.learned_operators, f)
+                if not self.AUTO_EVAL:
+                    if prev_action == action:
+                        logging.info(f"Obs:\n{obs} \n\nNext obs:\n{next_obs}")
+                        if input("Dump transitions and ops? y/n") == 'y':
+                            with open(f'transitions.pkl', 'wb') as f:
+                                pickle.dump(self.agent._operator_learning_module._transitions, f)
+                            with open('ops.pkl', 'wb') as f:
+                                pickle.dump(self.agent.learned_operators, f)
                 if round(rew) == 1: logging.info(f"***********************************Reached goal! {obs.goal}***********************************")
                 self.agent.observe(obs, action, next_obs, itr)
 
@@ -400,7 +401,7 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_
     # learner, which uses the environment to access the predicates and
     # action names.
     ac.train_env = train_env
-    agent = InteractiveAgent(domain_name, train_env.action_space,
+    agent = Agent(domain_name, train_env.action_space,
                 train_env.observation_space, curiosity_name, learning_name, log_llm_path=log_llmi_path,
                 planning_module_name=ac.planner_name[domain_name])
         

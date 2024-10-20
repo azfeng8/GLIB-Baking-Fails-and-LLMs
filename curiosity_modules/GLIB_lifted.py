@@ -1,3 +1,4 @@
+#TODO: probably a bug. some goals are sampled multiple times in a row.
 from curiosity_modules.goal_babbling import GoalBabblingCuriosityModule 
 from settings import AgentConfig as ac
 from pddlgym import structs
@@ -55,58 +56,60 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
             Tuples of (goal literals, action, from_LLM). Note that the
             final element (from_LLM) will always be false in this case.
         """
-        # When all of the lifted goals are visited, there needs to be a way to stop this loop.
-        for num_lits in np.random.permutation(np.arange(1, max_num_lits+1)):
-            goal_preds_generator = generator_goal_literals(observation_predicates, num_lits)
-            for goal_preds in goal_preds_generator:
-                for action_pred_index in np.random.permutation(np.arange(len(action_predicates))):
-                    action_pred = action_predicates[action_pred_index]
-                    if not self._use_goal_preds(goal_preds):
-                        continue
-                    goal_action_preds = list(goal_preds) + [action_pred]
-                    # Find all possible variable assortments for the goal action predicates
-                    # We're going to first create unique placeholders for the slots in the predicates
-                    ph_to_pred_slot = {}
-                    goal_action_lits_with_phs = []
-                    # Create the placeholders
-                    for i, pred in enumerate(goal_action_preds):
-                        ph_for_lit = []
-                        for j, var_type in enumerate(pred.var_types):
-                            ph = var_type('ph{}_{}'.format(i, j))
-                            ph_to_pred_slot[ph] = (i, j)
-                            ph_for_lit.append(ph)
-                        ph_lit = pred(*ph_for_lit)
-                        goal_action_lits_with_phs.append(ph_lit)
-                    phs = sorted(ph_to_pred_slot.keys())
-                    # Consider a random substitution of placeholders to variables.
-                    tuple_of_phs = tuple(self._iter_vars_from_phs(phs))
-                    vs = tuple_of_phs[np.random.choice(len(tuple_of_phs))]
-                    goal_vs = {v.name for i, v in enumerate(vs) if
-                            ph_to_pred_slot[phs[i]][0] != len(goal_action_preds)-1} # len(goal_action_preds) - 1 indexes the action, so exclude those variables.
-                    action_vs = {v.name for i, v in enumerate(vs) if
-                                ph_to_pred_slot[phs[i]][0] == len(goal_action_preds)-1}
-                    # If there are different variables in the action literal than the goal literals, 
-                    # then the variables in the action literal that don't exist in the goal literals
-                    # must take on a greater or equal index ?x# than the maximum index variable in the goal literals.
-                    if goal_vs and action_vs-goal_vs and min(action_vs-goal_vs) < max(goal_vs):
-                        continue
-                    goal_action_lits = [copy.deepcopy(lit) for lit in goal_action_lits_with_phs]
-                    # Perform substitution
-                    for k, v in enumerate(vs):
-                        ph = phs[k]
-                        (i, j) = ph_to_pred_slot[ph]
-                        goal_action_lits[i].update_variable(j, v)
-                    # Goal lits cannot have repeated vars
-                    goal_action_valid = True
-                    for lit in goal_action_lits:
-                        if len(set(lit.variables)) != len(lit.variables):
-                            goal_action_valid = False
-                            break
-                    # Finish the goal and add it
-                    if goal_action_valid:
-                        goal = tuple([l for l in goal_action_lits if l.predicate != action_pred])
-                        action = [l for l in goal_action_lits if l.predicate == action_pred][0]
-                        yield goal, action, False
+        gen = generator_for_numlits_goalpreds_actionpred(observation_predicates, max_num_lits, action_predicates)
+        while True:
+            try:
+                predicates = next(gen)
+            except StopIteration:
+                break
+            goal_preds = predicates[:-1]
+            action_pred = predicates[-1]
+            if not self._use_goal_preds(goal_preds):
+                continue
+            goal_action_preds = list(goal_preds) + [action_pred]
+            # Find all possible variable assortments for the goal action predicates
+            # We're going to first create unique placeholders for the slots in the predicates
+            ph_to_pred_slot = {}
+            goal_action_lits_with_phs = []
+            # Create the placeholders
+            for i, pred in enumerate(goal_action_preds):
+                ph_for_lit = []
+                for j, var_type in enumerate(pred.var_types):
+                    ph = var_type('ph{}_{}'.format(i, j))
+                    ph_to_pred_slot[ph] = (i, j)
+                    ph_for_lit.append(ph)
+                ph_lit = pred(*ph_for_lit)
+                goal_action_lits_with_phs.append(ph_lit)
+            phs = sorted(ph_to_pred_slot.keys())
+            # Consider a random substitution of placeholders to variables.
+            tuple_of_phs = tuple(self._iter_vars_from_phs(phs))
+            vs = tuple_of_phs[np.random.choice(len(tuple_of_phs))]
+            goal_vs = {v.name for i, v in enumerate(vs) if
+                    ph_to_pred_slot[phs[i]][0] != len(goal_action_preds)-1} # len(goal_action_preds) - 1 indexes the action, so exclude those variables.
+            action_vs = {v.name for i, v in enumerate(vs) if
+                        ph_to_pred_slot[phs[i]][0] == len(goal_action_preds)-1}
+            # If there are different variables in the action literal than the goal literals, 
+            # then the variables in the action literal that don't exist in the goal literals
+            # must take on a greater or equal index ?x# than the maximum index variable in the goal literals.
+            if goal_vs and action_vs-goal_vs and min(action_vs-goal_vs) < max(goal_vs):
+                continue
+            goal_action_lits = [copy.deepcopy(lit) for lit in goal_action_lits_with_phs]
+            # Perform substitution
+            for k, v in enumerate(vs):
+                ph = phs[k]
+                (i, j) = ph_to_pred_slot[ph]
+                goal_action_lits[i].update_variable(j, v)
+            # Goal lits cannot have repeated vars
+            goal_action_valid = True
+            for lit in goal_action_lits:
+                if len(set(lit.variables)) != len(lit.variables):
+                    goal_action_valid = False
+                    break
+            # Finish the goal and add it
+            if goal_action_valid:
+                goal = tuple([l for l in goal_action_lits if l.predicate != action_pred])
+                action = [l for l in goal_action_lits if l.predicate == action_pred][0]
+                yield goal, action, False
 
 
     ### Reset ###
@@ -148,7 +151,7 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
 
     ### Get an action ###
 
-    def _get_action(self, state):
+    def _get_action(self, state, given_goal):
         # First check whether we just finished a plan and now must take the final action
         if (not (self._current_goal_action is None)) and (len(self._plan) == 0):
             action = self._get_ground_action_to_execute(state)
@@ -159,7 +162,7 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
                 self.line_stats.append('FINISHED PLAN - babbled')
                 return False, None, action
         # Either continue executing a plan or make a new one (or fall back to random)
-        return super()._get_action(state)
+        return super()._get_action(state, given_goal)
 
     def _get_ground_action_to_execute(self, state):
         lifted_goal, lifted_action = self._current_goal_action
@@ -236,6 +239,7 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
                     break
                 
         self._current_goal_action = (goal, lifted_action)
+        GLIB_L_LOGGER.info(f"SAMPLED GOAL, ACTION: {self._current_goal_action}")
         return self._structify_goal(goal), from_llm
 
     def _finish_plan(self, plan):
@@ -276,12 +280,65 @@ class GLIBL1CuriosityModule(GLIBLCuriosityModule):
 class GLIBL2CuriosityModule(GLIBLCuriosityModule):
     _k = 2
 
-def generator_goal_literals(obs_predicates: list, num_lits: int):
-    """Yields the cartesian product of predicates in a random order."""
+def generator_for_numlits_goalpreds_actionpred(obs_predicates: list, max_num_lits: int, action_predicates: list):
+    """Yields the cartesian product of predicates (goal and action predicates) with varying number of goal literals in a random order.
+
+    max_num_lits: The maximum number of goal literals. Will yield from [1, max_num_lits] of goal predicates.
+
+    """
     n = len(obs_predicates)
-    for random_indices in itertools.product(*[np.random.permutation(np.arange(n)) for _ in range(num_lits)]):
-        yield [obs_predicates[i] for i in random_indices]
-# class LLMGLIBL2CuriosityModule(GLIBL2CuriosityModule):
+    m = len(action_predicates)
+    # create multiple generators, one for each `num_lits` of goal predicates. That is the generator ID.
+    generators = {}
+    for num_lits in range(1, max_num_lits + 1):
+        # num_lits governs how many goal predicates, and the second list the index into action predicates.
+        items_for_prod = [np.random.permutation(n) for _ in range(num_lits)] + [np.random.permutation(m)]
+        indices_generator = itertools.product(*items_for_prod)
+        num_items_in_generator = n ** num_lits * m
+        generators[num_lits] = ((num_items_in_generator, indices_generator))
+    # Map from number of goal predicates (that identifies the generator) to a map from ith generation (index) to the item generated at ith call to generator
+    num_goal_preds_to_indices_generated_dict = {num_lits: {} for num_lits in range(1, max_num_lits + 1)}
+    # Map from generator ID to the next generation's index in the generator
+    num_goal_preds_to_generation_idx = {num_lits: 0  for num_lits in range(1, max_num_lits + 1)}
+
+    # randomly sample which generator to choose
+    # This is for constructing the order of generator IDs
+    generator_pickings = []
+    # This is the order of items to sample within each generator.
+    order_within_generators = {}
+    for generator_ID, t in generators.items():
+        num_items_in_generator, _ = t
+        generator_pickings.extend([generator_ID for _ in range(num_items_in_generator)])
+        order_within_generators[generator_ID] = (i for i in np.random.permutation(num_items_in_generator))
+    # This is the order of generator IDs for which generator to pick.
+    generator_picking_order = np.random.permutation(generator_pickings)
+    for generator_i in generator_picking_order:
+        num_items_in_generator, generator = generators[generator_i]
+        # Too expensive to store indices_generator in memory, so iterate over the generator in random order, caching previous generations.
+        next_index = next(order_within_generators[generator_i])
+        indices_generated = num_goal_preds_to_indices_generated_dict[generator_i]
+        if next_index in indices_generated:
+            random_indices = indices_generated[next_index]
+            observation_predicate_indices = random_indices[:-1]
+            action_pred_idx = random_indices[-1]
+            del indices_generated[next_index]
+            yield [obs_predicates[i] for i in observation_predicate_indices] + [action_predicates[action_pred_idx]]
+        else:
+            generation_idx = num_goal_preds_to_generation_idx[generator_i]
+            while generation_idx < next_index:
+                random_indices = next(generator)
+                indices_generated[generation_idx] = random_indices
+                generation_idx += 1
+            assert generation_idx == next_index 
+            random_indices = next(generator)
+            generation_idx += 1
+            # Store the next generation's index
+            num_goal_preds_to_generation_idx[generator_i] = generation_idx
+            observation_predicate_indices = random_indices[:-1]
+            action_pred_idx = random_indices[-1]
+            yield [obs_predicates[i] for i in observation_predicate_indices] + [action_predicates[action_pred_idx]]
+
+#  class LLMGLIBL2CuriosityModule(GLIBL2CuriosityModule):
 
 #     def _initialize(self):
 #         self.llm_line_stats = []
