@@ -3,10 +3,10 @@
 # This specifies the curiosity method argument.
 EXPERIMENT_SETS:
   - APPROACHES:
-      glib_l2LNDR:
-        NAME: "GLIB_L2"
-        FLAGS:
-          learning_name: LNDR
+      # glib_l2LNDR:
+      #   NAME: "GLIB_L2"
+      #   FLAGS:
+      #     learning_name: LNDR
       glib_g1LNDR:
         NAME: "GLIB_G1"
         FLAGS:

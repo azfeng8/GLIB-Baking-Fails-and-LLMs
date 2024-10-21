@@ -214,9 +214,10 @@ class InteractiveAgent(Agent):
         self.action_space = action_space
         self.obs_space = observation_space
 
+        self._rand_state = np.random.RandomState(seed=ac.seed)
+
         # Load the demos
         with open('bakingrealistic_demonstrations.pkl', 'rb') as f:
-        # with open('transitions.pkl', 'rb') as f:
             transitions = pickle.load(f)
         self._operator_learning_module._transitions = transitions
 
@@ -246,7 +247,7 @@ class InteractiveAgent(Agent):
         self.observe_last_transition = False
 
         # Planning to preconditions
-        self._precondition_targeting = True
+        self.precondition_targeting = True
         self._preconds_plan = []
         # This is set by the Runner.run() method and also self._get_action_with_preconds_as_goals()
         self.finished_preconds_plan = False
@@ -256,7 +257,10 @@ class InteractiveAgent(Agent):
         self._visited_preconds_states = {a: set() for a in action_space.predicates} # Map from action predciate to set
 
     def reset_episode(self, state, subgoals_path):
-        self._load_subgoals(state, subgoals_path) 
+        if subgoals_path:
+            self._load_subgoals(state, subgoals_path) 
+        else:
+            self.subgoals = None
         self.next_subgoal_idx = 0
         self.action_seq = []
         obs_literals = set()
@@ -334,7 +338,7 @@ class InteractiveAgent(Agent):
 
             logging.info(f"Trying preconds for op: {op.name}: {preconds}")
             ground_preconds_list = self._get_ground_preconds(op, state)
-            for i in np.random.permutation(len(ground_preconds_list))[:NUM_TRIES]:
+            for i in self._rand_state.permutation(len(ground_preconds_list))[:NUM_TRIES]:
                 grounded_precond = ground_preconds_list[i]
                 preconds_hash = get_hashable_preconds_action(grounded_precond)
                 ground_act = [p for p in grounded_precond if p.predicate.name in action_predicates][0]
@@ -359,7 +363,7 @@ class InteractiveAgent(Agent):
         Returns:
         [[ grounded precond literals version 1], [precond grounding version 2], ...]
         """
-        preconds = operator.preconds.literals
+        preconds = sorted(operator.preconds.literals)
         assignments = self._get_assignments(preconds, state)
         ground_preconds_list = []
         for assignment in assignments:
@@ -369,7 +373,7 @@ class InteractiveAgent(Agent):
     
     def _get_assignments(self, precond_literals, state):
         """Return a list of assignments of parameter variable (TypedEntity) to object (TypedEntity)."""
-        objects = state.objects
+        objects = sorted(state.objects)
         var_names_to_type = {}
 
         for lit in precond_literals:
@@ -432,9 +436,14 @@ class InteractiveAgent(Agent):
         return None
         
 
-    def get_action(self, state, _problem_idx):
+    def get_action(self, state, _problem_idx, precond_targeting_only: bool):
         """Get an exploratory action to collect more training data.
-           Not used for testing. Planner is used for testing."""
+           Not used for testing. Planner is used for testing.
+        
+        Args:
+            state: The current state.
+            precond_targeting_only: True if mode is to target preconditions.
+        """
         if self.domain_name.lower() == 'bakingrealistic':
             obs_literals = set()
             for lit in state.literals:
@@ -443,18 +452,21 @@ class InteractiveAgent(Agent):
             state = State(frozenset(obs_literals), state.objects, state.goal)
 
         # Before getting to a new subgoal, try out all the operator preconditions if they haven't been tried before, to refine incorrect preconditions.
-        if self._precondition_targeting:
+        if self.precondition_targeting:
             self._action_in_plan = False
             logging.info("Getting plan to precondition...")
             action = self._get_action_with_preconds_as_goals(state)
             if action is None:
                self._action_in_plan_to_preconds = False
-               self._precondition_targeting = False 
+               self.precondition_targeting = False 
+               if precond_targeting_only:
+                   return None
             else:
                 self._action_in_plan_to_preconds = True
                 return action
         else:
                self._action_in_plan_to_preconds = False
+
 
         if self.next_subgoal_idx == len(self.subgoals):
             return self._prompt_demos_or_subgoals(state)
@@ -638,7 +650,7 @@ class InteractiveAgent(Agent):
                 for assignment in assignments:
                     # Check that all object names in the state literals match the object names in the goal
                     if all(var._str.split(':')[0] == val._str.split(':')[0] for var, val in assignment.items()):
-                        self._precondition_targeting = True
+                        self.precondition_targeting = True
                         logging.info(f"ACHIEVED SUBGOAL {self.subgoals[self.next_subgoal_idx]}")
                         self.next_subgoal_idx += 1
                         self.action_seq.extend(self._plan_to_next_subgoal[1])

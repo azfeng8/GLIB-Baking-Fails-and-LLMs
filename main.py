@@ -59,6 +59,8 @@ class Runner:
                 if operators_changed:
                     logging.info("Operators changed.")
                     ops_change_iterations.append(itr)
+                    for op in sorted(self.agent.learned_operators, key=lambda op: op.name):
+                        print(op.pddl_str())
 
                 # Only rerun tests if operators have changed, or stochastic env
                 if self.AUTO_EVAL and ((operators_changed or ac.planner_name[self.domain_name] == "ffreplan" or \
@@ -105,7 +107,8 @@ class Runner:
 
         itr = 0
 
-        while itr < self.num_train_iters:
+        SOLVED = False
+        while itr < self.num_train_iters and not SOLVED:
             logging.info("Iteration {} of {}".format(itr, self.num_train_iters))
 
             # ask user to input which episodes to do in the next cycle
@@ -130,49 +133,61 @@ class Runner:
                     successes = self._evaluate_operators(use_learned_ops=True)
                     test_solve_rate = sum(successes) / len(successes)
                     logging.info(f"Result: {test_solve_rate} solve rate")
+                    if test_solve_rate == 1.0:
+                        SOLVED = True
                 num_probs = len(self.train_env.problems)
-                uip = input(f"By default, all {num_probs} train problems are in the cycle. Press 'n' to enter manually the episodes, or anything else to accept.")
-                if uip == 'n':
-                    episodes_uip = input("Enter the episode indices, split by whitespace.")  
-                    logging.info("Episode indices:")
-                    logging.info(episodes_uip)
-                    valid = True
-                    accept_uip =  input("Press y to accept")
-                    if not all(i < len(self.train_env.problems) for i in [int(j) for j in episodes_uip.split()]):
-                        logging.info("Invalid episodes. Try again.")
-                        valid = False
-                    while accept_uip != 'y' or not valid:
+                # give option to do precondition learning until stop condition, then print operators and prompt.
+                uip = input("Do precondition targeting until stop condition? y or anything")
+                if uip == 'y':
+                    episode_uip = input(f"Select the episode to do precond targeting. Give an index between 0 and {len(self.train_env.problems) -1}.")
+                    while int(episode_uip) not in range(len(self.train_env.problems)):
+                        episode_uip = input(f"Select the episode to do precond targeting. Give an index between 0 and {len(self.train_env.problems) - 1}.")
+                    cycle = [int(episode_uip)]
+                    precond_targeting_only = True
+                else:
+                    precond_targeting_only = False
+                    uip = input(f"By default, all {num_probs} train problems are in the cycle. Press 'n' to enter manually the episodes, or anything else to accept.")
+                    if uip == 'n':
                         episodes_uip = input("Enter the episode indices, split by whitespace.")  
+                        logging.info("Episode indices:")
+                        logging.info(episodes_uip)
+                        valid = True
+                        accept_uip =  input("Press y to accept")
                         if not all(i < len(self.train_env.problems) for i in [int(j) for j in episodes_uip.split()]):
                             logging.info("Invalid episodes. Try again.")
                             valid = False
-                        else:
-                            valid = True
-                        logging.info("Episode indices:")
-                        logging.info(episodes_uip)
-                        accept_uip =  input("Press y to accept")
-                    cycle = [int(i) for i in episodes_uip.split()]
-                else:
-                    cycle = list(range(num_probs))
-                logging.info(f"Episodes: " + ','.join([str(s) for s in cycle]))
-                # confirm or enter subgoal paths
-                DEFAULT_SUBGOALS_TXT_PATHS = [f'/home/catalan/GLIB-Baking-Fails-and-LLMs/realistic-baking/llm_plans/train_subgoals/problem{idx + 1}.txt' for idx in cycle] 
-                paths_invalid = True
-                while paths_invalid:
-                    s = ''
-                    for i, path in zip(cycle, DEFAULT_SUBGOALS_TXT_PATHS):
-                        s += f'problem {i}: {path}\n'
-                    s += "Confirm the above paths. Press y to accept, or anything else to enter new paths."
-                    if input(s) == 'y':
-                        subgoals_paths = {i: path for i, path in zip(cycle, DEFAULT_SUBGOALS_TXT_PATHS)}
-                        paths_invalid = False
+                        while accept_uip != 'y' or not valid:
+                            episodes_uip = input("Enter the episode indices, split by whitespace.")  
+                            if not all(i < len(self.train_env.problems) for i in [int(j) for j in episodes_uip.split()]):
+                                logging.info("Invalid episodes. Try again.")
+                                valid = False
+                            else:
+                                valid = True
+                            logging.info("Episode indices:")
+                            logging.info(episodes_uip)
+                            accept_uip =  input("Press y to accept")
+                        cycle = [int(i) for i in episodes_uip.split()]
                     else:
-                        uip = input("Enter the paths, in order of the episodes (" + ",".join([str(i) for i in cycle]) +  ") separated by white space.")
-                        subgoals_paths = {i: p for i, p in zip(cycle, uip.split())}
-                        if not all(os.path.exists(p) for p in subgoals_paths.values()):
-                            paths_invalid = True
-                        else:
+                        cycle = list(range(num_probs))
+                    logging.info(f"Episodes: " + ','.join([str(s) for s in cycle]))
+                    # confirm or enter subgoal paths
+                    DEFAULT_SUBGOALS_TXT_PATHS = [f'/home/catalan/GLIB-Baking-Fails-and-LLMs/realistic-baking/llm_plans/train_subgoals/problem{idx + 1}.txt' for idx in cycle] 
+                    paths_invalid = True
+                    while paths_invalid:
+                        s = ''
+                        for i, path in zip(cycle, DEFAULT_SUBGOALS_TXT_PATHS):
+                            s += f'problem {i}: {path}\n'
+                        s += "Confirm the above paths. Press y to accept, or anything else to enter new paths."
+                        if input(s) == 'y':
+                            subgoals_paths = {i: path for i, path in zip(cycle, DEFAULT_SUBGOALS_TXT_PATHS)}
                             paths_invalid = False
+                        else:
+                            uip = input("Enter the paths, in order of the episodes (" + ",".join([str(i) for i in cycle]) +  ") separated by white space.")
+                            subgoals_paths = {i: p for i, p in zip(cycle, uip.split())}
+                            if not all(os.path.exists(p) for p in subgoals_paths.values()):
+                                paths_invalid = True
+                            else:
+                                paths_invalid = False
                 episode_done = True
 
             if episode_done:
@@ -183,7 +198,7 @@ class Runner:
                 self.train_env.fix_problem_index(problem_idx)
                 obs, _ = self.train_env.reset()
                 logging.info(f"***********************************New episode! Problem {problem_idx}:{obs.goal}***********************************")
-                self.agent.reset_episode(obs, '' if self.AUTO_EVAL else subgoals_paths[problem_idx])
+                self.agent.reset_episode(obs, '' if self.AUTO_EVAL or precond_targeting_only else subgoals_paths[problem_idx])
 
             if (not self.AUTO_EVAL) and self.agent.finished_preconds_plan:
                 # Reset to previous subgoal
@@ -194,8 +209,11 @@ class Runner:
                     obs, rew, episode_done, _ = self.train_env.step(action)
 
             logging.info("Getting action...")
-            action = self.agent.get_action(obs, problem_idx)
-            if action is None:
+            action = self.agent.get_action(obs, problem_idx, precond_targeting_only)
+            if action is None and precond_targeting_only:
+                cycle.pop()
+                episode_done = True
+            elif action is None:
                 if self.agent.option == 0:
                     action = self.agent.next_action
                     next_obs, rew, episode_done, _  =  self.train_env.step(action)
@@ -401,7 +419,7 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_
     # learner, which uses the environment to access the predicates and
     # action names.
     ac.train_env = train_env
-    agent = Agent(domain_name, train_env.action_space,
+    agent = InteractiveAgent(domain_name, train_env.action_space,
                 train_env.observation_space, curiosity_name, learning_name, log_llm_path=log_llmi_path,
                 planning_module_name=ac.planner_name[domain_name])
         
