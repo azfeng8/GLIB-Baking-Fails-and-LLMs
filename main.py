@@ -113,6 +113,13 @@ class Runner:
 
             # ask user to input which episodes to do in the next cycle
             if not self.AUTO_EVAL and len(cycle) == 0 and episode_done:
+                if isinstance(self.agent, DemonstrationsAgent):
+                    if input("Cycle finished. Dump transitions and exit? y or anything ") == 'y':
+                        with open('bakingrealistic_demonstrations.pkl', 'wb') as f:
+                            pickle.dump(self.agent._operator_learning_module._transitions, f)
+                        SOLVED = True
+                        continue
+ 
                 uip = input("Cycle finished. Dumping transitions. Filename or n to quit?")
                 while not uip.endswith('.pkl') and uip != 'n':
                     uip = input("Cycle finished. Dumping transitions, ops, and visited planning set. Filename or n to quit?")
@@ -135,6 +142,7 @@ class Runner:
                     logging.info(f"Result: {test_solve_rate} solve rate")
                     if test_solve_rate == 1.0:
                         SOLVED = True
+                        continue
                 num_probs = len(self.train_env.problems)
                 # give option to do precondition learning until stop condition, then print operators and prompt.
                 uip = input("Do precondition targeting until stop condition? y or anything")
@@ -211,7 +219,6 @@ class Runner:
             logging.info("Getting action...")
             action = self.agent.get_action(obs, problem_idx, precond_targeting_only)
             if action is None and precond_targeting_only:
-                cycle.pop()
                 episode_done = True
             elif action is None:
                 if self.agent.option == 0:
@@ -419,7 +426,7 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_
     # learner, which uses the environment to access the predicates and
     # action names.
     ac.train_env = train_env
-    agent = InteractiveAgent(domain_name, train_env.action_space,
+    agent = DemonstrationsAgent(domain_name, train_env.action_space,
                 train_env.observation_space, curiosity_name, learning_name, log_llm_path=log_llmi_path,
                 planning_module_name=ac.planner_name[domain_name])
         
@@ -434,25 +441,21 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_
                           "results", 'planning_ops', domain_name, learning_name, curiosity_name)
     
     os.makedirs(outdir, exist_ok=True)
-    os.makedirs(plan_ops_outdir, exist_ok=True)
     cache_file = os.path.join(outdir, "{}_{}_{}_{}_{}.pkl".format(
         domain_name, learning_name, curiosity_name, agent.name, seed))
     with open(cache_file, 'wb') as f:
         pickle.dump(results, f)
         logging.info("Dumped results to {}".format(cache_file))
-    # with open(os.path.join(plan_ops_outdir, "{}_{}_{}_{}.pkl".format(
-    #     domain_name, learning_name, curiosity_name, seed)), 'wb') as f:
-    #     pickle.dump(plan_ops_results, f)
 
-    if gc.dataset_logging:
-        if "GLIB" in curiosity_name:
-            path = os.path.join(f'results', 'GLIB', domain_name, learning_name, curiosity_name)
-            os.makedirs(path, exist_ok=True)
-            with open(os.path.join(path, f'{seed}_babbling_stats.pkl'), 'wb') as f:
-                pickle.dump(agent._curiosity_module.line_stats, f)
-            if "LLM" in curiosity_name:
-                with open(os.path.join(path, f'{seed}_llm_babbling_stats.pkl') ,'wb') as f:
-                    pickle.dump(agent._curiosity_module.llm_line_stats, f)
+    # if gc.dataset_logging:
+    #     if "GLIB" in curiosity_name:
+    #         path = os.path.join(f'results', 'GLIB', domain_name, learning_name, curiosity_name)
+    #         os.makedirs(path, exist_ok=True)
+    #         with open(os.path.join(path, f'{seed}_babbling_stats.pkl'), 'wb') as f:
+    #             pickle.dump(agent._curiosity_module.line_stats, f)
+    #         if "LLM" in curiosity_name:
+    #             with open(os.path.join(path, f'{seed}_llm_babbling_stats.pkl') ,'wb') as f:
+    #                 pickle.dump(agent._curiosity_module.llm_line_stats, f)
 
         
     logging.info("\n\n\nFinished single seed in {} seconds".format(time.time()-start))

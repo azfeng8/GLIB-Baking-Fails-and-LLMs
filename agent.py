@@ -193,7 +193,10 @@ class Agent:
         return self._planning_module.get_policy(problem_fname, use_learned_ops)
 
 class InteractiveAgent(Agent):
-    """An agent with initial demonstration data to each of the 4 train tasks."""
+    """An agent with initial demonstration data to each of the 4 train tasks.
+
+    Must be run with GLIB_G, since goals will be grounded.
+    """
     def __init__(self, domain_name, action_space, observation_space,
                  curiosity_module_name, operator_learning_name,
                  planning_module_name, log_llm_path:Optional[str]):
@@ -252,6 +255,7 @@ class InteractiveAgent(Agent):
         # This is set by the Runner.run() method and also self._get_action_with_preconds_as_goals()
         self.finished_preconds_plan = False
         self._last_preconds_action = None
+        self._ops_preconds_executed = set()
 
         # Keeps track of preconditions already planned to from states
         self._visited_preconds_states = {a: set() for a in action_space.predicates} # Map from action predciate to set
@@ -319,11 +323,15 @@ class InteractiveAgent(Agent):
         Stopping condition:
             If all of the preconditions are either unreachable from this state or the same preconditions has already had an action tried from it.
         """
+        # Have successfully executed the plan to the operator preconds, and will execute the operator next
         if len(self._preconds_plan) == 1:
             self.finished_preconds_plan = True
             logging.info(f"FOLLOWING PLAN: {self._preconds_plan}")
+            self._ops_preconds_executed.add(self._op_preconds_to_execute)
+            self._op_preconds_to_execute = None
             return self._preconds_plan.pop()
 
+        # Follow plan to the operator's preconditions
         elif len(self._preconds_plan) > 0:
             self.finished_preconds_plan = False
             logging.info(f"FOLLOWING PLAN: {self._preconds_plan}")
@@ -334,6 +342,9 @@ class InteractiveAgent(Agent):
 
         action_predicates = set(p.name for p in self.action_space.predicates)
         for op in sorted(self.learned_operators, key=lambda op: op.name):
+            # since the last time operators were learned, if operator has been successfully executed at the end of the plan, or
+            # the plan failed in the middle to the operator preconditions, skip it.
+            if op.name in self._ops_preconds_executed: continue
             preconds = op.preconds.literals
 
             logging.info(f"Trying preconds for op: {op.name}: {preconds}")
@@ -350,8 +361,11 @@ class InteractiveAgent(Agent):
                 if plan is not None:
                     self._preconds_plan = plan + [ground_act]
                     logging.info(f"PLAN: {self._preconds_plan}")
+                    self._op_preconds_to_execute = op.name
                     if len(self._preconds_plan) == 1:
                         self.finished_preconds_plan = True
+                        self._ops_preconds_executed.add(self._op_preconds_to_execute)
+                        self._op_preconds_to_execute = None
                     return self._preconds_plan.pop(0)
 
         # once done, proceed to the next subgoal in the file.
@@ -638,6 +652,10 @@ class InteractiveAgent(Agent):
             if len(effects) == 0:
                 self.finished_preconds_plan = True
                 self._preconds_plan = []
+                # If the operators don't change as a result of adding the NOP, then the op preconds should be added to the visited set.
+                self._plan_to_op_preconds_failed = True
+            else:
+                self._plan_to_op_preconds_failed = False
                 
         else:
             if len(effects) == 0:
@@ -679,8 +697,8 @@ class InteractiveAgent(Agent):
 
     def learn(self, itr):
         # Learn
-        start = time.time()
-        some_learned_operator_changed, some_planning_operator_changed = self._operator_learning_module.learn(itr)
+        # start = time.time()
+        some_learned_operator_changed, updated_action_pred_names = self._operator_learning_module.learn(itr)
         # logging.info(f"Learning took {time.time() - start} s")
 
         # Used in LLMIterative only
@@ -690,9 +708,24 @@ class InteractiveAgent(Agent):
         if some_learned_operator_changed:
             start_time = time.time()
             self._curiosity_module.learning_callback()
+            # only remove the operators for the action predicates that have been updated
+            removes = set()
+            for op_name in self._ops_preconds_executed:
+                if op_name.rstrip('0123456789') in updated_action_pred_names:
+                    removes.add(op_name)
+            for r in removes:
+                self._ops_preconds_executed.remove(r)
+
             # logging.info(f"Resetting curiosity took {time.time() - start_time}")
             self.curiosity_time += time.time()-start_time
-        return some_learned_operator_changed, some_planning_operator_changed
+        else:
+            # If the operators don't change as a result of adding the NOP, then the op preconds should be added to the visited set.
+            if self._plan_to_op_preconds_failed:
+                # This may be None if the plan to the operator preconds was length 1, so the visited set already contains the operator preconditions.
+                if self._op_preconds_to_execute is not None:
+                    self._ops_preconds_executed.add(self._op_preconds_to_execute)
+                    self._op_preconds_to_execute = None
+        return some_learned_operator_changed, some_learned_operator_changed
     
 class DemonstrationsAgent(Agent):
     """An agent with initial demonstration data to each of the 4 train tasks."""
@@ -703,6 +736,7 @@ class DemonstrationsAgent(Agent):
                  curiosity_module_name, operator_learning_name,
                  planning_module_name, log_llm_path)
         
+        self.name = 'demoagent'
         # dict: problem index -> step in the plan to execute next
         self.problem_to_plan_step = {i: 0 for i in range(len(ac.train_env.problems))}
 
@@ -715,9 +749,8 @@ class DemonstrationsAgent(Agent):
         self.action_space = action_space
         self.finished_preconds_plan = False
 
-        self.dumped = False
 
-    def get_action(self, state, problem_idx):
+    def get_action(self, state, problem_idx, _precond_targeting_only):
 
         if self.prev_episode_idx is not None and self.prev_episode_idx != problem_idx:
             self.terminated_episodes.add(self.prev_episode_idx)
@@ -735,10 +768,6 @@ class DemonstrationsAgent(Agent):
             self._action_in_plan = False
             return action
             
-        if len(self.terminated_episodes) == 4 and not self.dumped:
-            with open('bakingrealistic_demonstrations.pkl', 'wb') as f:
-                pickle.dump(self._operator_learning_module._transitions, f)
-            self.dumped = True
 
         self.prev_episode_idx = problem_idx
 

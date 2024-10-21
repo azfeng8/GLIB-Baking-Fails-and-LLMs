@@ -114,12 +114,25 @@ def learn_and_test(dataset, seed):
 
     return successes
 
-def evaluate(results_dict, seed):
+def evaluate(results_dict, seed, include_demos=True):
     """Learns the operators and outputs success arrays at each of the iterations where operators changed."""
     assert results_dict['mode'] == 'needs_eval'
     success_lists = [] # (itr, success list)
     transitions = results_dict['transitions']
     iterations_to_eval = results_dict['ops_changed_iterations']
+
+    if include_demos:
+        # add the demonstrations results before this results 
+        demo_results_path = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results/Bakingrealistic/LNDR/GLIB_G1/Bakingrealistic_LNDR_GLIB_G1_demoagent_1.pkl'
+        with open(demo_results_path, 'rb') as f:
+            demo_results = pickle.load(f)
+        demo_transitions = demo_results['transitions']
+        demo_ops_changed_iters = demo_results['ops_changed_iterations']
+
+        # append the demo transitions and operators changed iterations to the beginning of those transitions to eval
+        iterations_to_eval = np.array(iterations_to_eval) + len(demo_transitions)
+        iterations_to_eval = demo_ops_changed_iters + [i for i in iterations_to_eval]
+        transitions = demo_transitions + transitions
 
     # Always evaluate the last one
     last_idx = len(transitions) - 1

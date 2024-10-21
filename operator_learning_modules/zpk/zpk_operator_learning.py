@@ -61,6 +61,8 @@ class ZPKOperatorLearningModule:
         if not self._learning_on:
             return False, False
 
+        updated_action_preds = set()
+
         # Check whether we have NDRs that need to be relearned
         is_updated = False
         for action_predicate in self._fits_all_data:
@@ -102,6 +104,7 @@ class ZPKOperatorLearningModule:
 
                 self._fits_all_data[action_predicate] = True
                 is_updated = True 
+                updated_action_preds.add(action_predicate.name)
 
         # Update all learned_operators
         if is_updated:
@@ -122,7 +125,7 @@ class ZPKOperatorLearningModule:
 
             # print_rule_set(self._ndrs)
 
-        return is_updated, is_updated
+        return is_updated, updated_action_preds
 
     def turn_off(self):
         self._learning_on = False
