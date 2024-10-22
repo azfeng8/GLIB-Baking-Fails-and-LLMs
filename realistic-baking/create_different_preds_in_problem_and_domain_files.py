@@ -63,14 +63,14 @@ class Planner:
         param_strs = [str(param).replace(":", " - ") for param in operator.params]
         dom_str = "\n\n\t(:action {}".format(operator.name)
         dom_str += "\n\t\t:parameters ({})".format(" ".join(param_strs))
-        preconds_pddl_str = self._create_preconds_pddl_str(operator.preconds, operator.name)
+        preconds_pddl_str = self._create_preconds_pddl_str(operator.preconds, operator.name, operator.params)
         dom_str += "\n\t\t:precondition (and {})".format(preconds_pddl_str)
         indented_effs = operator.effects.pddl_str().replace("\n", "\n\t\t")
         dom_str += "\n\t\t:effect {}".format(indented_effs)
         dom_str += "\n\t)"
         return dom_str
 
-    def _create_preconds_pddl_str(self, preconds, name):
+    def _create_preconds_pddl_str(self, preconds, name, operator_params):
         all_params = set()
         precond_strs = []
         # precond_strs = set()
@@ -106,6 +106,7 @@ class Planner:
                     precond_strs.append(term.pddl_str())
 
         all_params = list(sorted(all_params))
+        # all_params = list(sorted(operator_params))
         for param1 in all_params:
             param1_cleaned = param1[:param1.find(":")]
             param1_type = param1[param1.find(":") +1:]
@@ -120,17 +121,17 @@ class Planner:
                     if diff_pred not in precond_strs:
                         precond_strs.append(diff_pred)
                     # Need to add the (name-less-than) only for the egg objects that are not in the bowl/pan
-                    if 'use-stand-mixer' in name and param1_type == 'egg_hypothetical' and param1_cleaned < param2_cleaned:
-                        if 'pan' in name:
-                            container = 'pan'
-                        else:
-                            assert 'bowl' in name
-                            container = 'bowl'
-                        if any([f'(egg-in-container ?{container} {param_cleaned})' in precond_strs for param_cleaned in [param1_cleaned, param2_cleaned]]):
-                            continue
-                        name_lt_pred = f'(name-less-than {param1_cleaned} {param2_cleaned})'
-                        if name_lt_pred not in precond_strs:
-                            precond_strs.append(name_lt_pred)
+                    # if 'use-stand-mixer' in name and param1_type == 'egg_hypothetical' and param1_cleaned < param2_cleaned:
+                    #     if 'pan' in name:
+                    #         container = 'pan'
+                    #     else:
+                    #         assert 'bowl' in name
+                    #         container = 'bowl'
+                    #     if any([f'(egg-in-container ?{container} {param_cleaned})' in precond_strs for param_cleaned in [param1_cleaned, param2_cleaned]]):
+                    #         continue
+                    #     name_lt_pred = f'(name-less-than {param1_cleaned} {param2_cleaned})'
+                    #     if name_lt_pred not in precond_strs:
+                    #         precond_strs.append(name_lt_pred)
 
 
         return "\n\t\t\t".join(precond_strs)
@@ -173,8 +174,9 @@ class Planner:
                     if obj1.var_type == obj2.var_type:
                         diff_lit = Different(obj1, obj2)
                         init_state.add(diff_lit)
-                    if obj1_vartype == 'egg_hypothetical' and obj2.var_type == obj1.var_type and obj1_name < obj2_name:
+                    if obj1_vartype in ('egg_hypothetical', 'butter_hypothetical', 'powder_ingredient_hypothetical') and obj2.var_type == obj1.var_type and obj1_name < obj2_name:
                         init_state.add(NameLessThan(obj1, obj2))
+                    
             problem_parser.initial_state = frozenset(init_state)
             # Also add 'different' pairs for goal if it's existential
             # If no objects, write a dummy one to make FF not crash.

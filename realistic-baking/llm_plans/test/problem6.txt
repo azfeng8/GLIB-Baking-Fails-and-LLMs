@@ -8,7 +8,7 @@
 (pour-mixture-only bowl-0 pan-0 mixture-0)
 (put-pan-in-oven pan-0 oven-0)
 (set-oven-with-cake-bake-time-and-press-start oven-0 dessert-0)
-(remove-pan-from-oven pan-0)
+(remove-pan-from-oven pan-0 oven-0)
 (preheat-oven-with-cake-settings oven-0)
 (crack-egg-and-put-in-container egg-2 bowl-0)
 (pour-powdery-ingredient-from-measuring-cup flour-0 measuring-cup-0 bowl-0)

@@ -482,6 +482,9 @@ class InteractiveAgent(Agent):
                self._action_in_plan_to_preconds = False
 
 
+        if precond_targeting_only:
+            return None
+
         if self.next_subgoal_idx == len(self.subgoals):
             return self._prompt_demos_or_subgoals(state)
 
@@ -516,18 +519,30 @@ class InteractiveAgent(Agent):
         for act in self.action_seq:
             logging.info(act)
         self.action_seq_reset = []
+        logging.info(f"Next subgoal to achieve: {self.subgoals[self.next_subgoal_idx]}")
         option_str = \
 """Please pick an option:
 
+*** Demonstration ***
 [0] Enter an action. Execute it, and observe the transition. Then, reset to the previous achieved subgoal.
+[2] Enter an action sequence. Reset to start, then execute it, and observing all the transitions. Then, reset back to the previous subgoal.
+[6] Enter an action sequence. Execute it from here, observing all of them. Reset to previous subgoal.
+[4] Execute a sequence of actions from here, observing all of them. Don't reset.
 [1] Enter an action sequence, and decide whether to observe the last transition. Reset to start, and then execute it. Then, try to plan to the next subgoal from there.
-[2] Enter an action sequence. Reset to start, then execute it, and observe the last transition. Then, reset back to the previous subgoal.
-[3] Execute a random action, observe it, and reset to the previous achieved subgoal.
-[4] Execute a sequence of actions, observing all of them. Don't reset.
-[5] Dump the transitions and operators.
-[6] Execute a sequence of actions, observing all of them. Reset to previous subgoal.
+
+*** Curriculum ***
 [7] Abandon this subgoals list, and enter a new curriculum to execute from this state.
 [8] Abandon this subgoals list, reset the episode, and try the new curriculum.
+
+*** Precondition Targeting ***
+[10] Target preconditions in a selected episode.
+
+*** Utils ***
+[5] Dump the transitions and operators.
+[9] Evaluate operators.
+
+*** MISC ***
+[3] Execute a random action, observe it, and reset to the previous achieved subgoal.
 """
         option = int(input(option_str))
         # 1. Execute the action, and observe that transition. Then, reset.
@@ -800,10 +815,10 @@ class DemonstrationsAgent(Agent):
     def _get_plans(self):
         """Fill in self.plans with the plans from txt files."""
         FILEPATHS = [
-           '/home/catalan/GLIB-Baking-Fails-and-LLMs/realistic-baking/llm_plans/train/problem1.txt',
-           '/home/catalan/GLIB-Baking-Fails-and-LLMs/realistic-baking/llm_plans/train/problem2.txt',
-           '/home/catalan/GLIB-Baking-Fails-and-LLMs/realistic-baking/llm_plans/train/problem3.txt',
-           '/home/catalan/GLIB-Baking-Fails-and-LLMs/realistic-baking/llm_plans/train/problem4.txt',
+           '/home/catalan/GLIB-Baking-Fails-and-LLMs/realistic-baking/llm_plans/train/1/problem1.txt',
+           '/home/catalan/GLIB-Baking-Fails-and-LLMs/realistic-baking/llm_plans/train/2/problem2.txt',
+           '/home/catalan/GLIB-Baking-Fails-and-LLMs/realistic-baking/llm_plans/train/3/problem3.txt',
+           '/home/catalan/GLIB-Baking-Fails-and-LLMs/realistic-baking/llm_plans/train/4/problem4.txt',
         ]
         for problem_i, filepath in enumerate(FILEPATHS):
             with open(filepath, 'r') as f:

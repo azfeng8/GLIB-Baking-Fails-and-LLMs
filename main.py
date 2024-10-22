@@ -12,6 +12,7 @@ from settings import AgentConfig as ac
 from settings import EnvConfig as ec
 from settings import GeneralConfig as gc
 from settings import LLMConfig as lc
+from ndr.learn import print_rule_set
 
 from collections import defaultdict
 
@@ -32,7 +33,7 @@ class Runner:
 
 
     def __init__(self, agent, train_env, test_env, domain_name, curiosity_name):
-        self.agent = agent
+        self.agent:Agent = agent
         self.train_env = train_env
         self.num_train_problems = len(self.train_env.problems)
         self.test_env = test_env
@@ -61,6 +62,7 @@ class Runner:
                     ops_change_iterations.append(itr)
                     for op in sorted(self.agent.learned_operators, key=lambda op: op.name):
                         print(op.pddl_str())
+                    print_rule_set(self.agent._operator_learning_module._ndrs)
 
                 # Only rerun tests if operators have changed, or stochastic env
                 if self.AUTO_EVAL and ((operators_changed or ac.planner_name[self.domain_name] == "ffreplan" or \
@@ -106,7 +108,7 @@ class Runner:
                 logging.info(op.pddl_str())
 
         itr = 0
-
+        LOOPING = False
         SOLVED = False
         while itr < self.num_train_iters and not SOLVED:
             logging.info("Iteration {} of {}".format(itr, self.num_train_iters))
@@ -217,7 +219,11 @@ class Runner:
                     obs, rew, episode_done, _ = self.train_env.step(action)
 
             logging.info("Getting action...")
-            action = self.agent.get_action(obs, problem_idx, precond_targeting_only)
+            if not LOOPING:
+                action = self.agent.get_action(obs, problem_idx, precond_targeting_only)
+            else:
+                action = None
+
             if action is None and precond_targeting_only:
                 episode_done = True
             elif action is None:
@@ -254,12 +260,11 @@ class Runner:
                     logging.info(f"Resetting to start, and executing actions:\n{self.agent.action_seq_reset}. Then resetting to prev subgoal")
                     for i, action in enumerate(self.agent.action_seq_reset):
                         next_obs, rew, episode_done, _ = self.train_env.step(action)
-                        if i == len(self.agent.action_seq_reset) - 1 and self.agent.observe_last_transition:
-                            logging.info(f"Observing action {action}")
-                            self.agent.observe(obs, action, next_obs, itr)
-                            learn_and_test()
-                            transitions.append(self.agent._operator_learning_module._transitions[action.predicate][-1])
-                            itr += 1
+                        logging.info(f"Observing action {action}")
+                        self.agent.observe(obs, action, next_obs, itr)
+                        learn_and_test()
+                        transitions.append(self.agent._operator_learning_module._transitions[action.predicate][-1])
+                        itr += 1
                         obs = next_obs                   
                     obs, _ = self.train_env.reset()
                     for action in self.agent.action_seq:
@@ -302,18 +307,40 @@ class Runner:
                 elif self.agent.option == 8:
                     logging.info(f"Resetting to start of episode")
                     obs, _ = self.train_env.reset()
+                elif self.agent.option == 9:
+                    successes_list = self._evaluate_operators(use_learned_ops=True)
+                    test_solve_rate = sum(successes_list) / len(successes_list)
+                    logging.info(f"Result: {test_solve_rate} solve rate")
+                    if test_solve_rate == 1.0:
+                        SOLVED = True
+                        continue
+                elif self.agent.option == 10:
+                    episode_uip = input(f"Select the episode to do precond targeting. Give an index between 0 and {len(self.train_env.problems) -1}.")
+                    while int(episode_uip) not in range(len(self.train_env.problems)):
+                        episode_uip = input(f"Select the episode to do precond targeting. Give an index between 0 and {len(self.train_env.problems) - 1}.")
+                    cycle = [int(episode_uip)]
+                    precond_targeting_only = True
+                    episode_done = False
+                    continue
+   
 
             else:
                 logging.info(f"Taking action {action}")
                 next_obs, rew, episode_done, _ = self.train_env.step(action)
                 if not self.AUTO_EVAL:
                     if prev_action == action:
-                        logging.info(f"Obs:\n{obs} \n\nNext obs:\n{next_obs}")
                         if input("Dump transitions and ops? y/n") == 'y':
                             with open(f'transitions.pkl', 'wb') as f:
                                 pickle.dump(self.agent._operator_learning_module._transitions, f)
                             with open('ops.pkl', 'wb') as f:
                                 pickle.dump(self.agent.learned_operators, f)
+                        if isinstance(self.agent, InteractiveAgent) and input("Stuck in a loop, and reprompt for next task? y or anything") == 'y':
+                            LOOPING = True
+                            self.agent._prompt_demos_or_subgoals()
+                        else:
+                            LOOPING = False
+                    else:
+                        LOOPING = False
                 if round(rew) == 1: logging.info(f"***********************************Reached goal! {obs.goal}***********************************")
                 self.agent.observe(obs, action, next_obs, itr)
 
@@ -426,7 +453,7 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_
     # learner, which uses the environment to access the predicates and
     # action names.
     ac.train_env = train_env
-    agent = DemonstrationsAgent(domain_name, train_env.action_space,
+    agent = InteractiveAgent(domain_name, train_env.action_space,
                 train_env.observation_space, curiosity_name, learning_name, log_llm_path=log_llmi_path,
                 planning_module_name=ac.planner_name[domain_name])
         

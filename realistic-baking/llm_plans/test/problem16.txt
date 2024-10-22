@@ -1,1 +1,1 @@
-(remove-pan-from-oven pan-0)
+(remove-pan-from-oven pan-0 oven-0)
