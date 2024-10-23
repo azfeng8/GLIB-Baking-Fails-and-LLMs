@@ -1,0 +1,167 @@
+
+Order of modes ran:
+1. Precondition targeting.
+2. problem4a.txt
+3. Demonstration when get stuck: (remove-pan-from-oven pan-0 oven-0), (put-pan-in-oven pan-0 oven-1)
+4. problem4b.txt
+5. When get stuck (move-baked-good executing without learning), provide the demonstrations (remove-pan-from-oven pan-0 oven-0), (move-baked-good-in-container-to-different-container pan-0 plate-0 dessert-0)
+    - May need to do this a couple of times.
+6. After this, should pass 20/22 cases, at around iteration 923.
+7. problem4e.txt
+8. problem4f.txt
+    - Should pass 21/22 cases, only 2 souffles left
+9. problem4h.txt
+    - Don't know what happens here?
+
+OLD: _____________________________________________________________________________________________________________
+Order of modes ran:
+1. Precondition targeting: stopped at iter 672.
+    INFO:root:Evaluating operators...
+    INFO:root:	Test case 1/22, FAILED. 0 successes so far. Bake 2 souffles and put them on plates
+    INFO:root:	Test case 2/22, FAILED. 0 successes so far. Bake 2 cakes and put them on plates
+    INFO:root:	Test case 3/22, FAILED. 0 successes so far. Bake souffle and cake, without damaging pans, putting them on plates.
+    INFO:root:	Test case 4/22, FAILED. 0 successes so far. move-baked-good-in-container-to-different-container
+    INFO:root:	Test case 5/22, PASSED. 1 successes so far. set-oven-with-souffle-bake-time-and-press-start
+    INFO:root:	Test case 6/22, PASSED. 2 successes so far. set-oven-with-cake-bake-time-and-press-start
+    INFO:root:	Test case 7/22, PASSED. 3 successes so far. fold-stiff-egg-whites-into-mixture
+    INFO:root:	Test case 8/22, PASSED. 4 successes so far. pour-mixture-only
+    INFO:root:	Test case 9/22, PASSED. 5 successes so far. use-stand-mixer for cake
+    INFO:root:	Test case 10/22, FAILED. 5 successes so far. use-stand-mixer for souffle
+    INFO:root:	Test case 11/22, PASSED. 6 successes so far. beat-egg-whites
+    INFO:root:	Test case 12/22, PASSED. 7 successes so far. separate-egg-whites
+    INFO:root:	Test case 13/22, PASSED. 8 successes so far. transfer-butter-from-pan-or-bowl
+    INFO:root:	Test case 14/22, PASSED. 9 successes so far. transfer-egg-from-pan-or-bowl
+    INFO:root:	Test case 15/22, PASSED. 10 successes so far. pour-powdery-ingredient-from-container
+    INFO:root:	Test case 16/22, FAILED. 10 successes so far. remove-pan-from-oven
+    INFO:root:	Test case 17/22, FAILED. 10 successes so far. put-pan-in-oven
+    INFO:root:	Test case 18/22, PASSED. 11 successes so far. crack-egg
+    INFO:root:	Test case 19/22, PASSED. 12 successes so far. preheat-souffle
+    INFO:root:	Test case 20/22, PASSED. 13 successes so far. preheat-cake
+    INFO:root:	Test case 21/22, PASSED. 14 successes so far. pour-powdery-ingredient-from-measuring-cup
+    INFO:root:	Test case 22/22, PASSED. 15 successes so far. put-butter-in-container-from-measuring-cup
+    INFO:root:Result: 0.6818181818181818 solve rate
+
+2. Subgoals problem4a.txt.
+
+3. Subgoals problem4b.txt
+
+    4. Give demonstration remove-pan-from-oven to achieve the second subgoal.
+
+OLD:_____________________________________________________________________________________________________________
+Order of modes ran:
+1. Precondition targeting: gets to around .4545 success rate.
+    INFO:root:Evaluating operators...
+    INFO:root:	Test case 1/22, FAILED. 0 successes so far. Bake 2 souffles and put them on plates
+    INFO:root:	Test case 2/22, FAILED. 0 successes so far. Bake 2 cakes and put them on plates
+    INFO:root:	Test case 3/22, FAILED. 0 successes so far. Bake souffle and cake, without damaging pans, putting them on plates.
+    INFO:root:	Test case 4/22, FAILED. 0 successes so far. move-baked-good-in-container-to-different-container
+    INFO:root:	Test case 5/22, FAILED. 0 successes so far. set-oven-with-souffle-bake-time-and-press-start
+    INFO:root:	Test case 6/22, FAILED. 0 successes so far. set-oven-with-cake-bake-time-and-press-start
+    INFO:root:	Test case 7/22, FAILED. 0 successes so far. fold-stiff-egg-whites-into-mixture
+    INFO:root:	Test case 8/22, PASSED. 1 successes so far. pour-mixture-only
+    INFO:root:	Test case 9/22, FAILED. 1 successes so far. use-stand-mixer for cake
+    INFO:root:	Test case 10/22, FAILED. 1 successes so far. use-stand-mixer for souffle
+    INFO:root:	Test case 11/22, FAILED. 1 successes so far. beat-egg-whites
+    INFO:root:	Test case 12/22, PASSED. 2 successes so far. separate-egg-whites
+    INFO:root:	Test case 13/22, PASSED. 3 successes so far. transfer-butter-from-pan-or-bowl
+    INFO:root:	Test case 14/22, PASSED. 4 successes so far. transfer-egg-from-pan-or-bowl
+    INFO:root:	Test case 15/22, PASSED. 5 successes so far. pour-powdery-ingredient-from-container
+    INFO:root:	Test case 16/22, PASSED. 6 successes so far. remove-pan-from-oven
+    INFO:root:	Test case 17/22, FAILED. 6 successes so far. put-pan-in-oven
+    INFO:root:	Test case 18/22, PASSED. 7 successes so far. crack-egg
+    INFO:root:	Test case 19/22, PASSED. 8 successes so far. preheat-souffle
+    INFO:root:	Test case 20/22, PASSED. 9 successes so far. preheat-cake
+    INFO:root:	Test case 21/22, PASSED. 10 successes so far. pour-powdery-ingredient-from-measuring-cup
+    INFO:root:	Test case 22/22, FAILED. 10 successes so far. put-butter-in-container-from-measuring-cup
+    INFO:root:Result: 0.45454545454545453 solve rate
+
+2. Subgoals lists from the demos: problem1.txt, problem2.txt, problem3.txt, problem4.txt for each of the respective episodes.
+
+    INFO:root:Evaluating operators...
+    INFO:root:	Test case 1/22, FAILED. 0 successes so far. Bake 2 souffles and put them on plates
+    INFO:root:	Test case 2/22, FAILED. 0 successes so far. Bake 2 cakes and put them on plates
+    INFO:root:	Test case 3/22, FAILED. 0 successes so far. Bake souffle and cake, without damaging pans, putting them on plates.
+    INFO:root:	Test case 4/22, FAILED. 0 successes so far. move-baked-good-in-container-to-different-container
+    INFO:root:	Test case 5/22, FAILED. 0 successes so far. set-oven-with-souffle-bake-time-and-press-start
+    INFO:root:	Test case 6/22, FAILED. 0 successes so far. set-oven-with-cake-bake-time-and-press-start
+    INFO:root:	Test case 7/22, FAILED. 0 successes so far. fold-stiff-egg-whites-into-mixture
+    INFO:root:	Test case 8/22, PASSED. 1 successes so far. pour-mixture-only
+    INFO:root:	Test case 9/22, FAILED. 1 successes so far. use-stand-mixer for cake
+    INFO:root:	Test case 10/22, FAILED. 1 successes so far. use-stand-mixer for souffle
+    INFO:root:	Test case 11/22, PASSED. 2 successes so far. beat-egg-whites
+    INFO:root:	Test case 12/22, PASSED. 3 successes so far. separate-egg-whites
+    INFO:root:	Test case 13/22, PASSED. 4 successes so far. transfer-butter-from-pan-or-bowl
+    INFO:root:	Test case 14/22, PASSED. 5 successes so far. transfer-egg-from-pan-or-bowl
+    INFO:root:	Test case 15/22, PASSED. 6 successes so far. pour-powdery-ingredient-from-container
+    INFO:root:	Test case 16/22, PASSED. 7 successes so far. remove-pan-from-oven
+    INFO:root:	Test case 17/22, FAILED. 7 successes so far. put-pan-in-oven
+    INFO:root:	Test case 18/22, PASSED. 8 successes so far. crack-egg
+    INFO:root:	Test case 19/22, PASSED. 9 successes so far. preheat-souffle
+    INFO:root:	Test case 20/22, PASSED. 10 successes so far. preheat-cake
+    INFO:root:	Test case 21/22, PASSED. 11 successes so far. pour-powdery-ingredient-from-measuring-cup
+    INFO:root:	Test case 22/22, PASSED. 12 successes so far. put-butter-in-container-from-measuring-cup
+    INFO:root:Result: 0.5454545454545454 solve rate
+
+3. Precondition targeting in episode 3.
+    - Note: gets stuck with use-stand-mixer. Preconditions are achieved and operator is executed, but no learning takes place...Need to inspect this further.
+
+    INFO:root:Evaluating operators...
+    INFO:root:	Test case 1/22, FAILED. 0 successes so far. Bake 2 souffles and put them on plates
+    INFO:root:	Test case 2/22, FAILED. 0 successes so far. Bake 2 cakes and put them on plates
+    INFO:root:	Test case 3/22, FAILED. 0 successes so far. Bake souffle and cake, without damaging pans, putting them on plates.
+    INFO:root:	Test case 4/22, FAILED. 0 successes so far. move-baked-good-in-container-to-different-container
+    INFO:root:	Test case 5/22, FAILED. 0 successes so far. set-oven-with-souffle-bake-time-and-press-start
+    INFO:root:	Test case 6/22, FAILED. 0 successes so far. set-oven-with-cake-bake-time-and-press-start
+    INFO:root:	Test case 7/22, FAILED. 0 successes so far. fold-stiff-egg-whites-into-mixture
+    INFO:root:	Test case 8/22, PASSED. 1 successes so far. pour-mixture-only
+    INFO:root:	Test case 9/22, FAILED. 1 successes so far. use-stand-mixer for cake
+    INFO:root:	Test case 10/22, FAILED. 1 successes so far. use-stand-mixer for souffle
+    INFO:root:	Test case 11/22, PASSED. 2 successes so far. beat-egg-whites
+    INFO:root:	Test case 12/22, PASSED. 3 successes so far. separate-egg-whites
+    INFO:root:	Test case 13/22, PASSED. 4 successes so far. transfer-butter-from-pan-or-bowl
+    INFO:root:	Test case 14/22, PASSED. 5 successes so far. transfer-egg-from-pan-or-bowl
+    INFO:root:	Test case 15/22, PASSED. 6 successes so far. pour-powdery-ingredient-from-container
+    INFO:root:	Test case 16/22, PASSED. 7 successes so far. remove-pan-from-oven
+    INFO:root:	Test case 17/22, FAILED. 7 successes so far. put-pan-in-oven
+    INFO:root:	Test case 18/22, PASSED. 8 successes so far. crack-egg
+    INFO:root:	Test case 19/22, PASSED. 9 successes so far. preheat-souffle
+    INFO:root:	Test case 20/22, PASSED. 10 successes so far. preheat-cake
+    INFO:root:	Test case 21/22, PASSED. 11 successes so far. pour-powdery-ingredient-from-measuring-cup
+    INFO:root:	Test case 22/22, PASSED. 12 successes so far. put-butter-in-container-from-measuring-cup
+    INFO:root:Result: 0.5454545454545454 solve rate
+
+4. Subgoals for cake mixture use-stand-mixer.
+
+	(:action use-stand-mixer3
+		:parameters (?x0 - electric_stand_mixer ?x1 - container ?x2 - mixture_hypothetical ?x3 - powder_ingredient_hypothetical ?x4 - butter_hypothetical ?x5 - egg_hypothetical ?x6 - powder_ingredient_hypothetical ?x7 - powder_ingredient_hypothetical)
+		:precondition (and (butter-in-container ?x1 ?x4)
+			(is-bowl ?x1)
+			(is-cups-of-flour ?x6)
+			(is-sugar ?x7)
+			(is-whole-raw-egg ?x5)
+			(powder-ingredient-in-container ?x1 ?x3)
+			(powder-ingredient-in-container ?x1 ?x6)
+			(powder-ingredient-in-container ?x1 ?x7)
+			(use-stand-mixer ?x0 ?x1 ?x2))
+		:effect (and
+			(not (butter-in-container ?x1 ?x4))
+			(not (egg-in-container ?x1 ?x5))
+			(not (is-baking-powder ?x3))
+			(not (is-butter ?x4))
+			(not (is-cups-of-flour ?x6))
+			(not (is-egg ?x5))
+			(not (is-sugar ?x7))
+			(not (is-whole-raw-egg ?x5))
+			(not (mixture-is-hypothetical ?x2))
+			(not (powder-ingredient-in-container ?x1 ?x3))
+			(not (powder-ingredient-in-container ?x1 ?x6))
+			(not (powder-ingredient-in-container ?x1 ?x7))
+			(is-mixture ?x2)
+			(mixture-has-baking-powder ?x2)
+			(mixture-has-butter ?x2)
+			(mixture-has-cups-of-flour ?x2)
+			(mixture-has-raw-egg-whites ?x2)
+			(mixture-has-raw-egg-yolk ?x2)
+			(mixture-has-sugar ?x2)
+			(mixture-in-container ?x1 ?x2))
+	)

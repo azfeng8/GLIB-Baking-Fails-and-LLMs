@@ -102,13 +102,15 @@ class Runner:
 
         # Learn the ops from demos
         if isinstance(self.agent, InteractiveAgent):
-            self.agent.learn(0)
+            # self.agent.learn(0)
             logging.info("Learned operators:")
             for op in sorted(self.agent.learned_operators, key=lambda x: x.name):
                 logging.info(op.pddl_str())
 
         itr = 0
+        # Flag if stuck in a loop, so should go straight to prompting.
         LOOPING = False
+        # Flag if experiment should end.
         SOLVED = False
         while itr < self.num_train_iters and not SOLVED:
             logging.info("Iteration {} of {}".format(itr, self.num_train_iters))
@@ -136,6 +138,12 @@ class Runner:
                     if isinstance(self.agent, InteractiveAgent):
                         with open('visited_preconds.pkl', 'wb') as f:
                             pickle.dump(self.agent._visited_preconds_states, f)
+                    logging.info("Dumping ndrs to ndrs.pkl")
+                    with open("ndrs.pkl", 'wb') as f:
+                        pickle.dump(self.agent._operator_learning_module._ndrs, f)
+                    logging.info("Dumping ops visited")
+                    with open("ops_visited.pkl", 'wb') as f:
+                        pickle.dump(self.agent._ops_preconds_executed, f)
                 uip = input("Evaluate operators? y or anything")
                 if uip == 'y':
                     logging.info("Evaluating operators...")
@@ -227,6 +235,7 @@ class Runner:
             if action is None and precond_targeting_only:
                 episode_done = True
             elif action is None:
+                logging.info("******* Prompting for next task *******")
                 if self.agent.option == 0:
                     action = self.agent.next_action
                     next_obs, rew, episode_done, _  =  self.train_env.step(action)
@@ -300,7 +309,6 @@ class Runner:
                         obs = next_obs
                         itr += 1                   
                     obs, _ = self.train_env.reset()
-                    next_obs = obs
                     for action in self.agent.action_seq:
                         next_obs, rew, episode_done, _ = self.train_env.step(action)
                     prev_action = action
@@ -311,6 +319,7 @@ class Runner:
                     successes_list = self._evaluate_operators(use_learned_ops=True)
                     test_solve_rate = sum(successes_list) / len(successes_list)
                     logging.info(f"Result: {test_solve_rate} solve rate")
+                    self.agent.option = None
                     if test_solve_rate == 1.0:
                         SOLVED = True
                         continue
@@ -321,26 +330,33 @@ class Runner:
                     cycle = [int(episode_uip)]
                     precond_targeting_only = True
                     episode_done = False
+                    self.agent.option = None
                     continue
-   
+                # Clear the option.
+                self.agent.option = None
+                LOOPING = False
 
             else:
                 logging.info(f"Taking action {action}")
                 next_obs, rew, episode_done, _ = self.train_env.step(action)
                 if not self.AUTO_EVAL:
+                    LOOPING = False
                     if prev_action == action:
                         if input("Dump transitions and ops? y/n") == 'y':
                             with open(f'transitions.pkl', 'wb') as f:
                                 pickle.dump(self.agent._operator_learning_module._transitions, f)
                             with open('ops.pkl', 'wb') as f:
                                 pickle.dump(self.agent.learned_operators, f)
+                            if isinstance(self.agent, InteractiveAgent):
+                                with open('visited_preconds.pkl', 'wb') as f:
+                                    pickle.dump(self.agent._visited_preconds_states, f)
+                                with open("ops_visited.pkl", 'wb') as f:
+                                    pickle.dump(self.agent._ops_preconds_executed, f)
+                            with open("ndrs.pkl", 'wb') as f:
+                                pickle.dump(self.agent._operator_learning_module._ndrs, f)
                         if isinstance(self.agent, InteractiveAgent) and input("Stuck in a loop, and reprompt for next task? y or anything") == 'y':
                             LOOPING = True
-                            self.agent._prompt_demos_or_subgoals()
-                        else:
-                            LOOPING = False
-                    else:
-                        LOOPING = False
+                            self.agent._prompt_demos_or_subgoals(next_obs)
                 if round(rew) == 1: logging.info(f"***********************************Reached goal! {obs.goal}***********************************")
                 self.agent.observe(obs, action, next_obs, itr)
 

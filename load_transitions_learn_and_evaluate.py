@@ -13,19 +13,23 @@ import gym
 # with open('transitions.pkl', 'rb') as f:
 #     transitions = pickle.load(f)
 
+with open('ops.pkl', 'rb') as f:
+#     # pickle.dump(ops, f)
+    ops_loaded = pickle.load(f)
 
-# # learn NDRs
-# max_ee_transitions = ac.max_zpk_explain_examples_transitions['Bakingrealistic']
+# learn NDRs
+max_ee_transitions = ac.max_zpk_explain_examples_transitions['Bakingrealistic']
 
-# def get_batch_probs():
-#     assert False, 'assumed off'
+def get_batch_probs():
+    assert False, 'assumed off'
 
-# init_rule_sets = None
-# _rand_state = np.random.RandomState(seed=1)
+init_rule_sets = None
+_rand_state = np.random.RandomState(seed=1)
 
 
 # rule_set = {}
 # for action_predicate in transitions:
+#     if action_predicate.name != 'use-stand-mixer': continue
 #     learned_ndrs = learn_ndrs({action_predicate : transitions[action_predicate]},
 #         max_timeout=ac.max_zpk_learning_time,
 #         max_action_batch_size=ac.max_zpk_action_batch_size['Bakingrealistic'],
@@ -36,11 +40,16 @@ import gym
 #     )
 #     rule_set[action_predicate] = learned_ndrs[action_predicate]
 
-# # print_rule_set(rule_set)
+# print_rule_set(rule_set)
 # print("Loaded NDRs")
 # # NDRs to operators
+ops = ops_loaded #[]
+# for o in ops_loaded:
+#     if 'use-stand-mixer' in o.name:
+#         continue
+#     ops.append(o)
 # from ndr.ndrs import NOISE_OUTCOME
-# ops = []
+# # # ops = []
 # for act_pred in rule_set:
 #     ndrset = rule_set[act_pred]
 #     suffix = 0
@@ -60,12 +69,11 @@ import gym
 #             continue
 #         ops.append(operator)
 #         suffix += 1
-with open('ops.pkl', 'rb') as f:
-    # pickle.dump(ops, f)
-    ops = pickle.load(f)
+
+
 print("Loaded ops")
-# for o in ops:
-#     print(o.pddl_str())
+for o in sorted(ops, key=lambda o: o.name):
+    print(o.pddl_str())
 # evaluate operators on test tasks.
 
 from settings import AgentConfig as ac
@@ -147,9 +155,8 @@ def _compute_effects(state, next_state):
 
         
 num_successes = 0
-for i in range(len(test_env.problems))[::-1]:
-    # if i != 4 and i != 0: continue
-    if i != 2: continue
+for i in range(len(test_env.problems)):
+    if i != 0: continue
     test_env.fix_problem_index(i)
     obs, debug_info = test_env.reset()
 

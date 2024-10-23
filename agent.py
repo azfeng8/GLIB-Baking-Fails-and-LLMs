@@ -220,19 +220,24 @@ class InteractiveAgent(Agent):
         self._rand_state = np.random.RandomState(seed=ac.seed)
 
         # Load the demos
-        with open('bakingrealistic_demonstrations.pkl', 'rb') as f:
+        # with open('bakingrealistic_demonstrations.pkl', 'rb') as f:
+        with open('transitions.pkl', 'rb') as f:
             transitions = pickle.load(f)
         self._operator_learning_module._transitions = transitions
 
-        for action_pred in transitions:
-            self._operator_learning_module._fits_all_data[action_pred] = False
+        # for action_pred in transitions:
+        #     self._operator_learning_module._fits_all_data[action_pred] = False
         
-        # with open('ops.pkl', 'rb') as f:
-        #     ops = pickle.load(f)
-        
-        # for op in ops:
-        #     self.learned_operators.add(op)
-        #     self.planning_operators.add(op)
+        # Load NDRs
+        with open('ndrs.pkl', 'rb') as f:
+            self._operator_learning_module._ndrs = pickle.load(f)
+
+        # Load ops
+        with open('ops.pkl', 'rb') as f:
+            ops = pickle.load(f)
+        for op in ops:
+            self.learned_operators.add(op)
+            self.planning_operators.add(op)
 
         # Get the subgoals.
         # Keep track of the action seq to get to the last achieved subgoal.
@@ -259,6 +264,13 @@ class InteractiveAgent(Agent):
 
         # Keeps track of preconditions already planned to from states
         self._visited_preconds_states = {a: set() for a in action_space.predicates} # Map from action predciate to set
+
+        # Load visited set
+        with open("ops_visited.pkl", 'rb') as f:
+            self._ops_preconds_executed = pickle.load(f)
+        with open('visited_preconds.pkl', 'rb') as f:
+            self._visited_preconds_states = pickle.load(f)
+
 
     def reset_episode(self, state, subgoals_path):
         if subgoals_path:
@@ -490,6 +502,7 @@ class InteractiveAgent(Agent):
 
         logging.info("Getting plan to next subgoal...")
         if self._plan_to_next_subgoal is not None and len(self._plan_to_next_subgoal[0]) > 0:
+            logging.info(f"Continuing plan: {self._plan_to_next_subgoal[0]}")
             return self._plan_to_next_subgoal[0].pop(0)
         # Get a plan to the next subgoal
         problem_fname = self._curiosity_module._create_problem_pddl(state, self.subgoals[self.next_subgoal_idx], prefix='glibg1_subgoal')
@@ -503,6 +516,7 @@ class InteractiveAgent(Agent):
         except PlannerTimeoutException:
             logging.info(f"Planner timed out.")
         if plan:
+            logging.info(f"Found plan: {plan}")
             self._action_in_plan = True
             self._plan_to_next_subgoal = (plan, tuple(plan))
             return self._plan_to_next_subgoal[0].pop(0)
@@ -515,11 +529,14 @@ class InteractiveAgent(Agent):
         # for o in self._operator_learning_module._learned_operators:
             # logging.info(o.pddl_str())
         print_rule_set(self._operator_learning_module._ndrs)
-        logging.info("Action sequence thus far")
+        logging.info("Action sequence to previous subgoal below. Look at logs to see all the actions from last subgoal to now")
         for act in self.action_seq:
             logging.info(act)
         self.action_seq_reset = []
-        logging.info(f"Next subgoal to achieve: {self.subgoals[self.next_subgoal_idx]}")
+        if self.next_subgoal_idx < len(self.subgoals):
+            logging.info(f"Next subgoal to achieve: {self.subgoals[self.next_subgoal_idx]}")
+        else:
+            logging.info("No more subgoals to achieve.")
         option_str = \
 """Please pick an option:
 
@@ -544,7 +561,16 @@ class InteractiveAgent(Agent):
 *** MISC ***
 [3] Execute a random action, observe it, and reset to the previous achieved subgoal.
 """
-        option = int(input(option_str))
+        try:
+            option = int(input(option_str))
+        except:
+            option = None
+        while option is None and option not in range(11):
+            try:
+                option = int(input(option_str))
+            except:
+                option = None           
+
         # 1. Execute the action, and observe that transition. Then, reset.
         self.option = option
         if option == 0:
@@ -587,6 +613,12 @@ class InteractiveAgent(Agent):
                 pickle.dump(self._operator_learning_module._transitions, f)
             with open('ops.pkl', 'wb') as f:
                 pickle.dump(self.learned_operators, f)
+            with open('visited_preconds.pkl', 'wb') as f:
+                pickle.dump(self._visited_preconds_states, f)
+            with open('ops_visited.pkl', 'wb') as f:
+                pickle.dump(self._ops_preconds_executed, f)
+            with open("ndrs.pkl", 'wb') as f:
+                pickle.dump(self._operator_learning_module._ndrs, f)
         elif option == 6:
             action_str = input("Enter the next action, or q to quit: ")
             while action_str != 'q':
@@ -678,7 +710,15 @@ class InteractiveAgent(Agent):
 
         # Check if planned to the next subgoal
         if self._action_in_plan and self.next_subgoal_idx < len(self.subgoals):
-            assignments = find_satisfying_assignments(next_state.literals, self.subgoals[self.next_subgoal_idx].literals, allow_redundant_variables=False)
+            # for each Not(), assert that the positive version isn't in the literals, and call the helper only on the positive literals in the subgoal
+            lits = self.subgoals[self.next_subgoal_idx].literals 
+            positive_lits = [l for l in lits if not l.is_negative]
+            negative_lits_that_are_negated = [l.positive for l in lits if l.is_negative]
+            if any(lit in next_state.literals for lit in negative_lits_that_are_negated):
+                # There is no assignment that holds, since a negated lit in the subgoal is positive in the state.
+                return
+            assignments = find_satisfying_assignments(next_state.literals, positive_lits, allow_redundant_variables=False)
+            logging.info(assignments)
             if len(assignments) > 0:
                 for assignment in assignments:
                     # Check that all object names in the state literals match the object names in the goal

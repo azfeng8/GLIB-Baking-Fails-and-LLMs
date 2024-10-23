@@ -14,8 +14,7 @@ import abc
 import itertools
 import logging
 
-
-ALPHA = 0.5 # Weight on rule set size penalty
+ALPHA = 0.5  # Weight on rule set size penalty
 P_MIN = 1e-8 # Probability for an individual noisy outcome
 VERBOSE = False
 DEBUG = False

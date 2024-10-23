@@ -241,7 +241,7 @@ class AgentConfig:
     max_foldt_exceeded_strategy = "fail" # 'fail' or 'early_stopping' or 'pdb'
 
     ## Constants for LNDR (also called ZPK throughout code). ##
-    max_zpk_learning_time = 180
+    max_zpk_learning_time = 1800
     max_zpk_explain_examples_transitions = {
         "Blocks": 25,
         "Glibblocks": 25,
