@@ -26,7 +26,6 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
     def _initialize(self):
         super()._initialize()
         self.llm_line_stats = []
-        self._rand_state = np.random.RandomState(seed=ac.seed)
         self._name = "newiw"
         self._episode_start_state = None
         self._seen_state_actions = set()

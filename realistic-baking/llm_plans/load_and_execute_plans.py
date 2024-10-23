@@ -5,7 +5,7 @@ from pddlgym.structs import Anti
 import os
 
 # Load the plan
-test = False
+test = True
 t = 'test' if test else 'train'
 r = range(0, 22) if test else range(3,4)
 if test:

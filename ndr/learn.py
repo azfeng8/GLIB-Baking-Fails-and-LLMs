@@ -457,19 +457,20 @@ def get_all_possible_outcomes(rule, covered_transitions, ndr_settings=None):
                 lifted_effects.append(lifted_es[0])
             if include_effects:
                 all_possible_outcomes.add(tuple(sorted(lifted_effects)))
-    return all_possible_outcomes
+    return sorted(all_possible_outcomes)
 
-def induce_outcomes(rule, covered_transitions, max_node_expansions=100, ndr_settings=None):
+def induce_outcomes(rule, covered_transitions:list, max_node_expansions=100, ndr_settings=None):
     """Induce outcomes for a rule
 
     Modifies the rule in place.
     """
+    logging.info(f"Induce outcomes for rule {rule}")
     # Initialize effects with uniform distribution over all possible outcomes
     all_possible_outcomes = get_all_possible_outcomes(rule, covered_transitions,
         ndr_settings=ndr_settings)
     num_possible_outcomes = len(all_possible_outcomes)
     rule.effect_probs = [1./num_possible_outcomes] * num_possible_outcomes
-    rule.effects = [list(outcome) for outcome in sorted(all_possible_outcomes)]
+    rule.effects = [list(outcome) for outcome in all_possible_outcomes]
     # Search for better parameters
     learn_parameters(rule, covered_transitions, ndr_settings=ndr_settings)
     # Search for better effects
@@ -483,7 +484,7 @@ def induce_outcomes(rule, covered_transitions, max_node_expansions=100, ndr_sett
     rule.effects = best_effects
 
 ## Main search operators
-def create_default_rule_set(action, transitions_for_action, ndr_settings=None):
+def create_default_rule_set(action, transitions_for_action: list, ndr_settings=None):
     """Helper for create default rule set. One default rule for action.
     """
     allow_redundant_variables = ndr_settings.get('allow_redundant_variables', False)
@@ -934,7 +935,7 @@ class AddLits(SearchOperator):
             preconds = ExplainExamples.get_overfitting_preconditions(transition, 
                 ndr_settings=ndr_settings)
             all_possible_additions.update(preconds)
-        return all_possible_additions
+        return sorted(all_possible_additions)
 
     def get_children(self, action_rule_set, ndr_settings=None):
         for i in range(len(action_rule_set.ndrs)):
@@ -1030,7 +1031,7 @@ def run_main_search(transition_dataset, max_node_expansions=1000, rng=None,
 
     rule_sets = {}
 
-    for action, transitions_for_action in transition_dataset.items():
+    for action, transitions_for_action in sorted(transition_dataset.items(), key=lambda tup: tup[0].name):
         if VERBOSE:
             print("Running search for action", action)
 

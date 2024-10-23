@@ -21,13 +21,13 @@ from copy import deepcopy
 
 class ZPKOperatorLearningModule:
 
-    def __init__(self, planning_operators, learned_operators, domain_name):
+    def __init__(self, planning_operators, learned_operators, domain_name, rand_state):
         self._domain_name = domain_name
         self._planning_operators = planning_operators
         self._learned_operators = learned_operators
         self._transitions = defaultdict(list)
         self._seed = ac.seed
-        self._rand_state = np.random.RandomState(seed=ac.seed)
+        self._rand_state = rand_state 
         self._learning_on = True
         self._ndrs:Dict[pddlgym.structs.Predicate,NDRSet] = {}
         self._fits_all_data = defaultdict(bool)
@@ -44,7 +44,7 @@ class ZPKOperatorLearningModule:
             self.skills_with_NOPS_only.remove(action.predicate.name)
             self._first_nonNOP_itrs.append(itr)
 
-        self._transitions[action.predicate].append((state.literals, action, effects))
+        self._transitions[action.predicate].append((state.literals, action, sorted(effects)))
 
         # Check whether we'll need to relearn
         # logging.info(self._fits_all_data)

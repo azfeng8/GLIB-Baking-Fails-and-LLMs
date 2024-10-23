@@ -4,7 +4,7 @@ from flags import parse_flags
 
 import matplotlib
 matplotlib.use("Agg")
-from agent import Agent, InteractiveAgent, DemonstrationsAgent
+from agent import Agent, InteractiveAgent, DemonstrationsAgent, dump_intermediate_state
 from planning_modules.base_planner import PlannerTimeoutException, \
     NoPlanFoundException
 from plotting import plot_results
@@ -13,6 +13,7 @@ from settings import EnvConfig as ec
 from settings import GeneralConfig as gc
 from settings import LLMConfig as lc
 from ndr.learn import print_rule_set
+from pddlgym.structs import State
 
 from collections import defaultdict
 
@@ -26,6 +27,12 @@ import os
 import pddlgym
 import pickle
 
+fileHandler = logging.FileHandler('out.log')
+rootLogger = logging.getLogger()
+rootLogger.addHandler(fileHandler)
+
+consoleHandler = logging.StreamHandler()
+rootLogger.addHandler(consoleHandler)
 
 class Runner:
     """Helper class for running experiments.
@@ -61,8 +68,8 @@ class Runner:
                     logging.info("Operators changed.")
                     ops_change_iterations.append(itr)
                     for op in sorted(self.agent.learned_operators, key=lambda op: op.name):
-                        print(op.pddl_str())
-                    print_rule_set(self.agent._operator_learning_module._ndrs)
+                        logging.info(op.pddl_str())
+                    # print_rule_set(self.agent._operator_learning_module._ndrs)
 
                 # Only rerun tests if operators have changed, or stochastic env
                 if self.AUTO_EVAL and ((operators_changed or ac.planner_name[self.domain_name] == "ffreplan" or \
@@ -102,7 +109,7 @@ class Runner:
 
         # Learn the ops from demos
         if isinstance(self.agent, InteractiveAgent):
-            # self.agent.learn(0)
+            self.agent.learn(0)
             logging.info("Learned operators:")
             for op in sorted(self.agent.learned_operators, key=lambda x: x.name):
                 logging.info(op.pddl_str())
@@ -126,24 +133,10 @@ class Runner:
  
                 uip = input("Cycle finished. Dumping transitions. Filename or n to quit?")
                 while not uip.endswith('.pkl') and uip != 'n':
-                    uip = input("Cycle finished. Dumping transitions, ops, and visited planning set. Filename or n to quit?")
+                    uip = input("Cycle finished. Dumping intermediate state for Interactive? transitions pkl filename or n")
                 if uip != 'n':
-                    with open(uip.strip(), 'wb') as f:
-                        pickle.dump(self.agent._operator_learning_module._transitions, f)
-                    logging.info(f"Dumping ops to ops.pkl...")
-                    with open('ops.pkl', 'wb') as f:
-                        pickle.dump(self.agent.learned_operators, f)
-                    
-                    logging.info("Dumping visited set to visited_preconds.pkl")
-                    if isinstance(self.agent, InteractiveAgent):
-                        with open('visited_preconds.pkl', 'wb') as f:
-                            pickle.dump(self.agent._visited_preconds_states, f)
-                    logging.info("Dumping ndrs to ndrs.pkl")
-                    with open("ndrs.pkl", 'wb') as f:
-                        pickle.dump(self.agent._operator_learning_module._ndrs, f)
-                    logging.info("Dumping ops visited")
-                    with open("ops_visited.pkl", 'wb') as f:
-                        pickle.dump(self.agent._ops_preconds_executed, f)
+                    logging.info("Dumping state...")
+                    dump_intermediate_state(self.agent, filename=uip.strip())
                 uip = input("Evaluate operators? y or anything")
                 if uip == 'y':
                     logging.info("Evaluating operators...")
@@ -251,19 +244,6 @@ class Runner:
                         next_obs, rew, episode_done, _ = self.train_env.step(action)
                     prev_action = action
                     obs = next_obs
-                elif self.agent.option == 1:
-                    obs, _ = self.train_env.reset()
-                    logging.info(f"Resetting to start, and executing actions:\n{self.agent.action_seq_reset}")
-                    for i, action in enumerate(self.agent.action_seq_reset):
-                        next_obs, rew, episode_done, _ = self.train_env.step(action)
-                        if i == len(self.agent.action_seq_reset) - 1 and self.agent.observe_last_transition:
-                            logging.info(f"Observing action {action}")
-                            self.agent.observe(obs, action, next_obs, itr)
-                            learn_and_test()
-                            transitions.append(self.agent._operator_learning_module._transitions[action.predicate][-1])
-                            itr += 1
-                        obs = next_obs
-                    prev_action = action
                 elif self.agent.option == 2:
                     obs, _ = self.train_env.reset()
                     logging.info(f"Resetting to start, and executing actions:\n{self.agent.action_seq_reset}. Then resetting to prev subgoal")
@@ -308,6 +288,7 @@ class Runner:
                         transitions.append(self.agent._operator_learning_module._transitions[action.predicate][-1])
                         obs = next_obs
                         itr += 1                   
+                    logging.info(f"Resetting to start of episode, and executing actions to last achieved subgoal: {self.agent.action_seq}")
                     obs, _ = self.train_env.reset()
                     for action in self.agent.action_seq:
                         next_obs, rew, episode_done, _ = self.train_env.step(action)
@@ -339,31 +320,29 @@ class Runner:
             else:
                 logging.info(f"Taking action {action}")
                 next_obs, rew, episode_done, _ = self.train_env.step(action)
-                if not self.AUTO_EVAL:
-                    LOOPING = False
-                    if prev_action == action:
-                        if input("Dump transitions and ops? y/n") == 'y':
-                            with open(f'transitions.pkl', 'wb') as f:
-                                pickle.dump(self.agent._operator_learning_module._transitions, f)
-                            with open('ops.pkl', 'wb') as f:
-                                pickle.dump(self.agent.learned_operators, f)
-                            if isinstance(self.agent, InteractiveAgent):
-                                with open('visited_preconds.pkl', 'wb') as f:
-                                    pickle.dump(self.agent._visited_preconds_states, f)
-                                with open("ops_visited.pkl", 'wb') as f:
-                                    pickle.dump(self.agent._ops_preconds_executed, f)
-                            with open("ndrs.pkl", 'wb') as f:
-                                pickle.dump(self.agent._operator_learning_module._ndrs, f)
-                        if isinstance(self.agent, InteractiveAgent) and input("Stuck in a loop, and reprompt for next task? y or anything") == 'y':
-                            LOOPING = True
-                            self.agent._prompt_demos_or_subgoals(next_obs)
+
                 if round(rew) == 1: logging.info(f"***********************************Reached goal! {obs.goal}***********************************")
                 self.agent.observe(obs, action, next_obs, itr)
 
                 obs = next_obs
+                learn_and_test()
+
+                if not self.AUTO_EVAL:
+                    LOOPING = False
+                    if prev_action == action:
+                        if isinstance(self.agent, InteractiveAgent) and input("Dump program state? y/n") == 'y':
+                            logging.info("Dumping state...")
+                            dump_intermediate_state(self.agent)
+                        if isinstance(self.agent, InteractiveAgent) and input("Stuck in a loop, and reprompt for next task? y or anything") == 'y':
+                            LOOPING = True
+                            obs_literals = set()
+                            for lit in obs.literals:
+                                if lit.predicate.name not in ('different', 'name-less-than'):
+                                    obs_literals.add(lit)
+                            state = State(frozenset(obs_literals), state.objects, state.goal)
+                            self.agent._prompt_demos_or_subgoals(state)
                 prev_action = action
 
-                learn_and_test()
                 itr += 1
                 transitions.append(self.agent._operator_learning_module._transitions[action.predicate][-1])
 

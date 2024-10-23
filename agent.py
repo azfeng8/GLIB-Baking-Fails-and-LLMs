@@ -52,7 +52,7 @@ class Agent:
         self.curiosity_module_name = curiosity_module_name
         self.operator_learning_name = operator_learning_name
         self.planning_module_name = planning_module_name
-
+        self._rand_state = np.random.RandomState(seed=ac.seed)
         # The main objective of the agent is to learn good operators
         self.planning_operators = set()
         self.learned_operators = set()
@@ -63,7 +63,7 @@ class Agent:
         # The operator learning module learns operators. It should update the
         # agent's learned operators set
         self._operator_learning_module = create_operator_learning_module(
-            operator_learning_name, self.planning_operators, self.learned_operators, self.domain_name, self.llm, self.llm_precondition_goals, log_llm_path)
+            operator_learning_name, self.planning_operators, self.learned_operators, self.domain_name, self.llm, self.llm_precondition_goals, log_llm_path, self._rand_state)
         # The planning module uses the learned operators to plan at test time.
         self._planning_module = create_planning_module(
             planning_module_name, self.planning_operators, self.learned_operators, domain_name,
@@ -73,7 +73,7 @@ class Agent:
         self._curiosity_module = create_curiosity_module(
             curiosity_module_name, action_space, observation_space,
             self._planning_module, self.planning_operators, self.learned_operators,
-            self._operator_learning_module, domain_name, self.llm_precondition_goals)
+            self._operator_learning_module, domain_name, self.llm_precondition_goals, self._rand_state)
         
         # Flag to tell if at the episode start. Unset after observing the first effect.
         self.episode_start = False
@@ -217,40 +217,32 @@ class InteractiveAgent(Agent):
         self.action_space = action_space
         self.obs_space = observation_space
 
-        self._rand_state = np.random.RandomState(seed=ac.seed)
 
         # Load the demos
-        # with open('bakingrealistic_demonstrations.pkl', 'rb') as f:
-        with open('transitions.pkl', 'rb') as f:
+        with open('bakingrealistic_demonstrations.pkl', 'rb') as f:
+        # with open('transitions.pkl', 'rb') as f:
             transitions = pickle.load(f)
         self._operator_learning_module._transitions = transitions
 
-        # for action_pred in transitions:
-        #     self._operator_learning_module._fits_all_data[action_pred] = False
+        for action_pred in transitions:
+            self._operator_learning_module._fits_all_data[action_pred] = False
         
-        # Load NDRs
-        with open('ndrs.pkl', 'rb') as f:
-            self._operator_learning_module._ndrs = pickle.load(f)
-
-        # Load ops
-        with open('ops.pkl', 'rb') as f:
-            ops = pickle.load(f)
-        for op in ops:
-            self.learned_operators.add(op)
-            self.planning_operators.add(op)
-
         # Get the subgoals.
         # Keep track of the action seq to get to the last achieved subgoal.
         self.action_seq = []
         self._plan_to_next_subgoal = None
+        self._last_plan_to_next_subgoal = None
         self.next_subgoal_idx = 0
         self.subgoals = []
         self._loaded_subgoals = False
         # Keep track if the last action was part of a plan to subgoals.
         self._action_in_plan = False
+        # Keep track of executed actions since the last subgoal.
+        self.actions_since_last_subgoal = []
 
         # User inputs
         self.next_action = None
+        # Keep track of the actions from the user input
         self.action_seq_reset = []
         self.observe_last_transition = False
 
@@ -265,11 +257,24 @@ class InteractiveAgent(Agent):
         # Keeps track of preconditions already planned to from states
         self._visited_preconds_states = {a: set() for a in action_space.predicates} # Map from action predciate to set
 
-        # Load visited set
-        with open("ops_visited.pkl", 'rb') as f:
-            self._ops_preconds_executed = pickle.load(f)
-        with open('visited_preconds.pkl', 'rb') as f:
-            self._visited_preconds_states = pickle.load(f)
+        # # Load visited set
+        # with open("ops_visited.pkl", 'rb') as f:
+        #     self._ops_preconds_executed = pickle.load(f)
+        # with open('visited_preconds.pkl', 'rb') as f:
+        #     self._visited_preconds_states = pickle.load(f)
+        # with open('rand_state.pkl', 'rb') as f:
+        #     self._rand_state.set_state(pickle.load(f))
+
+        # # Load NDRs
+        # with open('ndrs.pkl', 'rb') as f:
+        #     self._operator_learning_module._ndrs = pickle.load(f)
+
+        # # Load ops
+        # with open('ops.pkl', 'rb') as f:
+        #     ops = pickle.load(f)
+        # for op in ops:
+        #     self.learned_operators.add(op)
+        #     self.planning_operators.add(op)
 
 
     def reset_episode(self, state, subgoals_path):
@@ -311,10 +316,10 @@ class InteractiveAgent(Agent):
                     items = literal_str.split()
                     pred = self._get_obs_predicate(items[0], items[1:], state.objects)
                 goal_lits.append(pred)
-            #TODO: need to modify the goal for lifted mode too
             subgoals.append(LiteralConjunction(goal_lits))
         self.subgoals = subgoals
         self.next_subgoal_idx = 0
+        self.actions_since_last_subgoal = []
         logging.info("Loaded subgoals.")
         # logging.info(self.subgoals)
     
@@ -338,6 +343,7 @@ class InteractiveAgent(Agent):
         # Have successfully executed the plan to the operator preconds, and will execute the operator next
         if len(self._preconds_plan) == 1:
             self.finished_preconds_plan = True
+            self.actions_since_last_subgoal = []
             logging.info(f"FOLLOWING PLAN: {self._preconds_plan}")
             self._ops_preconds_executed.add(self._op_preconds_to_execute)
             self._op_preconds_to_execute = None
@@ -372,10 +378,12 @@ class InteractiveAgent(Agent):
                 self._visited_preconds_states[ground_act.predicate].add((preconds_hash, state))
                 if plan is not None:
                     self._preconds_plan = plan + [ground_act]
+                    logging.info(f"Found plan to preconds: {preconds_hash}")
                     logging.info(f"PLAN: {self._preconds_plan}")
                     self._op_preconds_to_execute = op.name
                     if len(self._preconds_plan) == 1:
                         self.finished_preconds_plan = True
+                        self.actions_since_last_subgoal = []
                         self._ops_preconds_executed.add(self._op_preconds_to_execute)
                         self._op_preconds_to_execute = None
                     return self._preconds_plan.pop(0)
@@ -485,8 +493,6 @@ class InteractiveAgent(Agent):
             if action is None:
                self._action_in_plan_to_preconds = False
                self.precondition_targeting = False 
-               if precond_targeting_only:
-                   return None
             else:
                 self._action_in_plan_to_preconds = True
                 return action
@@ -501,9 +507,12 @@ class InteractiveAgent(Agent):
             return self._prompt_demos_or_subgoals(state)
 
         logging.info("Getting plan to next subgoal...")
-        if self._plan_to_next_subgoal is not None and len(self._plan_to_next_subgoal[0]) > 0:
-            logging.info(f"Continuing plan: {self._plan_to_next_subgoal[0]}")
-            return self._plan_to_next_subgoal[0].pop(0)
+        if self._plan_to_next_subgoal is not None and len(self._plan_to_next_subgoal) > 0:
+            logging.info(f"Continuing plan: {self._plan_to_next_subgoal}")
+            act = self._plan_to_next_subgoal.pop(0)
+            # add to the actions list
+            self.actions_since_last_subgoal.append(act)
+            return act 
         # Get a plan to the next subgoal
         problem_fname = self._curiosity_module._create_problem_pddl(state, self.subgoals[self.next_subgoal_idx], prefix='glibg1_subgoal')
         plan = None
@@ -518,8 +527,18 @@ class InteractiveAgent(Agent):
         if plan:
             logging.info(f"Found plan: {plan}")
             self._action_in_plan = True
-            self._plan_to_next_subgoal = (plan, tuple(plan))
-            return self._plan_to_next_subgoal[0].pop(0)
+            if self._last_plan_to_next_subgoal == plan:
+                logging.info("REPEATED PLAN")
+                self._plan_to_next_subgoal = None
+                return self._prompt_demos_or_subgoals(state)
+            else:
+                self._last_plan_to_next_subgoal = plan
+
+            self._plan_to_next_subgoal = plan
+            act = self._plan_to_next_subgoal.pop(0)
+            # add to the actions list
+            self.actions_since_last_subgoal.append(act)
+            return act
         else:
             return self._prompt_demos_or_subgoals(state)
 
@@ -545,7 +564,6 @@ class InteractiveAgent(Agent):
 [2] Enter an action sequence. Reset to start, then execute it, and observing all the transitions. Then, reset back to the previous subgoal.
 [6] Enter an action sequence. Execute it from here, observing all of them. Reset to previous subgoal.
 [4] Execute a sequence of actions from here, observing all of them. Don't reset.
-[1] Enter an action sequence, and decide whether to observe the last transition. Reset to start, and then execute it. Then, try to plan to the next subgoal from there.
 
 *** Curriculum ***
 [7] Abandon this subgoals list, and enter a new curriculum to execute from this state.
@@ -565,18 +583,19 @@ class InteractiveAgent(Agent):
             option = int(input(option_str))
         except:
             option = None
-        while option is None and option not in range(11):
+        while option is None and option not in [0,2,3,4,5,6,7,8,9,10]:
             try:
                 option = int(input(option_str))
             except:
                 option = None           
-
         # 1. Execute the action, and observe that transition. Then, reset.
         self.option = option
         if option == 0:
             action = self._safe_action_input(state)
             self.next_action = action
-        elif option == 1 or option == 2:
+        #when resetting to the previous subgoal, clear the actions list.
+            self.actions_since_last_subgoal = []
+        elif option == 2:
             action_str = input("Enter the next action, or q to quit: ")
             while action_str != 'q':
                 loop = True
@@ -589,9 +608,8 @@ class InteractiveAgent(Agent):
                 if action_str == 'q': break
                 self.action_seq_reset.append(action)
                 action_str = input("Enter the next action: ")
-            if option == 1:
-                if input("Enter 'y' to observe the last transition (needs lowercase):") == 'y':
-                    self.observe_last_transition = True
+        #when resetting to the previous subgoal, clear the actions list.
+            self.actions_since_last_subgoal = []
         elif option == 3:
             self.next_action = self.action_space.sample(state)
         elif option == 4:
@@ -606,19 +624,12 @@ class InteractiveAgent(Agent):
                         action_str = input("Error parsing. Re-enter the action, or enter q to quit:")
                 if action_str == 'q': break
                 self.action_seq_reset.append(action)
+                # when not resetting to the previous subgoal (option 4) add to the actions buffer
+                self.actions_since_last_subgoal.append(action)
                 action_str = input("Enter the next action: ")
         elif option == 5:
             self.next_action = self.action_space.sample(state)
-            with open('transitions.pkl', 'wb') as f:
-                pickle.dump(self._operator_learning_module._transitions, f)
-            with open('ops.pkl', 'wb') as f:
-                pickle.dump(self.learned_operators, f)
-            with open('visited_preconds.pkl', 'wb') as f:
-                pickle.dump(self._visited_preconds_states, f)
-            with open('ops_visited.pkl', 'wb') as f:
-                pickle.dump(self._ops_preconds_executed, f)
-            with open("ndrs.pkl", 'wb') as f:
-                pickle.dump(self._operator_learning_module._ndrs, f)
+            dump_intermediate_state(self)
         elif option == 6:
             action_str = input("Enter the next action, or q to quit: ")
             while action_str != 'q':
@@ -632,6 +643,8 @@ class InteractiveAgent(Agent):
                 if action_str == 'q': break
                 self.action_seq_reset.append(action)
                 action_str = input("Enter the next action: ")
+        #when resetting to the previous subgoal, clear the actions list.
+            self.actions_since_last_subgoal = []
         elif option == 7:
             logging.info(f"Starting new curriculum from current state.")
             subgoals_list_fname = input("Enter the new subgoals list: ")
@@ -698,6 +711,8 @@ class InteractiveAgent(Agent):
             # Stop executing the plan if it failed in the middle.
             if len(effects) == 0:
                 self.finished_preconds_plan = True
+                # About to reset to the previous subgoal, so clear this list.
+                self.actions_since_last_subgoal = []
                 self._preconds_plan = []
                 # If the operators don't change as a result of adding the NOP, then the op preconds should be added to the visited set.
                 self._plan_to_op_preconds_failed = True
@@ -726,8 +741,10 @@ class InteractiveAgent(Agent):
                         self.precondition_targeting = True
                         logging.info(f"ACHIEVED SUBGOAL {self.subgoals[self.next_subgoal_idx]}")
                         self.next_subgoal_idx += 1
-                        self.action_seq.extend(self._plan_to_next_subgoal[1])
+                        self.action_seq.extend(self.actions_since_last_subgoal)
+                        self.actions_since_last_subgoal = []
                         self._plan_to_next_subgoal = None
+                        self._last_plan_to_next_subgoal = None
                         break
 
         
@@ -752,16 +769,15 @@ class InteractiveAgent(Agent):
 
     def learn(self, itr):
         # Learn
-        # start = time.time()
+        start = time.time()
         some_learned_operator_changed, updated_action_pred_names = self._operator_learning_module.learn(itr)
-        # logging.info(f"Learning took {time.time() - start} s")
+        logging.info(f"Learning took {time.time() - start} s")
 
         # Used in LLMIterative only
         if self.operator_learning_name in ['LLM+LNDR', 'LLMIterative+LNDR']:
             self._curiosity_module.learn(itr)
 
         if some_learned_operator_changed:
-            start_time = time.time()
             self._curiosity_module.learning_callback()
             # only remove the operators for the action predicates that have been updated
             removes = set()
@@ -771,8 +787,9 @@ class InteractiveAgent(Agent):
             for r in removes:
                 self._ops_preconds_executed.remove(r)
 
-            # logging.info(f"Resetting curiosity took {time.time() - start_time}")
-            self.curiosity_time += time.time()-start_time
+            # replan to the next subgoal.
+            self._plan_to_next_subgoal = None
+
         else:
             # If the operators don't change as a result of adding the NOP, then the op preconds should be added to the visited set.
             if self._plan_to_op_preconds_failed:
@@ -887,3 +904,16 @@ def get_hashable_preconds_action(preconds):
     s = ','.join(sorted(strings))
     return s
     
+def dump_intermediate_state(agent:InteractiveAgent, fname='transitions.pkl'):
+    with open(fname, 'wb') as f:
+        pickle.dump(agent._operator_learning_module._transitions, f)
+    with open('ops.pkl', 'wb') as f:
+        pickle.dump(agent.learned_operators, f)
+    with open('visited_preconds.pkl', 'wb') as f:
+        pickle.dump(agent._visited_preconds_states, f)
+    with open('ops_visited.pkl', 'wb') as f:
+        pickle.dump(agent._ops_preconds_executed, f)
+    with open("ndrs.pkl", 'wb') as f:
+        pickle.dump(agent._operator_learning_module._ndrs, f)
+    with open('rand_state.pkl', 'wb') as f:
+        pickle.dump(agent._rand_state, f)

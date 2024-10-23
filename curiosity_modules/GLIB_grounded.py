@@ -15,7 +15,6 @@ class GLIBG1CuriosityModule(GoalBabblingCuriosityModule):
 
     def _initialize(self):
         self._num_steps = 0
-        self._rand_state = np.random.RandomState(seed=ac.seed)
         self._name = "glibg1"
         self._static_preds = self._compute_static_preds()
         self._visited_state_action_pairs = set()

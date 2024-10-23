@@ -1,8 +1,10 @@
 
 Order of modes ran:
 1. Precondition targeting.
+    - stopped at iteration 686.
 2. problem4a.txt
 3. Demonstration when get stuck: (remove-pan-from-oven pan-0 oven-0), (put-pan-in-oven pan-0 oven-1)
+    - stopped at iteration 720
 4. problem4b.txt
 5. When get stuck (move-baked-good executing without learning), provide the demonstrations (remove-pan-from-oven pan-0 oven-0), (move-baked-good-in-container-to-different-container pan-0 plate-0 dessert-0)
     - May need to do this a couple of times.
@@ -11,7 +13,7 @@ Order of modes ran:
 8. problem4f.txt
     - Should pass 21/22 cases, only 2 souffles left
 9. problem4h.txt
-    - Don't know what happens here?
+10. problem4i.txt
 
 OLD: _____________________________________________________________________________________________________________
 Order of modes ran:

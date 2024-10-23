@@ -18,7 +18,7 @@ class BaseCuriosityModule:
     """Base class for a curiosity module.
     """
     def __init__(self, action_space, observation_space, planning_module,
-                 planning_operators, learned_operators, operator_learning_module, domain_name, llm_learned_operators):
+                 planning_operators, learned_operators, operator_learning_module, domain_name, llm_learned_operators, rand_state):
         self._action_space = action_space
         self._observation_space = observation_space
         self._planning_module = planning_module
@@ -26,6 +26,7 @@ class BaseCuriosityModule:
         self._learned_operators = learned_operators
         self._operator_learning_module = operator_learning_module
         self._domain_name = domain_name
+        self._rand_state = rand_state
 
         self._action_space.seed(ac.seed)
         self._observation_space.seed(ac.seed)

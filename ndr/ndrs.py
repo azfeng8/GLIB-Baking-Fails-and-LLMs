@@ -298,7 +298,7 @@ class NDRSet:
     def __init__(self, action, ndrs, default_ndr=None,
                  allow_redundant_variables=False):
         self.action = action
-        self.ndrs = list(ndrs)
+        self.ndrs = sorted(ndrs, key=lambda ndr: str(ndr))
         self._allow_redundant_variables = allow_redundant_variables
         if default_ndr is None:
             self.default_ndr = self._create_default_ndr(action,
