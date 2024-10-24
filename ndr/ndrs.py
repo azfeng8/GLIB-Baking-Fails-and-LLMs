@@ -1,6 +1,7 @@
 from pddlgym.structs import Predicate, ground_literal, LiteralConjunction, State
 from pddlgym.parser import Operator
 from pddlgym.inference import find_satisfying_assignments
+import logging
 import numpy as np
 
 ### Noisy deictic rules
@@ -290,7 +291,7 @@ class NDRSet:
     action : Literal
         The lifted action that all NDRs are about.
     ndrs : [ NDR ]
-        The NDRs. Order does not matter.
+        The NDRs. Order DOES matter. For example, see _create_new_rule_set() in learn.py. The new rule has to be index 0.
     default_ndr : NDR or None
         If None, one is created. Only should be not
         None when an existing NDR is getting copied.
@@ -298,7 +299,8 @@ class NDRSet:
     def __init__(self, action, ndrs, default_ndr=None,
                  allow_redundant_variables=False):
         self.action = action
-        self.ndrs = sorted(ndrs, key=lambda ndr: str(ndr))
+        assert isinstance(ndrs, list)
+        self.ndrs = ndrs
         self._allow_redundant_variables = allow_redundant_variables
         if default_ndr is None:
             self.default_ndr = self._create_default_ndr(action,
@@ -328,7 +330,7 @@ class NDRSet:
         """
         preconditions = []
         effect_probs = [0.5, 0.5]
-        effects = [{ NOISE_OUTCOME }, set()]
+        effects = [{ NOISE_OUTCOME }, []]
         return NDR(action, preconditions, effect_probs, effects,
             allow_redundant_variables=allow_redundant_variables)
 

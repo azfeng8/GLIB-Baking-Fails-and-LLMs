@@ -13,6 +13,7 @@ import time
 import abc
 import itertools
 import logging
+from pprint import pprint
 
 ALPHA = 0.5  # Weight on rule set size penalty
 P_MIN = 1e-8 # Probability for an individual noisy outcome
@@ -459,12 +460,11 @@ def get_all_possible_outcomes(rule, covered_transitions, ndr_settings=None):
                 all_possible_outcomes.add(tuple(sorted(lifted_effects)))
     return sorted(all_possible_outcomes)
 
-def induce_outcomes(rule, covered_transitions:list, max_node_expansions=100, ndr_settings=None):
+def induce_outcomes(rule, covered_transitions, max_node_expansions=100, ndr_settings=None):
     """Induce outcomes for a rule
 
     Modifies the rule in place.
     """
-    logging.info(f"Induce outcomes for rule {rule}")
     # Initialize effects with uniform distribution over all possible outcomes
     all_possible_outcomes = get_all_possible_outcomes(rule, covered_transitions,
         ndr_settings=ndr_settings)
@@ -484,7 +484,7 @@ def induce_outcomes(rule, covered_transitions:list, max_node_expansions=100, ndr
     rule.effects = best_effects
 
 ## Main search operators
-def create_default_rule_set(action, transitions_for_action: list, ndr_settings=None):
+def create_default_rule_set(action, transitions_for_action, ndr_settings=None):
     """Helper for create default rule set. One default rule for action.
     """
     allow_redundant_variables = ndr_settings.get('allow_redundant_variables', False)
