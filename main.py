@@ -136,7 +136,7 @@ class Runner:
                     uip = input("Cycle finished. Dumping intermediate state for Interactive? transitions pkl filename or n")
                 if uip != 'n':
                     logging.info("Dumping state...")
-                    dump_intermediate_state(self.agent, filename=uip.strip())
+                    dump_intermediate_state(self.agent, fname=uip.strip())
                 uip = input("Evaluate operators? y or anything")
                 if uip == 'y':
                     logging.info("Evaluating operators...")
@@ -228,7 +228,6 @@ class Runner:
             if action is None and precond_targeting_only:
                 episode_done = True
             elif action is None:
-                logging.info("******* Prompting for next task *******")
                 if self.agent.option == 0:
                     action = self.agent.next_action
                     next_obs, rew, episode_done, _  =  self.train_env.step(action)
@@ -308,7 +307,8 @@ class Runner:
                     episode_uip = input(f"Select the episode to do precond targeting. Give an index between 0 and {len(self.train_env.problems) -1}.")
                     while int(episode_uip) not in range(len(self.train_env.problems)):
                         episode_uip = input(f"Select the episode to do precond targeting. Give an index between 0 and {len(self.train_env.problems) - 1}.")
-                    cycle = [int(episode_uip)]
+                    self.train_env.fix_problem_index(int(episode_uip))
+                    obs, _ = self.train_env.reset()
                     precond_targeting_only = True
                     episode_done = False
                     self.agent.option = None
@@ -339,7 +339,7 @@ class Runner:
                             for lit in obs.literals:
                                 if lit.predicate.name not in ('different', 'name-less-than'):
                                     obs_literals.add(lit)
-                            state = State(frozenset(obs_literals), state.objects, state.goal)
+                            state = State(frozenset(obs_literals), obs.objects, obs.goal)
                             self.agent._prompt_demos_or_subgoals(state)
                 prev_action = action
 

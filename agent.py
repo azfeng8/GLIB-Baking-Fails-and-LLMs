@@ -10,6 +10,7 @@ from openai_interface import OpenAI_Model
 from settings import EnvConfig as ec
 from settings import AgentConfig as ac
 from ndr.learn import print_rule_set
+from ndr.ndrs import NOISE_OUTCOME
 import os
 import pickle
 import time
@@ -217,13 +218,16 @@ class InteractiveAgent(Agent):
         self.action_space = action_space
         self.obs_space = observation_space
 
+        self._plan_to_op_preconds_failed = False
 
         # Load the demos
         with open('bakingrealistic_demonstrations.pkl', 'rb') as f:
         # with open('transitions.pkl', 'rb') as f:
             transitions = pickle.load(f)
         self._operator_learning_module._transitions = transitions
-
+        # for action_pred in transitions:
+        #     self._operator_learning_module._fits_all_data[action_pred] = True
+ 
         for action_pred in transitions:
             self._operator_learning_module._fits_all_data[action_pred] = False
         
@@ -265,9 +269,10 @@ class InteractiveAgent(Agent):
         # with open('rand_state.pkl', 'rb') as f:
         #     self._rand_state.set_state(pickle.load(f))
 
-        # # Load NDRs
+        # # # Load NDRs
         # with open('ndrs.pkl', 'rb') as f:
         #     self._operator_learning_module._ndrs = pickle.load(f)
+
 
         # # Load ops
         # with open('ops.pkl', 'rb') as f:
@@ -436,19 +441,6 @@ class InteractiveAgent(Agent):
         """Returns None if no plan found, otherwise a list of action literals."""
         goal = LiteralConjunction(grounded_precond_lits)
 
-        # check if plan is empty (goal is already satisfied in current state.)
-        assignments = find_satisfying_assignments(state.literals, grounded_precond_lits, allow_redundant_variables=False)
-        goal_is_satisfied_in_current_state = False
-        for assignment in assignments:
-            if all(var._str.split(':')[0] == val._str.split(':')[0] for var, val in assignment.items()):
-                goal_is_satisfied_in_current_state = True
-                break
-
-        if goal_is_satisfied_in_current_state:
-            return []
-
-        # Use GLIB_G1 curiosity module to find a plan to the goal
-
         # Create a pddl problem file with the goal and current state
         problem_fname = self._curiosity_module._create_problem_pddl(
             state, goal, prefix='glibg1_preconds')
@@ -570,7 +562,7 @@ class InteractiveAgent(Agent):
 [8] Abandon this subgoals list, reset the episode, and try the new curriculum.
 
 *** Precondition Targeting ***
-[10] Target preconditions in a selected episode.
+[10] Reset episode and target preconditions in the selected episode.
 
 *** Utils ***
 [5] Dump the transitions and operators.
@@ -900,7 +892,11 @@ def get_hashable_preconds_action(preconds):
     # Sort preconditions by alphabetical order of its string representation.
     strings = []
     for pre in preconds:
-        strings.append(f'{pre.predicate.name}(' + ','.join(pre.pddl_variables()) + ')')
+        if pre.is_negative:
+            pred = f'NOT-{pre.predicate.name}'
+        else:
+            pred = pre.predicate.name
+        strings.append(f'({pred}' + ','.join(pre.pddl_variables()) + ')')
     s = ','.join(sorted(strings))
     return s
     
@@ -916,4 +912,5 @@ def dump_intermediate_state(agent:InteractiveAgent, fname='transitions.pkl'):
     with open("ndrs.pkl", 'wb') as f:
         pickle.dump(agent._operator_learning_module._ndrs, f)
     with open('rand_state.pkl', 'wb') as f:
-        pickle.dump(agent._rand_state, f)
+        rand_state = agent._rand_state.get_state()
+        pickle.dump(rand_state, f)

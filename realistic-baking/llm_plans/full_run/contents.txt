@@ -1,7 +1,42 @@
 
 Order of modes ran:
 1. Precondition targeting.
-    - stopped at iteration 686.
+    - stopped at iteration 93.
+2. problem4.txt 
+3. problem4.txt 
+4. problem4b.txt
+5. Detect use-stand-mixer twice in a row. Give demonstration: (pour-powdery-ingredient-from-measuring-cup flour-1 measuring-cup-1 bowl-0), (use-stand-mixer mixer-0 bowl-0 mixture-0)
+6. option 8: problem4c.txt
+7. Try precondition targeting from start of episode.
+8. problem4e.txt + demo use-stand-mixer(mixer-0 bowl-1 mixture-0)
+9. problem4i.txt
+11. problem4k.txt <- before this, once the precondition is just missing the (is-raw-yolk) predicate, try some other subgoals.
+12. problem4k.txt (gets stuck in some looping state, so reprompt)
+    problem4k.txt <- reprompts. passes 15/22 cases.
+13. Demo with option 2: (put-pan-in-oven pan-0 oven-0)
+14. problem4l.txt
+OLD:_____________________________________________________________________________________________________________
+
+Order of modes ran:
+1. Precondition targeting.
+    - stopped at iteration 146.
+2. problem4.txt 
+3. problem4.txt 
+4. problem4b.txt
+5. Detect use-stand-mixer twice in a row. Give demonstration: (pour-powdery-ingredient-from-measuring-cup flour-1 measuring-cup-1 bowl-0), (use-stand-mixer mixer-0 bowl-0 mixture-0)
+6. option 8: problem4c.txt
+7. Try precondition targeting from start of episode.
+8. problem4e.txt + demo use-stand-mixer(mixer-0 bowl-1 mixture-0)
+9. problem4i.txt
+11. problem4k.txt <- before this, once the precondition is just missing the (is-raw-yolk) predicate, try some other subgoals.
+12. problem4k.txt (gets stuck in some looping state, so reprompt)
+    problem4k.txt <- reprompts. passes 15/22 cases.
+13. Demo with option 2: (put-pan-in-oven pan-0 oven-0)
+14. problem4l.txt
+
+
+
+OLD:_____________________________________________________________________________________________________________
 2. problem4a.txt
 3. Demonstration when get stuck: (remove-pan-from-oven pan-0 oven-0), (put-pan-in-oven pan-0 oven-1)
     - stopped at iteration 720
