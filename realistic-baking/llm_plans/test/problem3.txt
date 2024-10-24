@@ -15,7 +15,7 @@
 (pour-powdery-ingredient-from-measuring-cup sugar-0 measuring-cup-3 bowl-1)
 (use-stand-mixer mixer-0 bowl-1 mixture-1)
 (beat-egg-whites mixer-0 bowl-0 egg-3)
-(fold-stiff-egg-whites-into-mixture spatula-0 bowl-0 bowl-1 egg-3)
+(fold-stiff-egg-whites-into-mixture spatula-0 bowl-0 bowl-1 egg-3 mixture-1)
 (preheat-oven-with-souffle-settings oven-1)
 (pour-mixture-only bowl-1 pan-1 mixture-1)
 (put-pan-in-oven pan-1 oven-1)

@@ -1,0 +1,5 @@
+(mixture-has-tablespoons-of-flour mixture-0)
+(is-souffle dessert-0), (dessert-in-container pan-0 dessert-0)
+(not (container-in-an-oven pan-0)) 
+(mixture-in-container bowl-0 mixture-1)
+(mixture-in-container pan-0 mixture-1)

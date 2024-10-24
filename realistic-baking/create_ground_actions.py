@@ -7,7 +7,7 @@ skills_strings = \
 """
 (beat-egg-whites ?arg0 - electric_stand_mixer ?arg1 - container ?arg2 - egg_hypothetical)
 (crack-egg-and-put-in-container ?arg0 - egg_hypothetical ?arg1 - container)
-(fold-stiff-egg-whites-into-mixture ?arg0 - spatula ?arg1 - container ?arg2 - container ?arg3 - egg_hypothetical)
+(fold-stiff-egg-whites-into-mixture ?arg0 - spatula ?arg1 - container ?arg2 - container ?arg3 - egg_hypothetical ?arg4 - mixture_hypothetical)
 (move-baked-good-in-container-to-different-container ?arg0 - container ?arg1 - container ?arg2 - dessert_hypothetical)
 (pour-mixture-only ?arg0 - container ?arg1 - container ?arg2 - mixture_hypothetical)
 (pour-powdery-ingredient-from-container ?arg0 - container ?arg1 - container ?arg2 - powder_ingredient_hypothetical)

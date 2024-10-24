@@ -1,0 +1,4 @@
+(mixture-has-tablespoons-of-flour mixture-0)
+(oven-is-heated-for-cake oven-0)
+(oven-is-heated-for-souffle oven-0)
+(oven-is-heated-for-cake oven-0)

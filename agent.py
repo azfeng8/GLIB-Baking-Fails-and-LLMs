@@ -221,15 +221,15 @@ class InteractiveAgent(Agent):
         self._plan_to_op_preconds_failed = False
 
         # Load the demos
-        with open('bakingrealistic_demonstrations.pkl', 'rb') as f:
-        # with open('transitions.pkl', 'rb') as f:
+        # with open('bakingrealistic_demonstrations.pkl', 'rb') as f:
+        with open('transitions.pkl', 'rb') as f:
             transitions = pickle.load(f)
         self._operator_learning_module._transitions = transitions
-        # for action_pred in transitions:
-        #     self._operator_learning_module._fits_all_data[action_pred] = True
- 
         for action_pred in transitions:
-            self._operator_learning_module._fits_all_data[action_pred] = False
+            self._operator_learning_module._fits_all_data[action_pred] = True
+ 
+        # for action_pred in transitions:
+        #     self._operator_learning_module._fits_all_data[action_pred] = False
         
         # Get the subgoals.
         # Keep track of the action seq to get to the last achieved subgoal.
@@ -261,25 +261,25 @@ class InteractiveAgent(Agent):
         # Keeps track of preconditions already planned to from states
         self._visited_preconds_states = {a: set() for a in action_space.predicates} # Map from action predciate to set
 
-        # # Load visited set
-        # with open("ops_visited.pkl", 'rb') as f:
-        #     self._ops_preconds_executed = pickle.load(f)
-        # with open('visited_preconds.pkl', 'rb') as f:
-        #     self._visited_preconds_states = pickle.load(f)
-        # with open('rand_state.pkl', 'rb') as f:
-        #     self._rand_state.set_state(pickle.load(f))
+        # Load visited set
+        with open("ops_visited.pkl", 'rb') as f:
+            self._ops_preconds_executed = pickle.load(f)
+        with open('visited_preconds.pkl', 'rb') as f:
+            self._visited_preconds_states = pickle.load(f)
+        with open('rand_state.pkl', 'rb') as f:
+            self._rand_state.set_state(pickle.load(f))
 
-        # # # Load NDRs
-        # with open('ndrs.pkl', 'rb') as f:
-        #     self._operator_learning_module._ndrs = pickle.load(f)
+        # # Load NDRs
+        with open('ndrs.pkl', 'rb') as f:
+            self._operator_learning_module._ndrs = pickle.load(f)
 
 
-        # # Load ops
-        # with open('ops.pkl', 'rb') as f:
-        #     ops = pickle.load(f)
-        # for op in ops:
-        #     self.learned_operators.add(op)
-        #     self.planning_operators.add(op)
+        # Load ops
+        with open('ops.pkl', 'rb') as f:
+            ops = pickle.load(f)
+        for op in ops:
+            self.learned_operators.add(op)
+            self.planning_operators.add(op)
 
 
     def reset_episode(self, state, subgoals_path):
@@ -381,7 +381,10 @@ class InteractiveAgent(Agent):
                 grounded_precond_no_act = [p for p in grounded_precond if p.predicate.name not in action_predicates]
                 plan = self._get_plan_to_preconds(grounded_precond_no_act, state)
                 self._visited_preconds_states[ground_act.predicate].add((preconds_hash, state))
-                if plan is not None:
+                if plan == 'skip':
+                    self._ops_preconds_executed.add(op.name)
+                    break
+                elif plan is not None:
                     self._preconds_plan = plan + [ground_act]
                     logging.info(f"Found plan to preconds: {preconds_hash}")
                     logging.info(f"PLAN: {self._preconds_plan}")
@@ -456,6 +459,9 @@ class InteractiveAgent(Agent):
             logging.info(f"No plan found.")
         except PlannerTimeoutException:
             logging.info(f"PLANNER TIMED OUT")
+            if input("skip this preconditions? y or anything").strip() == 'y':
+                os.remove(problem_fname)
+                return 'skip'
 
         os.remove(problem_fname)
 

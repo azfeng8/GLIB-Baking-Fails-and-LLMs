@@ -1,0 +1,3 @@
+(container-in-oven pan-0 oven-0)
+(container-in-oven pan-1 oven-0)
+(is-oven oven-0), (not (container-in-an-oven pan-1)), (not (container-in-an-oven pan-0))

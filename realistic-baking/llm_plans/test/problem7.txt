@@ -6,4 +6,4 @@
 (pour-powdery-ingredient-from-measuring-cup sugar-0 measuring-cup-3 bowl-0)
 (use-stand-mixer mixer-0 bowl-0 mixture-1)
 (beat-egg-whites mixer-0 bowl-1 egg-1)
-(fold-stiff-egg-whites-into-mixture spatula-0 bowl-1 bowl-0 egg-1)
+(fold-stiff-egg-whites-into-mixture spatula-0 bowl-1 bowl-0 egg-1 mixture-1)

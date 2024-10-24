@@ -1,3 +1,20 @@
+Order of modes ran:
+1. Precondition targeting.
+    - stopped at iteration 535.
+
+2. problem4l.txt
+3. problem4n.txt
+4. problem4o.txt
+5. problem4p.txt
+6. problem4q.txt
+7. problem4r.txt <- (can do without probably)
+8. problem4s.txt, provide demo (preheat-oven-with-cake-settings oven-0) when stuck at 2nd goal.
+9. problem4t.txt
+9. problem4u.txt <- saved after here.
+11. problem4v.txt
+
+
+OLD:_____________________________________________________________________________________________________________
 
 Order of modes ran:
 1. Precondition targeting.

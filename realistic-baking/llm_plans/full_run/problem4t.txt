@@ -1,0 +1,1 @@
+(is-souffle dessert-0), (not (pan-is-damaged pan-0)), (dessert-in-container plate-0 dessert-0), (is-cake dessert-1), (dessert-in-container plate-1 dessert-1), (not (pan-is-damaged pan-1))
