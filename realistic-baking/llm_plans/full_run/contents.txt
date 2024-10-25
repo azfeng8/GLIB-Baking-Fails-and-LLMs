@@ -1,3 +1,56 @@
+Reproducing by hand..._____________________________________________________________________________________________________________
+
+Start at around 6:30 PM, Oct 24, 2024.
+
+1. Precondtion targeting in episode 3.
+- Iteration 437, prompted to dump state / prompt. Declined.
+- Cycle finished at iteration 535.
+2. Episode 3, problem4l.txt
+- Iteration 544, prompted to dump state / prompt. Declined. Iteration 545: curriculum completed. Enter next curriculum.
+3. problem4n.txt
+- Stopped at iteration 551. Curriculum completed.
+4. problem4o.txt
+- Stopped at iteration 568. Curriculum completed.
+5. problem4p.txt
+- Stopped at iteration 588, prompted to dump state / prompt. Declined.
+- Stopped at iteration 589, prompted to dump state / prompt. Declined.
+- Stopped at iteration 618. Curriculum completed.
+6. problem4r.txt
+- Note, nothing was learned. Curriculum completed at iteration 629.
+7. problem4s.txt
+- Curriculum completed at iteration 644.
+8. problem4o.txt
+- Stopped at iteration 661. Completed curriculum.
+- Give demonstrations (remove-pan-from-oven pan-0 oven-0), (move-baked-good-in-container-to-different-container pan-0 plate-0 dessert-0)
+9. problem4t.txt
+- Stopped at iteration 694. Completed curriculum.
+- Evaluated: pass 19/22 test cases (barring the top three hardest).
+10. problem4t.txt
+- stopped at iteration 735. Completed curriculum.
+11. problem4t.txt
+- stopped at iteration 759: accepted to prompt again:
+12. problem4t.txt
+- prompted at iter 793: declined.
+- Completed curriculum at iter 795.
+13. problem4t.txt
+- No operators changed in this cycle.
+- Eval: 21/22 pass. Can't bake 2 souffles.
+- Stopped at iteration 824.
+14. problem4w.txt
+- Stopped at iteration 871. Curriculum incomplete: no plan found.
+- Eval: 19/22 pass. Can't bake 2 souffles, mix souffle mixture, or bake souffle.
+15. problem4u.txt
+- Stopped at 887.
+16. problem4f.txt
+- Stopped at iter 907. Declined to remprompt.
+- Stuck at completing next subgoal: curriculum incomplete. New curriculum:
+17.problem4h.txt
+- Stopped at iteration 922. Accepted to reprompt.
+- Evaluated: got 100%, done.
+
+Finished at 8:49PM, Oct 24, 2024.
+_____________________________________________________________________________________________________________
+
 Order of modes ran:
 1. Precondition targeting.
     - stopped at iteration 535.

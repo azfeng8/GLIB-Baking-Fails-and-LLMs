@@ -109,7 +109,7 @@ class Runner:
 
         # Learn the ops from demos
         if isinstance(self.agent, InteractiveAgent):
-            # self.agent.learn(0)
+            self.agent.learn(0)
             logging.info("Learned operators:")
             for op in sorted(self.agent.learned_operators, key=lambda x: x.name):
                 logging.info(op.pddl_str())
