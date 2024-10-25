@@ -108,7 +108,7 @@ class Runner:
         transitions = []
 
         # Learn the ops from demos
-        if isinstance(self.agent, InteractiveAgent) or isinstance(self.agent, DemonstrationsAgent):
+        if isinstance(self.agent, InteractiveAgent):
             self.agent.learn(0)
             logging.info("Learned operators:")
             for op in sorted(self.agent.learned_operators, key=lambda x: x.name):
@@ -210,6 +210,11 @@ class Runner:
                 obs, _ = self.train_env.reset()
                 logging.info(f"***********************************New episode! Problem {problem_idx}:{obs.goal}***********************************")
                 self.agent.reset_episode(obs, '' if self.AUTO_EVAL or precond_targeting_only else subgoals_paths[problem_idx])
+                if itr == 0 and isinstance(self.agent, DemonstrationsAgent):
+                    self.agent.learn(0)
+                    logging.info("Learned operators:")
+                    for op in sorted(self.agent.learned_operators, key=lambda x: x.name):
+                        logging.info(op.pddl_str())
 
             if (not self.AUTO_EVAL) and self.agent.finished_preconds_plan:
                 # Reset to previous subgoal

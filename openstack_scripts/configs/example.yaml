@@ -3,19 +3,19 @@
 # This specifies the curiosity method argument.
 EXPERIMENT_SETS:
   - APPROACHES:
-      # glib_l2LNDR:
-      #   NAME: "GLIB_L2"
-      #   FLAGS:
-      #     learning_name: LNDR
-      glib_g1LNDR:
-        NAME: "GLIB_G1"
+      glib_l2LNDRdemos:
+        NAME: "GLIB_L2"
         FLAGS:
           learning_name: LNDR
+      # glib_g1LNDRdemos:
+      #   NAME: "GLIB_G1"
+      #   FLAGS:
+          # learning_name: LNDR
 # Environments to run on.
     ENVS:
       bakingrealistic:
         NAME: "Bakingrealistic"
     ARGS: []
-    FLAGS: {}
+    FLAGS: {"use_demonstrations": "store_true"}
     START_SEED: 1
-    NUM_SEEDS: 1
+    NUM_SEEDS: 10

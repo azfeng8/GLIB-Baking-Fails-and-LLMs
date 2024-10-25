@@ -51,13 +51,15 @@ def config_to_logfile(cfg: RunConfig, suffix: str = ".log") -> str:
 def config_to_cmd_flags(cfg: RunConfig) -> str:
     """Create a string of command flags from a run config."""
     arg_str = " ".join(f"--{a}" for a in cfg.args)
-    flag_str = " ".join(f"--{f} {v}" for f, v in cfg.flags.items())
+    flag_str = " ".join(f"--{f} {v}" for f, v in cfg.flags.items() if v != "store_true")
+    no_arg_flags = [f'--{f}' for f,v in cfg.flags.items() if v == 'store_true']
     args_and_flags_str = (f"--domains {cfg.env} "
                           f"--curiosity_methods {cfg.approach} "
                           f"{arg_str} "
                           f"{flag_str} "
                           f"--start_seed {cfg.seed} "
                           f"--num_seeds 1 "
+                          + " ".join(no_arg_flags)
                          )
     return args_and_flags_str
 
