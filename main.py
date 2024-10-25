@@ -4,7 +4,7 @@ from flags import parse_flags
 
 import matplotlib
 matplotlib.use("Agg")
-from agent import Agent, InteractiveAgent, DemonstrationsAgent, dump_intermediate_state
+from agent import Agent, InteractiveAgent, DemonstrationsAgent, CreateDemonstrationsAgent, dump_intermediate_state
 from planning_modules.base_planner import PlannerTimeoutException, \
     NoPlanFoundException
 from plotting import plot_results
@@ -48,9 +48,9 @@ class Runner:
         self.curiosity_name = curiosity_name
         self.num_train_iters = ac.num_train_iters[domain_name]
 
-        if isinstance(agent, InteractiveAgent) or isinstance(agent, DemonstrationsAgent):
+        if isinstance(agent, InteractiveAgent) or isinstance(agent, CreateDemonstrationsAgent):
             self.AUTO_EVAL = False
-        elif isinstance(agent, Agent):
+        elif isinstance(agent, Agent) or isinstance(agent, DemonstrationsAgent):
             self.AUTO_EVAL = True
         else:
             raise Exception("Not supported agent type")
@@ -108,7 +108,7 @@ class Runner:
         transitions = []
 
         # Learn the ops from demos
-        if isinstance(self.agent, InteractiveAgent):
+        if isinstance(self.agent, InteractiveAgent) or isinstance(self.agent, DemonstrationsAgent):
             self.agent.learn(0)
             logging.info("Learned operators:")
             for op in sorted(self.agent.learned_operators, key=lambda x: x.name):
@@ -124,7 +124,7 @@ class Runner:
 
             # ask user to input which episodes to do in the next cycle
             if not self.AUTO_EVAL and len(cycle) == 0 and episode_done:
-                if isinstance(self.agent, DemonstrationsAgent):
+                if isinstance(self.agent, CreateDemonstrationsAgent):
                     if input("Cycle finished. Dump transitions and exit? y or anything ") == 'y':
                         with open('bakingrealistic_demonstrations.pkl', 'wb') as f:
                             pickle.dump(self.agent._operator_learning_module._transitions, f)
@@ -219,9 +219,9 @@ class Runner:
                 for action in self.agent.action_seq:
                     obs, rew, episode_done, _ = self.train_env.step(action)
 
-            logging.info("Getting action...")
             if not LOOPING:
-                action = self.agent.get_action(obs, problem_idx, precond_targeting_only)
+                logging.info("Getting action...")
+                action = self.agent.get_action(obs, problem_idx, precond_targeting_only if not self.AUTO_EVAL else False)
             else:
                 action = None
 
@@ -448,10 +448,16 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_
     # learner, which uses the environment to access the predicates and
     # action names.
     ac.train_env = train_env
-    agent = InteractiveAgent(domain_name, train_env.action_space,
-                train_env.observation_space, curiosity_name, learning_name, log_llm_path=log_llmi_path,
-                planning_module_name=ac.planner_name[domain_name])
-        
+    if gc.use_demos:
+        agent = DemonstrationsAgent(domain_name, train_env.action_space,
+                    train_env.observation_space, curiosity_name, learning_name, log_llm_path=log_llmi_path,
+                    planning_module_name=ac.planner_name[domain_name])
+    else:
+        agent = Agent(domain_name, train_env.action_space,
+                    train_env.observation_space, curiosity_name, learning_name, log_llm_path=log_llmi_path,
+                    planning_module_name=ac.planner_name[domain_name])
+
+            
     test_env = gym.make("PDDLEnv{}Test-v0".format(domain_name))
     results, curiosity_avg_time  = Runner(agent, train_env, test_env, domain_name, curiosity_name).run()
     with open("results/timings/{}_{}_{}_{}.txt".format(domain_name, curiosity_name, learning_name, seed), "w") as f:

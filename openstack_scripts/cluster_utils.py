@@ -124,6 +124,12 @@ def get_cmds_to_prep_repo(branch: str) -> List[str]:
     before launching the experiments."""
     old_dir_pattern = " ".join(f"{d}/" for d in SAVE_DIRS)
     return [
+        "cd /home/ubuntu/pddlgym",
+        "git stash",
+        "git fetch --all",
+        "git checkout baking-realistic",
+        "git pull",
+        "cd /home/ubuntu/GLIB-Baking-Fails-and-LLMs",
         "git stash",
         "git fetch --all",
         f"git checkout {branch}",

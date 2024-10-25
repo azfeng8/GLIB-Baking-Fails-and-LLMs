@@ -18,4 +18,4 @@ EXPERIMENT_SETS:
     ARGS: []
     FLAGS: {}
     START_SEED: 1
-    NUM_SEEDS: 10
+    NUM_SEEDS: 1

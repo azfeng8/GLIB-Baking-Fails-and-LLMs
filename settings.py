@@ -184,7 +184,7 @@ class AgentConfig:
         "Baking": 1799,
         "Travel": 1501,
         "Minecraft": 1799,
-        "Bakingrealistic": 3000
+        "Bakingrealistic": 2000
     }
 
     ## Constants for curiosity modules. ##
@@ -330,8 +330,8 @@ class LLMConfig:
 class PlottingConfig:
     """Plotting from cached results.
     """
-    seeds = [1]
-    learner_explorer = [("LNDR", "GLIB_G1")]
+    seeds = range(1,10)
+    agent_learner_explorer = [("demoagent", "LNDR", "GLIB_G1")]#, ("LNDR", "GLIB_L2")]
 
     # num_experiment_sets = 10 
 

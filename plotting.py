@@ -123,7 +123,7 @@ def evaluate(results_dict, seed, include_demos=True):
 
     if include_demos:
         # add the demonstrations results before this results 
-        demo_results_path = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results/Bakingrealistic/LNDR/GLIB_G1/Bakingrealistic_LNDR_GLIB_G1_demoagent_1.pkl'
+        demo_results_path = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results/Bakingrealistic/LNDR/GLIB_G1/Bakingrealistic_LNDR_GLIB_G1_demos_1.pkl'
         with open(demo_results_path, 'rb') as f:
             demo_results = pickle.load(f)
         demo_transitions = demo_results['transitions']
@@ -144,6 +144,7 @@ def evaluate(results_dict, seed, include_demos=True):
         dataset.setdefault(t[1].predicate, [])
         dataset[t[1].predicate].append(t)
         if i in iterations_to_eval:
+            print(f"Evaluating iteration {i}: {iterations_to_eval.index(i) + 1} out of {len(iterations_to_eval)} evals")
             successes = learn_and_test(dataset, seed)
             success_lists.append((i, successes))
 
@@ -174,9 +175,9 @@ def evaluate(results_dict, seed, include_demos=True):
 #     21: "put-butter-in-container-from-measuring-cup",
 # }
 
-LEN_1_PLANS = set([21, 20, 19, 18, 17, 16])
+LEN_1_PLANS = set([21, 20, 19, 18, 17, 16, 7])
 DESSERT_TASKS = set([0,1,2,3,4,5])
-MIXING_AND_HARDER_TASKS = set([0,1,2,3,4,5,6,7,8,9])
+MIXING_AND_HARDER_TASKS = set([0,1,2,3,4,5,6,8,9])
 
 def get_plots_for_bakinglarge(results_dict, results_filepaths_dict):
     """Generates 4 plots:
@@ -546,15 +547,17 @@ def old_plotting():
                     plot_results(f"{domain_name}{seed}", learning_name, all_results, outdir=dist_out, dist=True, llm_queries=llm_queries)
 
 if __name__ == '__main__':
+    # base_path = 'results_openstack/results/Bakingrealistic'
     base_path = 'results/Bakingrealistic'
     all_results = {}
     all_results_filepaths = {}
-    for learning_name, curiosity_name in pc.learner_explorer:
+    for agent, learning_name, curiosity_name in pc.agent_learner_explorer:
         results_list = []
         for seed in pc.seeds:
-            results_path = os.path.join(base_path, learning_name, curiosity_name, f'Bakingrealistic_{learning_name}_{curiosity_name}_agent_{seed}.pkl')
+            results_path = os.path.join(base_path, learning_name, curiosity_name, f'Bakingrealistic_{learning_name}_{curiosity_name}_{agent}_{seed}.pkl')
 
             if os.path.exists(results_path):
+                print(results_path)
                 with open(results_path, 'rb') as f:
                     results = pickle.load(f)
                     results_list.append(results)
@@ -566,9 +569,9 @@ if __name__ == '__main__':
 
     results_list = []
 
-    new_method_curve_name = f"Method: Demonstrations + Curriculum + Learned Precondition as Goals"
+    new_method_curve_name = f"Method"
     for seed in pc.seeds:
-        results_path = os.path.join(base_path, 'LNDR', 'GLIB_G1', f'Bakingrealistic_LNDR_GLIB_G1_interactive_{seed}.pkl')
+        results_path = os.path.join('results/Bakingrealistic', 'LNDR', 'GLIB_G1', f'Bakingrealistic_LNDR_GLIB_G1_interactive_{seed}.pkl')
 
         if os.path.exists(results_path):
             with open(results_path, 'rb') as f:

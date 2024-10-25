@@ -85,7 +85,7 @@ class Agent:
         # self._operator_learning_module._transitions = transitions       
 
     ## Training time methods
-    def get_action(self, state, _problem_idx):
+    def get_action(self, state, _problem_idx, _precond_targeting_only):
         """Get an exploratory action to collect more training data.
            Not used for testing. Planner is used for testing."""
         if self.domain_name.lower() == 'bakingrealistic':
@@ -798,6 +798,24 @@ class InteractiveAgent(Agent):
         return some_learned_operator_changed, some_learned_operator_changed
     
 class DemonstrationsAgent(Agent):
+     def __init__(self, domain_name, action_space, observation_space,
+                 curiosity_module_name, operator_learning_name,
+                 planning_module_name, log_llm_path:Optional[str]):
+        super().__init__(domain_name, action_space, observation_space,
+                 curiosity_module_name, operator_learning_name,
+                 planning_module_name, log_llm_path)
+        self.name = 'demoagent'   
+
+        # Load the demos
+        with open('bakingrealistic_demonstrations.pkl', 'rb') as f:
+            transitions = pickle.load(f)
+        self._operator_learning_module._transitions = transitions
+ 
+        for action_pred in transitions:
+            self._operator_learning_module._fits_all_data[action_pred] = False
+ 
+    
+class CreateDemonstrationsAgent(Agent):
     """An agent with initial demonstration data to each of the 4 train tasks."""
     def __init__(self, domain_name, action_space, observation_space,
                  curiosity_module_name, operator_learning_name,
@@ -806,7 +824,7 @@ class DemonstrationsAgent(Agent):
                  curiosity_module_name, operator_learning_name,
                  planning_module_name, log_llm_path)
         
-        self.name = 'demoagent'
+        self.name = 'demos'
         # dict: problem index -> step in the plan to execute next
         self.problem_to_plan_step = {i: 0 for i in range(len(ac.train_env.problems))}
 
