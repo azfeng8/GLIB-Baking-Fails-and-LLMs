@@ -18,6 +18,7 @@ from planning_modules.base_planner import Planner, PlannerTimeoutException, \
     NoPlanFoundException
 from agent import Agent
 
+DEMO_RESULTS_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results/Bakingrealistic/LNDR/GLIB_G1/Bakingrealistic_LNDR_GLIB_G1_demos_1.pkl'
 
 def learn_and_test(dataset, seed):
     """evaluates the dataset on Bakingrealistic and returns the successes list."""
@@ -123,15 +124,14 @@ def evaluate(results_dict, seed, include_demos=True):
 
     if include_demos:
         # add the demonstrations results before this results 
-        demo_results_path = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results/Bakingrealistic/LNDR/GLIB_G1/Bakingrealistic_LNDR_GLIB_G1_demos_1.pkl'
-        with open(demo_results_path, 'rb') as f:
+        with open(DEMO_RESULTS_PATH, 'rb') as f:
             demo_results = pickle.load(f)
         demo_transitions = demo_results['transitions']
-        demo_ops_changed_iters = demo_results['ops_changed_iterations']
+        demo_successes = demo_results["successes"]
 
         # append the demo transitions and operators changed iterations to the beginning of those transitions to eval
         iterations_to_eval = np.array(iterations_to_eval) + len(demo_transitions)
-        iterations_to_eval = demo_ops_changed_iters + [i for i in iterations_to_eval]
+        success_lists.extend(demo_successes)
         transitions = demo_transitions + transitions
 
     # Always evaluate the last one
@@ -175,11 +175,11 @@ def evaluate(results_dict, seed, include_demos=True):
 #     21: "put-butter-in-container-from-measuring-cup",
 # }
 
-LEN_1_PLANS = set([21, 20, 19, 18, 17, 16, 7])
+LEN_1_PLANS = set([21, 20, 19, 18, 17, 15, 14, 13, 12, 7])
 DESSERT_TASKS = set([0,1,2,3,4,5])
 MIXING_AND_HARDER_TASKS = set([0,1,2,3,4,5,6,8,9])
 
-def get_plots_for_bakinglarge(results_dict, results_filepaths_dict):
+def get_plots_for_bakinglarge(results_dict, results_filepaths_dict, append_demos_dict):
     """Generates 4 plots:
 
     1. Success rate on all tasks
@@ -192,12 +192,15 @@ def get_plots_for_bakinglarge(results_dict, results_filepaths_dict):
     Args:
         results_dict: Dict from name of plot line to list of results dicts to plot. All dicts in the list are averaged.
         results_filepaths_dict: Dict from name of plot line to list of results PKL paths, in the same order as in results_dict.
+        append_demos_dict: Dict from name of plot line to a boolean if that plot line should have demos appended.
     """
     succ_rate_all_tasks = {}
     succ_rate_length1_plans = {}
     succ_rate_mixing_and_harder_tasks = {}
     succ_rate_baking_desserts = {}
 
+    with open(DEMO_RESULTS_PATH, 'rb') as f:
+        demo_results = pickle.load(f)
     for curve_name, results_list in results_dict.items():
         for i,results in enumerate(results_list):
             if results['mode'] == 'needs_eval':
@@ -210,6 +213,10 @@ def get_plots_for_bakinglarge(results_dict, results_filepaths_dict):
                 print("Dumping success lists from evaluated transitions...")
                 with open(filepath, 'wb') as f:
                     pickle.dump(results, f)
+            if append_demos_dict[curve_name]:
+                successes = demo_results["successes"] + results['successes']
+                results["successes"] = successes
+                
 
     min_seeds = np.inf 
     max_seeds = 0
@@ -314,7 +321,7 @@ def plot_succ(title, succ_rate_dict, out_path):
     colors = [next(ax._get_lines.prop_cycler)['color'] for _ in range(number_of_colors)]
     color_idx = 0
     for curve_name, succ_rates in sorted([(curve_name, succ_list) for curve_name, succ_list in succ_rate_dict.items()], key=lambda x: x[0]):
-        plt.plot(np.arange(len(succ_rates)), succ_rates, label=curve_name, color=colors[color_idx])
+        plt.plot(np.arange(len(succ_rates)), succ_rates, label=curve_name, color=colors[color_idx], alpha=0.5)
         color_idx += 1
     
     plt.xlabel("Iterations")
@@ -396,7 +403,7 @@ def plot_results(domain_name, learning_name, all_results, outdir="results",
     print("Wrote out to {}".format(outfile))
 
 from settings import PlottingConfig as pc
-def main(results_path):
+def _old_main(results_path):
     """Plot the results in results/, specified by settings."""
     figures = []
     for domain, methods, seeds in zip(pc.domains, pc.methods, pc.seeds):
@@ -546,30 +553,40 @@ def old_plotting():
                     plot_results(f"{domain_name}{seed}", learning_name, all_results, outdir=succ_out, dist=False, llm_queries=llm_queries)
                     plot_results(f"{domain_name}{seed}", learning_name, all_results, outdir=dist_out, dist=True, llm_queries=llm_queries)
 
-if __name__ == '__main__':
+def _main():
+    # Load the demoagent and agent results
     # base_path = 'results_openstack/results/Bakingrealistic'
     base_path = 'results/Bakingrealistic'
     all_results = {}
     all_results_filepaths = {}
+    append_demos = {}
     for agent, learning_name, curiosity_name in pc.agent_learner_explorer:
+        if agent == 'demoagent':
+            curve_name = f"{curiosity_name}-{agent}"
+            append_demos[curve_name] = True
+        else:
+            curve_name = f'{curiosity_name}' 
+            append_demos[curve_name] = False
         results_list = []
         for seed in pc.seeds:
             results_path = os.path.join(base_path, learning_name, curiosity_name, f'Bakingrealistic_{learning_name}_{curiosity_name}_{agent}_{seed}.pkl')
 
             if os.path.exists(results_path):
-                print(results_path)
+                print("Loading from ", results_path)
                 with open(results_path, 'rb') as f:
                     results = pickle.load(f)
                     results_list.append(results)
 
-                all_results_filepaths.setdefault(f"{curiosity_name}", [])
-                all_results_filepaths[f"{curiosity_name}"].append(results_path)
+                all_results_filepaths.setdefault(curve_name, [])
+                all_results_filepaths[curve_name].append(results_path)
 
-        all_results[f"{curiosity_name}"]  = results_list
+        all_results[curve_name]  = results_list
 
     results_list = []
 
+    # Load the new method results
     new_method_curve_name = f"Method"
+    append_demos[new_method_curve_name] = False
     for seed in pc.seeds:
         results_path = os.path.join('results/Bakingrealistic', 'LNDR', 'GLIB_G1', f'Bakingrealistic_LNDR_GLIB_G1_interactive_{seed}.pkl')
 
@@ -582,9 +599,11 @@ if __name__ == '__main__':
         else:
             print(f"Warning: No results found in path {results_path}..")
 
-
+    all_results
     all_results[new_method_curve_name] = results_list
 
-    get_plots_for_bakinglarge(all_results, all_results_filepaths)
+    get_plots_for_bakinglarge(all_results, all_results_filepaths, append_demos)
 
     
+if __name__ == '__main__':
+    _main()

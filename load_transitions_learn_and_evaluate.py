@@ -155,7 +155,7 @@ def _compute_effects(state, next_state):
         
 num_successes = 0
 for i in range(len(test_env.problems)):
-    if i != 0: continue
+    if i != 2: continue
     test_env.fix_problem_index(i)
     obs, debug_info = test_env.reset()
 

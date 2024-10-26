@@ -1,4 +1,98 @@
-TODO: a more streamlined run.
+TODO: write down, reproduce, and study the cases where I run into difficulty using this method to get to 100%. _____________________________________________________________________________________________________________
+
+Start at 6:55PM, Oct 25, 2024.
+
+1. Precondtion targeting in episode 3.
+- Iteration 437, prompted to dump state / prompt. Declined.
+- Cycle finished at iteration 535.
+
+2. problem4l.txt
+- Iteration 544, prompted to dump state / prompt. Declined. Iteration 545: curriculum completed. Enter next curriculum.
+
+3. problem4n.txt
+- Stopped at iteration 551. Curriculum completed.
+
+4. problem4o.txt
+- Stopped at iteration 568. Curriculum completed.
+
+5. problem4p.txt
+- Stopped at iteration 588, prompted to dump state / prompt. Declined.
+- Stopped at iteration 589, prompted to dump state / prompt. Declined.
+- Stopped at iteration 618. Curriculum completed.
+
+6. problem4s.txt
+- Stopped at iteration 633. Curriculum completed.
+
+7. problem4o.txt
+- Curriculum complete. Stopped at iter 648.
+- Give demonstrations (remove-pan-from-oven pan-0 oven-0), (move-baked-good-in-container-to-different-container pan-0 plate-0 dessert-0)
+- Stopped at iter 650.
+
+8. problem4t.txt
+- Stopped at iteration 681.
+- Eval: 19/22. Missing first 3.
+
+9. problem4t.txt
+- Stopped at 722.
+
+10. problem4t.txt
+    Stopped at iteration 746. Accepted to prompt again.
+
+11. problem4t.txt
+- Stopped at 782.
+
+12. problem4t.txt
+- No learning was done in this cycle. Can probably leave this one out.
+- Stopped at iteration 811.
+
+13. problem4w.txt
+- Stopped at iteration 890.
+
+14. problem4u.txt
+- Stopped at iteration 912.
+- No operators changed can probably leave out.
+- Eval: 21/22, missing cake + souffle.
+- Saved state here.
+
+FAILED. _____________________________________________________________________________________________________________
+Started at 5:33PM, Oct 25, 2024.
+on commit a7efeb7ac8df106ebff56c1e8fca0fd267a8d777
+
+1. Precondition targeting in episode 3.
+- Stopped at iteration 406.
+-Eval: gets use-stand-mixer for souffle.
+
+2. Give demo problem4x.txt -> (use-stand-mixer mixer-0 bowl-1 mixture-0)
+
+3. Give demo problem4x.txt -> (use-stand-mixer mixer-0 bowl-1 mixture-0)
+
+Ran into a nasty bug in the operator learner. This is instigated by the cake mix operator and NDR not being learned, which
+activates some bug.
+
+
+
+FAILED. _____________________________________________________________________________________________________________
+Updated demonstrations with the move-baked-good placed souffle on plate.
+
+Started 4:40PM, Oct 25, 2024.
+
+1. Precondition targeting in episode 3.
+- Stopped at iteration 406.
+
+2. problem4l.txt
+- Curriculum completed. Stopped at iteration 415.
+
+3. problem4n.txt
+- Curriculum completed. Stopped at iteration 422.
+
+4. problem4o.txt
+- Stopped at iteration 439. Curriculum completed.
+
+5. problem4p.txt
+- Stopped at iteration 537. Curriculum completed.
+
+6.problem4x.txt 
+- Give demonstration
 
 Reproducing by hand..._____________________________________________________________________________________________________________
 
