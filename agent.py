@@ -4,7 +4,6 @@ from curiosity_modules import create_curiosity_module
 from operator_learning_modules import create_operator_learning_module
 from planning_modules import create_planning_module
 from pddlgym.structs import Anti, State, Not, LiteralConjunction, ground_literal
-from pddlgym.inference import find_satisfying_assignments
 from settings import LLMConfig as lc
 from openai_interface import OpenAI_Model
 from settings import EnvConfig as ec
@@ -731,20 +730,15 @@ class InteractiveAgent(Agent):
             if any(lit in next_state.literals for lit in negative_lits_that_are_negated):
                 # There is no assignment that holds, since a negated lit in the subgoal is positive in the state.
                 return
-            assignments = find_satisfying_assignments(next_state.literals, positive_lits, allow_redundant_variables=False)
-            logging.info(assignments)
-            if len(assignments) > 0:
-                for assignment in assignments:
-                    # Check that all object names in the state literals match the object names in the goal
-                    if all(var._str.split(':')[0] == val._str.split(':')[0] for var, val in assignment.items()):
-                        self.precondition_targeting = True
-                        logging.info(f"ACHIEVED SUBGOAL {self.subgoals[self.next_subgoal_idx]}")
-                        self.next_subgoal_idx += 1
-                        self.action_seq.extend(self.actions_since_last_subgoal)
-                        self.actions_since_last_subgoal = []
-                        self._plan_to_next_subgoal = None
-                        self._last_plan_to_next_subgoal = None
-                        break
+            if all(l in next_state.literals for l in positive_lits):
+                # Check that all object names in the state literals match the object names in the goal
+                self.precondition_targeting = True
+                logging.info(f"ACHIEVED SUBGOAL {self.subgoals[self.next_subgoal_idx]}")
+                self.next_subgoal_idx += 1
+                self.action_seq.extend(self.actions_since_last_subgoal)
+                self.actions_since_last_subgoal = []
+                self._plan_to_next_subgoal = None
+                self._last_plan_to_next_subgoal = None
 
         
     def _parse_action_from_string(self, action_string, objects_frozenset):

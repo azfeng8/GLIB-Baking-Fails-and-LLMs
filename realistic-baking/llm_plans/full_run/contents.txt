@@ -1,5 +1,26 @@
 TODO: write down, reproduce, and study the cases where I run into difficulty using this method to get to 100%. 
 
+Reproduce operator learner bug.
+Seed 1.
+1. Precondition targeting in episode 3.
+- Stopped at iteration 406.
+
+2. curriculum problem4x.txt
+- stopped at iter 412.
+- Give demo (use-stand-mixer mixer-0 bowl-1 mixture-0) <- here
+- found bug that the subgoal is not achieved.
+
+3. problem4x.txt 
+- stopped at iter 425
+- Give demo (use-stand-mixer mixer-0 bowl-1 mixture-0)
+
+
+Ran into a nasty bug in the operator learner. This is instigated by the cake mix operator and NDR not being learned, which
+activates some bug.
+
+
+_____________________________________________________________________________________________________________
+
 Started around 5PM, Oct 27 2024.
 
 1. Precondtion targeting in episode 3.
