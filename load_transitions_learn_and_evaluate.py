@@ -10,21 +10,23 @@ import pddlgym
 import gym
 
 
-# with open('transitions_solved_all.pkl', 'rb') as f:
-#     transitions = pickle.load(f)
+with open('/home/catalan/GLIB-Baking-Fails-and-LLMs/saved_states/stuck-in-local-minima/transitions.pkl', 'rb') as f:
+    transitions = pickle.load(f)
 
 with open('ops.pkl', 'rb') as f:
-#     # pickle.dump(ops, f)
+# #     # pickle.dump(ops, f)
     ops = pickle.load(f)
 
+
+
 # learn NDRs
-max_ee_transitions = ac.max_zpk_explain_examples_transitions['Bakingrealistic']
+# max_ee_transitions = ac.max_zpk_explain_examples_transitions['Bakingrealistic']
 
-def get_batch_probs():
-    assert False, 'assumed off'
+# def get_batch_probs():
+#     assert False, 'assumed off'
 
-init_rule_sets = None
-_rand_state = np.random.RandomState(seed=1)
+# init_rule_sets = None
+# _rand_state = np.random.RandomState(seed=1)
 
 
 # rule_set = {}
@@ -41,14 +43,9 @@ _rand_state = np.random.RandomState(seed=1)
 
 # print_rule_set(rule_set)
 # print("Loaded NDRs")
-# # NDRs to operators
-# ops = []
-# for o in ops_loaded:
-#     if 'use-stand-mixer' in o.name:
-#         continue
-#     ops.append(o)
+# NDRs to operators
 # from ndr.ndrs import NOISE_OUTCOME
-# # # # ops = []
+# ops = []
 # for act_pred in rule_set:
 #     ndrset = rule_set[act_pred]
 #     suffix = 0
@@ -69,7 +66,9 @@ _rand_state = np.random.RandomState(seed=1)
 #         ops.append(operator)
 #         suffix += 1
 
-
+# with open('ops.pkl', 'wb') as f:
+#     pickle.dump(ops, f)
+# #     ops = pickle.load(f)
 print("Loaded ops")
 for o in sorted(ops, key=lambda o: o.name):
     print(o.pddl_str())
@@ -155,7 +154,7 @@ def _compute_effects(state, next_state):
         
 num_successes = 0
 for i in range(len(test_env.problems)):
-    if i != 2: continue
+    # if i != 2: continue
     test_env.fix_problem_index(i)
     obs, debug_info = test_env.reset()
 
@@ -177,12 +176,12 @@ for i in range(len(test_env.problems)):
     for _ in range(40):
         try:
             action = policy(obs)
-            print("Executing action", action)
+            # print("Executing action", action)
         except (NoPlanFoundException, PlannerTimeoutException):
             break
         next_obs, reward, done, _ = test_env.step(action)
         eff = _compute_effects(obs, next_obs)
-        print("Effects", eff)
+        # print("Effects", eff)
         obs = next_obs
         if done:
             break

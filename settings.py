@@ -38,6 +38,7 @@ class EnvConfig:
 class AgentConfig:
     """Agent-specific constants.
     """
+    auto_target_preconds = False
     curiosity_methods_to_run = [
         # "LLM+GLIB_L2",
         # "LLM+GLIB_G1",

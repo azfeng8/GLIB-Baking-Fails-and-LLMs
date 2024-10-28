@@ -40,6 +40,7 @@ def parse_flags() -> None:
     ac.temperature = str(args.temperature)
     ac.init_ops_method = args.init_ops_method
     ac.local_minima_method = args.local_minima_method
+    ac.auto_target_preconds = args.auto_target_preconds
 
     ec.domain_name = args.domains
 
@@ -76,3 +77,4 @@ def parse_agent_config(parser:argparse.ArgumentParser):
     parser.add_argument('--temperature', required=False, default=1, help='LLM temperature')
     parser.add_argument('--init_ops_method', required=False, default='skill-conditioned', choices=['goal-conditioned', 'skill-conditioned', 'combined-todo-goal', 'skill-conditioned-two-stage', 'combined-all'])
     parser.add_argument('--local_minima_method', required=False, default='delete-operator', choices=['precond-relax', 'delete-operator'])
+    parser.add_argument("--auto_target_preconds", action='store_true', default=False, help="Try untried operator preconditions whenever possible.")

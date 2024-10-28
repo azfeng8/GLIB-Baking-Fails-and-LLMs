@@ -1,5 +1,38 @@
 TODO: write down, reproduce, and study the cases where I run into difficulty using this method to get to 100%. 
 
+Tried to reproduce operator learner bug, but it doesn't happen. I guess I can ignore it then. But, here's an interesting case
+where the operator learner gets into a local minima and can't get out.
+
+Seed 1.
+
+1. Precondition targeting in episode 3.
+- Stopped at iteration 406.
+
+2. curriculum problem4x.txt
+- stopped at iter 412.
+- Give demo (use-stand-mixer mixer-0 bowl-1 mixture-0)
+- declined.
+- declined.
+- declined.
+- Stopped at iteration 646.
+3. curriculum problem4x.txt
+- stopped at iter 658.
+- dumped transitions.
+- Give demo (use-stand-mixer mixer-0 bowl-1 mixture-0)
+- stopped at iter 659.
+
+4. give demo (use-stand-mixer mixer-0 bowl-1 mixture-0)
+- stopped at iter 660.
+
+5. give demo (use-stand-mixer mixer-0 bowl-1 mixture-0)
+
+6. give demo (use-stand-mixer mixer-0 bowl-1 mixture-0)
+
+the second use-stand-mixer operator is not learned, and instead the noiseoutcome() absorbs the transition.
+
+exited experiment early.
+_____________________________________________________________________________________________________________
+
 Reproduce operator learner bug.
 Seed 1.
 1. Precondition targeting in episode 3.
@@ -7,16 +40,13 @@ Seed 1.
 
 2. curriculum problem4x.txt
 - stopped at iter 412.
-- Give demo (use-stand-mixer mixer-0 bowl-1 mixture-0) <- here
+- Give demo (use-stand-mixer mixer-0 bowl-1 mixture-0)
 - found bug that the subgoal is not achieved.
 
 3. problem4x.txt 
 - stopped at iter 425
 - Give demo (use-stand-mixer mixer-0 bowl-1 mixture-0)
-
-
-Ran into a nasty bug in the operator learner. This is instigated by the cake mix operator and NDR not being learned, which
-activates some bug.
+- Stopped to fix the bug.
 
 
 _____________________________________________________________________________________________________________

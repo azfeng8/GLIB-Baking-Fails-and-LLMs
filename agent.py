@@ -484,17 +484,27 @@ class InteractiveAgent(Agent):
 
         # Before getting to a new subgoal, try out all the operator preconditions if they haven't been tried before, to refine incorrect preconditions.
         if self.precondition_targeting:
-            self._action_in_plan = False
-            logging.info("Getting plan to precondition...")
-            action = self._get_action_with_preconds_as_goals(state)
-            if action is None:
-               self._action_in_plan_to_preconds = False
-               self.precondition_targeting = False 
+            # prompt if want to target preconditions or not.
+            if not ac.auto_target_preconds:
+                target_preconds = (input(f"Target preconditions? Ops that would be tried: {[o for o in self.learned_operators if o.name not in self._ops_preconds_executed]}\n y or anything").strip() == 'y')
             else:
-                self._action_in_plan_to_preconds = True
-                return action
+                target_preconds = True 
+                
+            if target_preconds:
+                self._action_in_plan = False
+                logging.info("Getting plan to precondition...")
+                action = self._get_action_with_preconds_as_goals(state)
+                if action is None:
+                    self._action_in_plan_to_preconds = False
+                    self.precondition_targeting = False 
+                else:
+                    self._action_in_plan_to_preconds = True
+                    return action
+            else:
+                self.precondition_targeting = False
+                self._action_in_plan_to_preconds = False
         else:
-               self._action_in_plan_to_preconds = False
+            self._action_in_plan_to_preconds = False
 
 
         if precond_targeting_only:
