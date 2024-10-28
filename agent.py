@@ -325,8 +325,8 @@ class InteractiveAgent(Agent):
         self.subgoals = subgoals
         self.next_subgoal_idx = 0
         self.actions_since_last_subgoal = []
-        logging.info("Loaded subgoals.")
-        # logging.info(self.subgoals)
+        logging.info("Loaded subgoals:")
+        logging.info(self.subgoals)
     
     def _get_obs_predicate(self, pred_name:str, object_names:list, objects:frozenset):
         pred = [p for p in self.obs_space.predicates if p.name == pred_name][0]
@@ -573,6 +573,7 @@ class InteractiveAgent(Agent):
 *** Utils ***
 [5] Dump the transitions and operators.
 [9] Evaluate operators.
+[11] End experiment.
 
 *** MISC ***
 [3] Execute a random action, observe it, and reset to the previous achieved subgoal.
@@ -581,7 +582,7 @@ class InteractiveAgent(Agent):
             option = int(input(option_str))
         except:
             option = None
-        while option is None and option not in [0,2,3,4,5,6,7,8,9,10]:
+        while option is None and option not in [0,2,3,4,5,6,7,8,9,10,11]:
             try:
                 option = int(input(option_str))
             except:

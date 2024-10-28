@@ -146,6 +146,10 @@ class Runner:
                     if test_solve_rate == 1.0:
                         SOLVED = True
                         continue
+                    if sum(successes[:3]) > 0:
+                        if input("Solved one of the tasks of interest. End? y or anything").strip() == 'y':
+                            SOLVED = True
+                            continue
                 num_probs = len(self.train_env.problems)
                 # give option to do precondition learning until stop condition, then print operators and prompt.
                 uip = input("Do precondition targeting until stop condition? y or anything")
@@ -308,6 +312,10 @@ class Runner:
                     if test_solve_rate == 1.0:
                         SOLVED = True
                         continue
+                    if sum(successes_list[:3]) > 0:
+                        if input("Solved one of the tasks of interest. End? y or anything").strip() == 'y':
+                            SOLVED = True
+                            continue
                 elif self.agent.option == 10:
                     episode_uip = input(f"Select the episode to do precond targeting. Give an index between 0 and {len(self.train_env.problems) -1}.")
                     while int(episode_uip) not in range(len(self.train_env.problems)):
@@ -317,6 +325,10 @@ class Runner:
                     precond_targeting_only = True
                     episode_done = False
                     self.agent.option = None
+                    continue
+                elif self.agent.option == 11:
+                    # End experiment.
+                    SOLVED = True
                     continue
                 # Clear the option.
                 self.agent.option = None

@@ -177,6 +177,7 @@ def evaluate(results_dict, seed, include_demos=True):
 
 LEN_1_PLANS = set([21, 20, 19, 18, 17, 15, 14, 13, 12, 7])
 DESSERT_TASKS = set([0,1,2,3,4,5])
+BAKE_2_DESSERTS_TASKS = set([0,1,2])
 MIXING_AND_HARDER_TASKS = set([0,1,2,3,4,5,6,8,9])
 
 def get_plots_for_bakinglarge(results_dict, results_filepaths_dict, append_demos_dict):
@@ -555,8 +556,8 @@ def old_plotting():
 
 def _main():
     # Load the demoagent and agent results
-    # base_path = 'results_openstack/results/Bakingrealistic'
-    base_path = 'results/Bakingrealistic'
+    base_path = 'results_openstack/results/Bakingrealistic'
+    # base_path = 'results/Bakingrealistic'
     all_results = {}
     all_results_filepaths = {}
     append_demos = {}
