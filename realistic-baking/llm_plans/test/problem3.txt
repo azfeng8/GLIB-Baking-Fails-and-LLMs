@@ -19,7 +19,7 @@
 (preheat-oven-with-souffle-settings oven-1)
 (pour-mixture-only bowl-1 pan-1 mixture-1)
 (put-pan-in-oven pan-1 oven-1)
-(set-oven-with-souffle-bake-time-and-press-start oven-1 dessert-0)
+(set-oven-with-souffle-bake-time-and-press-start oven-1 dessert-0 mixture-1)
 (remove-pan-from-oven pan-1 oven-1)
 (remove-pan-from-oven pan-0 oven-0)
 (move-baked-good-in-container-to-different-container pan-0 plate-1 dessert-1)

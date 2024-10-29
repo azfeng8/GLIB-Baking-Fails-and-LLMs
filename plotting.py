@@ -18,7 +18,7 @@ from planning_modules.base_planner import Planner, PlannerTimeoutException, \
     NoPlanFoundException
 from agent import Agent
 
-DEMO_RESULTS_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results/Bakingrealistic/LNDR/GLIB_G1/Bakingrealistic_LNDR_GLIB_G1_demos_1.pkl'
+DEMO_RESULTS_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results/Bakingrealistic/LNDR/GLIB_G1/Bakingrealistic_LNDR_GLIB_G1_demos_10.pkl'
 
 def learn_and_test(dataset, seed):
     """evaluates the dataset on Bakingrealistic and returns the successes list."""
@@ -84,6 +84,7 @@ def learn_and_test(dataset, seed):
         
     successes = []
     for i in range(len(test_env.problems)):
+        print(f"Problem {i}")
         test_env.fix_problem_index(i)
         obs, debug_info = test_env.reset()
         
@@ -101,6 +102,7 @@ def learn_and_test(dataset, seed):
                 action = policy(obs)
             except (NoPlanFoundException, PlannerTimeoutException):
                 break
+            print(f"Executing action: {action}")
             next_obs, reward, done, _ = test_env.step(action)
             obs = next_obs
             if done:
@@ -136,6 +138,7 @@ def evaluate(results_dict, seed, include_demos=True):
 
     # Always evaluate the last one
     last_idx = len(transitions) - 1
+    iterations_to_eval = iterations_to_eval.tolist()
     if last_idx not in iterations_to_eval:
         iterations_to_eval.append(last_idx)
     
@@ -205,7 +208,7 @@ def get_plots_for_bakinglarge(results_dict, results_filepaths_dict, append_demos
     for curve_name, results_list in results_dict.items():
         for i,results in enumerate(results_list):
             if results['mode'] == 'needs_eval':
-                print(f"Evaluating for curve_name, {i}th result...")
+                print(f"Evaluating for {curve_name}, {i}th result...")
                 filepath = results_filepaths_dict[curve_name][i]
                 seed = int(filepath[:-len('.pkl')].split('_')[-1])
                 success_lists = evaluate(results, seed)
@@ -284,6 +287,7 @@ def get_plots_for_bakinglarge(results_dict, results_filepaths_dict, append_demos
         # Truncate the success rate array lengths to the minimum length one
         if not all(len(s) == len(all_tasks_rates[0]) for s in all_tasks_rates):
             min_length = min(len(s) for s in all_tasks_rates)
+            #TODO: instead of truncating, evaluate the mean of only those seeds that cover those iterations.
             print(f"Not all seeds are the same length! Truncating to length {min_length}...")
             all_tasks_rates = [s[:min_length] for s in all_tasks_rates]
             len1_plans_rates = [s[:min_length] for s in len1_plans_rates]
@@ -520,7 +524,7 @@ def old_plotting():
     llm_path = 'results/llm_iterative_log'
 
     if not args.individual_plots:
-        main(path)
+        _old_main(path)
     else:
     ### Make individual plots
         for domain_name in pc.domains:
@@ -600,7 +604,6 @@ def _main():
         else:
             print(f"Warning: No results found in path {results_path}..")
 
-    all_results
     all_results[new_method_curve_name] = results_list
 
     get_plots_for_bakinglarge(all_results, all_results_filepaths, append_demos)

@@ -15,7 +15,8 @@ import itertools
 import logging
 from pprint import pprint
 
-ALPHA = 0 #0.5 # Weight on rule set size penalty
+MIXER_ALPHA = 0  # Weight on rule set size penalty
+ALPHA = 0.5 # Weight on rule set size penalty
 P_MIN = 1e-8 # Probability for an individual noisy outcome
 VERBOSE = False
 DEBUG = False
@@ -242,6 +243,10 @@ def score_action_rule_set(action_rule_set, transitions_for_action, p_min=P_MIN, 
     # Calculate penalty for number of literals
     for rule in action_rule_set:
         pen = get_pen(rule)
+        if rule._action.predicate.name == 'use-stand-mixer':
+            alpha = MIXER_ALPHA
+        else:
+            alpha = ALPHA
         score += - alpha * pen
 
     # Calculate transition likelihoods per example and accumulate score
@@ -269,6 +274,10 @@ def score_rule(rule, transitions_for_rule, p_min=P_MIN, alpha=ALPHA, compute_pen
     transitions_for_rule : [ (set, Literal, set) ]
         List of (state, action, effects).
     """
+    if rule._action.predicate.name == 'use-stand-mixer':
+        alpha = MIXER_ALPHA
+    else:
+        alpha = ALPHA
     # Calculate penalty for number of literals
     score = 0
     if compute_penalty:

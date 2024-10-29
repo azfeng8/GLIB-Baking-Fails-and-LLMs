@@ -131,9 +131,9 @@ class Runner:
                         SOLVED = True
                         continue
  
-                uip = input("Cycle finished. Dumping transitions. Filename or n to quit?")
+                uip = input("Cycle finished. Dumping state. Filename or n to decline?")
                 while not uip.endswith('.pkl') and uip != 'n':
-                    uip = input("Cycle finished. Dumping intermediate state for Interactive? transitions pkl filename or n")
+                    uip = input("Cycle finished. Dumping state? transitions pkl filename or n")
                 if uip != 'n':
                     logging.info("Dumping state...")
                     dump_intermediate_state(self.agent, fname=uip.strip())
@@ -247,11 +247,10 @@ class Runner:
                     itr += 1
                     obs, _ = self.train_env.reset()
                     logging.info(f"Resetting to prev subgoal, executing actions:\n{self.agent.action_seq}")
-                    next_obs = obs
                     for action in self.agent.action_seq:
                         next_obs, rew, episode_done, _ = self.train_env.step(action)
+                        obs = next_obs
                     prev_action = action
-                    obs = next_obs
                 elif self.agent.option == 2:
                     obs, _ = self.train_env.reset()
                     logging.info(f"Resetting to start, and executing actions:\n{self.agent.action_seq_reset}. Then resetting to prev subgoal")
@@ -300,6 +299,7 @@ class Runner:
                     obs, _ = self.train_env.reset()
                     for action in self.agent.action_seq:
                         next_obs, rew, episode_done, _ = self.train_env.step(action)
+                        obs = next_obs
                     prev_action = action
                 elif self.agent.option == 8:
                     logging.info(f"Resetting to start of episode")

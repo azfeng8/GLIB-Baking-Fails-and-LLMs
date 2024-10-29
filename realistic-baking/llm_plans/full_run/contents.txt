@@ -1,5 +1,48 @@
-TODO: write down, reproduce, and study the cases where I run into difficulty using this method to get to 100%. 
+Trying the different alphas.
 
+1. precond targeting in episode 3.
+- stopped at iteration 417.
+- Eval: 16/22.
+
+2. problem4l.txt
+
+3. problem4n.txt
+
+4. problem4p.txt
+
+5. problem4v.txt
+- Prompted, accepted to enter new curriculum.
+
+6. problem4q.txt
+_____________________________________________________________________________________________________________
+Getting more seeds of the method.
+
+- alpha = 0.5.
+- Seed 10, original demonstrations set.
+- auto precond targeting
+
+1. Precond targeting.
+    - Stopped iter 448.    
+    - use stand mixer for cake is forgotten. I probably want to have a 2 different alpha for (all actions besides use-stand-mixer, use-stand-mixer).
+Ended experiment. relaunching with different alpha.
+_____________________________________________________________________________________________________________
+Trying to get 100% with the updated demonstrations. 
+- Using alpha = 0, instead of 0.5 as used previously.
+- doing auto precond targeting, as done previously
+
+1. Precondition targeting in episode 3.
+- Stopped at iter 171.
+- Eval: 14/22
+
+2. problem4n.txt
+- Stopped at iter 178.
+- Eval: 16/22
+
+3. problem4v.txt
+- Stopped at iter 204.
+- Eval: 17/22
+- Ended experiment.
+_____________________________________________________________________________________________________________
 Tried to reproduce operator learner bug, but it doesn't happen. I guess I can ignore it then. But, here's an interesting case
 where the operator learner gets into a local minima and can't get out.
 
@@ -52,6 +95,7 @@ Seed 1.
 _____________________________________________________________________________________________________________
 
 Started around 5PM, Oct 27 2024.
+commit: fe3fe357d557550f981623ea31ff52079e610fd9
 
 1. Precondtion targeting in episode 3.
 - Iteration 437, prompted to dump state / prompt. Declined.
