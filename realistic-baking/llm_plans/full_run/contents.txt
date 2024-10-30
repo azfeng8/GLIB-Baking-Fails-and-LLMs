@@ -1,19 +1,33 @@
+Getting more seeds for documenting examples and getting a plot.
+- Seed 1
+
+1. Precondition targeting in episode 3.
+_____________________________________________________________________________________________________________
 Trying the different alphas.
+- Seed 10
 
 1. precond targeting in episode 3.
 - stopped at iteration 417.
 - Eval: 16/22.
 
 2. problem4l.txt
+- iter 432
 
 3. problem4n.txt
+- iter 439
 
 4. problem4p.txt
+- iter 460
 
-5. problem4v.txt
-- Prompted, accepted to enter new curriculum.
+5. problem4q.txt
+- Accepted prompt.
+- Give demonstration (remove-pan-from-oven pan-0 oven-1) (move-baked-good-in-container-to-different-container pan-0 plate-0 dessert-0)
 
-6. problem4q.txt
+6. problem4z.txt
+
+7. problem4v.txt
+Eval: 21/22 cases passed.
+Ended experiment.
 _____________________________________________________________________________________________________________
 Getting more seeds of the method.
 

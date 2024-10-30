@@ -18,7 +18,7 @@ from planning_modules.base_planner import Planner, PlannerTimeoutException, \
     NoPlanFoundException
 from agent import Agent
 
-DEMO_RESULTS_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results/Bakingrealistic/LNDR/GLIB_G1/Bakingrealistic_LNDR_GLIB_G1_demos_10.pkl'
+DEMO_RESULTS_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results/Bakingrealistic/LNDR/GLIB_G1/Bakingrealistic_LNDR_GLIB_G1_demos_1.pkl'
 
 def learn_and_test(dataset, seed):
     """evaluates the dataset on Bakingrealistic and returns the successes list."""

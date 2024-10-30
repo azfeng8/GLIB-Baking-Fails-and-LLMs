@@ -324,7 +324,7 @@ class InteractiveAgent(Agent):
         self.subgoals = subgoals
         self.next_subgoal_idx = 0
         self.actions_since_last_subgoal = []
-        logging.info("Loaded subgoals:")
+        logging.info(f"Loaded subgoals from {subgoals_file}: ")
         logging.info(self.subgoals)
     
     def _get_obs_predicate(self, pred_name:str, object_names:list, objects:frozenset):
@@ -338,8 +338,12 @@ class InteractiveAgent(Agent):
                     break
         return pred(*args)
     
-    def _get_action_with_preconds_as_goals(self, state):
+    def _get_action_with_preconds_as_goals(self, state, ops_to_exclude):
         """Returns the action, or None, if the stopping condition is reached.
+
+        Args:
+            state: the current state
+            ops_to_exclude: don't do precondition targeting for these actions.
 
         Stopping condition:
             If all of the preconditions are either unreachable from this state or the same preconditions has already had an action tried from it.
@@ -363,10 +367,11 @@ class InteractiveAgent(Agent):
         NUM_TRIES = 200
 
         action_predicates = set(p.name for p in self.action_space.predicates)
-        for op in sorted(self.learned_operators, key=lambda op: op.name):
+        for op in self._rand_state.permutation(sorted(self.learned_operators, key=lambda op: op.name)):
             # since the last time operators were learned, if operator has been successfully executed at the end of the plan, or
             # the plan failed in the middle to the operator preconditions, skip it.
             if op.name in self._ops_preconds_executed: continue
+            if op.name in ops_to_exclude: continue
             preconds = op.preconds.literals
 
             logging.info(f"Trying preconds for op: {op.name}: {preconds}")
@@ -485,15 +490,27 @@ class InteractiveAgent(Agent):
         # Before getting to a new subgoal, try out all the operator preconditions if they haven't been tried before, to refine incorrect preconditions.
         if self.precondition_targeting:
             # prompt if want to target preconditions or not.
-            if not ac.auto_target_preconds:
-                target_preconds = (input(f"Target preconditions? Ops that would be tried: {[o for o in self.learned_operators if o.name not in self._ops_preconds_executed]}\n y or anything").strip() == 'y')
+            if not ac.auto_target_preconds and not precond_targeting_only:
+                target_preconds = (input(f"Target preconditions? Ops that would be tried: {[o.name for o in self.learned_operators if o.name not in self._ops_preconds_executed]}\n y or anything").strip() == 'y')
+                ops_to_exclude = set()
+                # select operator names that should be skipped.
+                operator_names = set(o.name for o in self.learned_operators)
+                uip = input("Enter an op name to exclude, or n to quit: ").strip()
+                while uip != 'n':
+                    if uip in  operator_names:
+                        ops_to_exclude.add(uip)
+                    else:
+                        logging.info(f"Invalid operator name: {uip}")
+                    uip = input("Enter an op name to exclude, or n to quit: ").strip()
+
             else:
                 target_preconds = True 
+                ops_to_exclude = set()
                 
             if target_preconds:
                 self._action_in_plan = False
                 logging.info("Getting plan to precondition...")
-                action = self._get_action_with_preconds_as_goals(state)
+                action = self._get_action_with_preconds_as_goals(state, ops_to_exclude)
                 if action is None:
                     self._action_in_plan_to_preconds = False
                     self.precondition_targeting = False 

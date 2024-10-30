@@ -288,8 +288,10 @@ class Runner:
                         itr += 1
                         prev_action = action
                 elif self.agent.option == 6:
+                    logging.info("Executing demos...")
                     for action in self.agent.action_seq_reset:
                         next_obs, rew, episode_done, _ = self.train_env.step(action) 
+                        logging.info(f"Executed {action}!")
                         self.agent.observe(obs, action, next_obs, itr)
                         learn_and_test()
                         transitions.append(self.agent._operator_learning_module._transitions[action.predicate][-1])

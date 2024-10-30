@@ -10,65 +10,66 @@ import pddlgym
 import gym
 
 
-# with open('/home/catalan/GLIB-Baking-Fails-and-LLMs/saved_states/stuck-in-local-minima/transitions.pkl', 'rb') as f:
-#     transitions = pickle.load(f)
+with open('/home/catalan/GLIB-Baking-Fails-and-LLMs/transitions_solved_all.pkl', 'rb') as f:
+    transitions = pickle.load(f)
 
-with open('ops.pkl', 'rb') as f:
-# #     # pickle.dump(ops, f)
-    ops = pickle.load(f)
 
 
 
 # learn NDRs
-# max_ee_transitions = ac.max_zpk_explain_examples_transitions['Bakingrealistic']
+max_ee_transitions = ac.max_zpk_explain_examples_transitions['Bakingrealistic']
 
-# def get_batch_probs():
-#     assert False, 'assumed off'
+def get_batch_probs():
+    assert False, 'assumed off'
 
-# init_rule_sets = None
-# _rand_state = np.random.RandomState(seed=1)
+init_rule_sets = None
+_rand_state = np.random.RandomState(seed=1)
 
 
-# rule_set = {}
-# for action_predicate in transitions:
-#     learned_ndrs = learn_ndrs({action_predicate : transitions[action_predicate]},
-#         max_timeout=ac.max_zpk_learning_time,
-#         max_action_batch_size=ac.max_zpk_action_batch_size['Bakingrealistic'],
-#         get_batch_probs=get_batch_probs,
-#         init_rule_sets=init_rule_sets,
-#         rng=_rand_state,
-#         max_ee_transitions=max_ee_transitions,
-#     )
-#     rule_set[action_predicate] = learned_ndrs[action_predicate]
+rule_set = {}
+for action_predicate in transitions:
+    learned_ndrs = learn_ndrs({action_predicate : transitions[action_predicate]},
+        max_timeout=ac.max_zpk_learning_time,
+        max_action_batch_size=ac.max_zpk_action_batch_size['Bakingrealistic'],
+        get_batch_probs=get_batch_probs,
+        init_rule_sets=init_rule_sets,
+        rng=_rand_state,
+        max_ee_transitions=max_ee_transitions,
+    )
+    rule_set[action_predicate] = learned_ndrs[action_predicate]
 
-# print_rule_set(rule_set)
-# print("Loaded NDRs")
+print_rule_set(rule_set)
+print("Loaded NDRs")
 # NDRs to operators
-# from ndr.ndrs import NOISE_OUTCOME
-# ops = []
-# for act_pred in rule_set:
-#     ndrset = rule_set[act_pred]
-#     suffix = 0
-#     for ndr in ndrset.ndrs:
-#         op_name = "{}{}".format(ndr.action.predicate.name, suffix)
-#         probs, effs = ndr.effect_probs, ndr.effects
-#         max_idx = np.argmax(probs)
-#         max_effects = LiteralConjunction(sorted(effs[max_idx]))
-#         preconds = LiteralConjunction(sorted(ndr.preconditions) + [ndr.action])
-#         params = set()
-#         for lit in preconds.literals + max_effects.literals:
-#             for v in lit.variables:
-#                 params.add(v)
-#         params= sorted(params)
-#         operator = Operator(op_name, params, preconds, max_effects)
-#         if len(operator.effects.literals) == 0 or NOISE_OUTCOME in operator.effects.literals:
-#             continue
-#         ops.append(operator)
-#         suffix += 1
+from ndr.ndrs import NOISE_OUTCOME
+ops = []
+for act_pred in rule_set:
+    ndrset = rule_set[act_pred]
+    suffix = 0
+    for ndr in ndrset.ndrs:
+        op_name = "{}{}".format(ndr.action.predicate.name, suffix)
+        probs, effs = ndr.effect_probs, ndr.effects
+        max_idx = np.argmax(probs)
+        max_effects = LiteralConjunction(sorted(effs[max_idx]))
+        preconds = LiteralConjunction(sorted(ndr.preconditions) + [ndr.action])
+        params = set()
+        for lit in preconds.literals + max_effects.literals:
+            for v in lit.variables:
+                params.add(v)
+        params= sorted(params)
+        operator = Operator(op_name, params, preconds, max_effects)
+        if len(operator.effects.literals) == 0 or NOISE_OUTCOME in operator.effects.literals:
+            continue
+        ops.append(operator)
+        suffix += 1
 
 # with open('ops.pkl', 'wb') as f:
 #     pickle.dump(ops, f)
 # #     ops = pickle.load(f)
+
+# with open('ops.pkl', 'rb') as f:
+# # #     # pickle.dump(ops, f)
+#     ops = pickle.load(f)
 print("Loaded ops")
 for o in sorted(ops, key=lambda o: o.name):
     print(o.pddl_str())
@@ -176,12 +177,12 @@ for i in range(len(test_env.problems)):
     for _ in range(40):
         try:
             action = policy(obs)
-            print("Executing action", action)
+            # print("Executing action", action)
         except (NoPlanFoundException, PlannerTimeoutException):
             break
         next_obs, reward, done, _ = test_env.step(action)
         eff = _compute_effects(obs, next_obs)
-        print("Effects", eff)
+        # print("Effects", eff)
         obs = next_obs
         if done:
             break
