@@ -1,7 +1,93 @@
+
 Getting more seeds for documenting examples and getting a plot.
-- Seed 1
+
+- Seed 4
+- auto precond targeting
+
+- stopped at 509.
+2. problem4l.txt
+- declined
+
+3. problem4o.txt
+4. problem4q.txt
+- give demo
+
+5. problem4v.txt
+Eval: 21/22. Ended.
+_____________________________________________________________________________________________________________
+- Seed 3
+- manual precond targeting
 
 1. Precondition targeting in episode 3.
+- prompted at iter 388.
+- Eval: 15/22
+
+2. problem4o.txt
+- target preconds: exclude set-oven-with-*
+
+3. problem4aa.txt
+- target preconds: exclude set-oven-with-*
+
+4. problem4l.txt
+- allow all preconds to be targeted
+
+5. problem4q.txt
+- Give demo remove pan, move baked good
+
+6. problem4t.txt
+7. problem4t.txt
+
+8. problem4o.txt
+9. problem4o.txt
+Eval: 22/22. Ended experiment.
+_____________________________________________________________________________________________________________
+- Seed 2
+1. Precondition targeting in episode 3.
+- declined at iter 466.
+- stopped at iter 469.
+- Eval: 16/22
+
+2. problem4n.txt
+- declined.
+
+3. problem4o.txt
+- declined.
+
+4. problem4o.txt
+- skipped preconds.
+
+5. problem4q.txt
+- accepted.
+- Give demonstration (remove-pan-from-oven pan-0 oven-1) (move-baked-good-in-container-to-different-container pan-0 plate-0 dessert-0)
+- Eval: 22/22. Ended experiment.
+_____________________________________________________________________________________________________________
+- Seed 1
+- auto target, and mixed alpha.
+
+1. Precondition targeting in episode 3.
+- stopped at iter 501.
+- Eval: 16/22
+
+2. problem4l.txt
+- stopped at 507
+
+3. problem4o.txt
+-declined.
+-declined.
+
+4. problem4v.txt
+- declined.
+- accepted.
+
+5. problem4q.txt
+-accepted,  Give demo.  (remove-pan-from-oven pan-0 oven-0) (move-baked-good-in-container-to-different-container pan-0 plate-0 dessert-0)
+
+Example for thesis:
+- move-baked-good for souffle needs to be given once the bake-souffle has been learned.
+- If the demo is given for this at the beginning, something else happens that causes one of the mixing operators to disappear, which is what I'm avoiding now, but I need to figure out. 
+
+6. problem4v.txt
+- Eval: 21/22. Ended experiment.
 _____________________________________________________________________________________________________________
 Trying the different alphas.
 - Seed 10

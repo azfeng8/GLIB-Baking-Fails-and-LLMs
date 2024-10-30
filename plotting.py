@@ -102,7 +102,6 @@ def learn_and_test(dataset, seed):
                 action = policy(obs)
             except (NoPlanFoundException, PlannerTimeoutException):
                 break
-            print(f"Executing action: {action}")
             next_obs, reward, done, _ = test_env.step(action)
             obs = next_obs
             if done:

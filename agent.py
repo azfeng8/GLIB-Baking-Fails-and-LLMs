@@ -491,17 +491,18 @@ class InteractiveAgent(Agent):
         if self.precondition_targeting:
             # prompt if want to target preconditions or not.
             if not ac.auto_target_preconds and not precond_targeting_only:
-                target_preconds = (input(f"Target preconditions? Ops that would be tried: {[o.name for o in self.learned_operators if o.name not in self._ops_preconds_executed]}\n y or anything").strip() == 'y')
+                target_preconds = (input(f"Target preconditions (y) or skip precondition targeting? Ops that would be tried: {[o.name for o in self.learned_operators if o.name not in self._ops_preconds_executed]}\n y or anything").strip() == 'y')
                 ops_to_exclude = set()
                 # select operator names that should be skipped.
                 operator_names = set(o.name for o in self.learned_operators)
-                uip = input("Enter an op name to exclude, or n to quit: ").strip()
-                while uip != 'n':
-                    if uip in  operator_names:
-                        ops_to_exclude.add(uip)
-                    else:
-                        logging.info(f"Invalid operator name: {uip}")
+                if not target_preconds:
                     uip = input("Enter an op name to exclude, or n to quit: ").strip()
+                    while uip != 'n':
+                        if uip in  operator_names:
+                            ops_to_exclude.add(uip)
+                        else:
+                            logging.info(f"Invalid operator name: {uip}")
+                        uip = input("Enter an op name to exclude, or n to quit: ").strip()
 
             else:
                 target_preconds = True 
