@@ -121,7 +121,7 @@ def evaluate(results_dict, seed, include_demos=True):
     assert results_dict['mode'] == 'needs_eval'
     success_lists = [] # (itr, success list)
     transitions = results_dict['transitions']
-    iterations_to_eval = results_dict['ops_changed_iterations']
+    iterations_to_eval = np.array(results_dict['ops_changed_iterations'])
 
     if include_demos:
         # add the demonstrations results before this results 
@@ -181,6 +181,15 @@ LEN_1_PLANS = set([21, 20, 19, 18, 17, 15, 14, 13, 12, 7])
 DESSERT_TASKS = set([0,1,2,3,4,5])
 BAKE_2_DESSERTS_TASKS = set([0,1,2])
 MIXING_AND_HARDER_TASKS = set([0,1,2,3,4,5,6,8,9])
+GENERALIZATION_TASKS = set([0,1])
+TRAIN_TASKS = set(range(3,22))
+EASY_TRAIN_TASKS = set(range(10, 22))
+
+PLOTS = {
+    ("Success Rate on Test Tasks", 'results/Bakingrealistic/bakingrealistic_succ_generalized.png'): GENERALIZATION_TASKS,
+    ("Success Rate on Training Tasks", 'results/Bakingrealistic/bakingrealistic_succ_training.png'): TRAIN_TASKS,
+    ("Success Rate on Easy Training Tasks", 'results/Bakingrealistic/bakingrealistic_succ_easy_training.png'): EASY_TRAIN_TASKS,
+}
 
 def get_plots_for_bakinglarge(results_dict, results_filepaths_dict, append_demos_dict):
     """Generates 4 plots:
@@ -197,10 +206,8 @@ def get_plots_for_bakinglarge(results_dict, results_filepaths_dict, append_demos
         results_filepaths_dict: Dict from name of plot line to list of results PKL paths, in the same order as in results_dict.
         append_demos_dict: Dict from name of plot line to a boolean if that plot line should have demos appended.
     """
-    succ_rate_all_tasks = {}
-    succ_rate_length1_plans = {}
-    succ_rate_mixing_and_harder_tasks = {}
-    succ_rate_baking_desserts = {}
+    succ_rates = {name: {} for name, _ in PLOTS}
+    succ_rates_std = {name: {} for name, _ in PLOTS}
 
     with open(DEMO_RESULTS_PATH, 'rb') as f:
         demo_results = pickle.load(f)
@@ -226,10 +233,7 @@ def get_plots_for_bakinglarge(results_dict, results_filepaths_dict, append_demos
     for curve_name, results_list in results_dict.items():
         assert len(results_list) > 0, f"No results found"
 
-        all_tasks_rates = []
-        mixing_and_harder_rates = []
-        len1_plans_rates = []
-        baking_desserts_rates = []
+        rates = {name: [] for name, _ in PLOTS}
 
         min_seeds = min(min_seeds, len(results_list))
         max_seeds = max(max_seeds, len(results_list))
@@ -237,81 +241,62 @@ def get_plots_for_bakinglarge(results_dict, results_filepaths_dict, append_demos
         for results in results_list:
 
             # Construct these to contain the success rates arrays, one success rate per iteration
-            all_tasks_rates_result = []
-            mixing_and_harder_rates_result = []
-            len1_plans_rates_result = []
-            baking_desserts_rates_result = []
+            rates_result = {name: [] for name, _ in PLOTS}
 
             success_lists = results["successes"]
 
             # Assumption: The last item in the success list is from the maximum training iteration.
             i = 0
-            prev_all_tasks_rate = 0
-            prev_mixing_and_harder_rate = 0
-            prev_len1_plans_rate = 0
-            prev_baking_desserts_rate = 0
+            prev_rate = {name: 0 for name, _ in PLOTS}
             for itr, success_list in success_lists:
-
-                mixing_and_harder = [succ for task_index, succ in enumerate(success_list) if task_index in MIXING_AND_HARDER_TASKS]
-                len1_plans = [succ for task_index, succ in enumerate(success_list) if task_index in LEN_1_PLANS]
-                baking_desserts = [succ for task_index, succ in enumerate(success_list) if task_index in DESSERT_TASKS]
+                successes = {}
+                for plot_name, plot_path in PLOTS:
+                    successes[plot_name] = [succ for task_index, succ in enumerate(success_list) if task_index in PLOTS[(plot_name, plot_path)]]
 
                 while i < itr:
-                    all_tasks_rates_result.append(prev_all_tasks_rate)
-                    mixing_and_harder_rates_result.append(prev_mixing_and_harder_rate)
-                    len1_plans_rates_result.append(prev_len1_plans_rate)
-                    baking_desserts_rates_result.append(prev_baking_desserts_rate)
+                    for plot_name, _ in PLOTS:
+                        rates_result[plot_name].append(prev_rate[plot_name])
                     i += 1
 
-                all_tasks_rate = sum(success_list) / len(success_list)
-                mixing_and_harder_rate = sum(mixing_and_harder)/len(mixing_and_harder)
-                len1_plans_rate = sum(len1_plans)/len(len1_plans)
-                baking_desserts_rate = sum(baking_desserts)/len(baking_desserts)
+                for plot_name, _ in PLOTS:
+                    rate = sum(successes[plot_name]) / len(successes[plot_name])
+                    rates_result[plot_name].append(rate)
+                    prev_rate[plot_name] = rate
+ 
 
-                all_tasks_rates_result.append(all_tasks_rate)
-                mixing_and_harder_rates_result.append(mixing_and_harder_rate)
-                len1_plans_rates_result.append(len1_plans_rate)
-                baking_desserts_rates_result.append(baking_desserts_rate)
 
-                prev_len1_plans_rate = len1_plans_rate
-                prev_mixing_and_harder_rate = mixing_and_harder_rate
-                prev_all_tasks_rate = all_tasks_rate
-                prev_baking_desserts_rate = baking_desserts_rate
+            for plot_name, _ in PLOTS:
+                rates[plot_name].append(rates_result[plot_name])
 
-            all_tasks_rates.append(all_tasks_rates_result)
-            mixing_and_harder_rates.append(mixing_and_harder_rates_result)
-            len1_plans_rates.append(len1_plans_rates_result)
-            baking_desserts_rates.append(baking_desserts_rates_result)
 
-        # Truncate the success rate array lengths to the minimum length one
-        if not all(len(s) == len(all_tasks_rates[0]) for s in all_tasks_rates):
-            min_length = min(len(s) for s in all_tasks_rates)
-            #TODO: instead of truncating, evaluate the mean of only those seeds that cover those iterations.
-            print(f"Not all seeds are the same length! Truncating to length {min_length}...")
-            all_tasks_rates = [s[:min_length] for s in all_tasks_rates]
-            len1_plans_rates = [s[:min_length] for s in len1_plans_rates]
-            mixing_and_harder_rates = [s[:min_length] for s in mixing_and_harder_rates]       
-            baking_desserts_rates = [s[:min_length] for s in baking_desserts_rates]
+        for plot_name, _ in PLOTS:
+            succ_rates[plot_name][curve_name], succ_rates_std[plot_name][curve_name], = tolerant_mean(rates[plot_name])
 
-        succ_rate_all_tasks[curve_name] = np.mean(all_tasks_rates, axis=0)
-        succ_rate_length1_plans[curve_name] = np.mean(len1_plans_rates, axis=0)
-        succ_rate_mixing_and_harder_tasks[curve_name] = np.mean(mixing_and_harder_rates, axis=0)
-        succ_rate_baking_desserts[curve_name] = np.mean(baking_desserts_rates, axis=0)
-
-    if min_seeds != max_seeds:
-        plot_succ(f"Success Rate on All Tasks ({min_seeds} to {max_seeds} seeds)", succ_rate_all_tasks, 'results/Bakingrealistic/bakingrealistic_succ_all_tasks.png')
-        plot_succ(f"Success Rate on Length 1 Plan Tasks ({min_seeds} to {max_seeds} seeds)", succ_rate_length1_plans, 'results/Bakingrealistic/bakingrealistic_succ_len1.png')   
-        plot_succ(f"Success Rate on Mixing and Subsequent Tasks ({min_seeds} to {max_seeds} seeds)", succ_rate_mixing_and_harder_tasks, 'results/Bakingrealistic/bakingrealistic_succ_mixing_and_harder.png')
-        plot_succ(f"Success Rate on Baking Dessert Tasks ({min_seeds} to {max_seeds} seeds)", succ_rate_baking_desserts, 'results/Bakingrealistic/bakingrealistic_succ_baking_desserts.png')
-    else:
-        plot_succ(f"Success Rate on All Tasks ({min_seeds} seeds)", succ_rate_all_tasks, 'results/Bakingrealistic/bakingrealistic_succ_all_tasks.png')
-        plot_succ(f"Success Rate on Length 1 Plan Tasks ({min_seeds} seeds)", succ_rate_length1_plans, 'results/Bakingrealistic/bakingrealistic_succ_len1.png')   
-        plot_succ(f"Success Rate on Mixing and Subsequent Tasks ({min_seeds} seeds)", succ_rate_mixing_and_harder_tasks, 'results/Bakingrealistic/bakingrealistic_succ_mixing_and_harder.png')
-        plot_succ(f"Success Rate on Baking Dessert Tasks ({min_seeds} seeds)", succ_rate_baking_desserts, 'results/Bakingrealistic/bakingrealistic_succ_baking_desserts.png')
+    # if min_seeds != max_seeds:
+    #     plot_succ(f"Success Rate on All Tasks ({min_seeds} to {max_seeds} seeds)", succ_rate_all_tasks, 'results/Bakingrealistic/bakingrealistic_succ_all_tasks.png')
+    #     plot_succ(f"Success Rate on Length 1 Plan Tasks ({min_seeds} to {max_seeds} seeds)", succ_rate_length1_plans, 'results/Bakingrealistic/bakingrealistic_succ_len1.png')   
+    #     plot_succ(f"Success Rate on Mixing and Subsequent Tasks ({min_seeds} to {max_seeds} seeds)", succ_rate_mixing_and_harder_tasks, 'results/Bakingrealistic/bakingrealistic_succ_mixing_and_harder.png')
+    #     plot_succ(f"Success Rate on Baking Dessert Tasks ({min_seeds} to {max_seeds} seeds)", succ_rate_baking_desserts, 'results/Bakingrealistic/bakingrealistic_succ_baking_desserts.png')
+    # else:
+    #     plot_succ(f"Success Rate on All Tasks ({min_seeds} seeds)", succ_rate_all_tasks, 'results/Bakingrealistic/bakingrealistic_succ_all_tasks.png')
+    #     plot_succ(f"Success Rate on Length 1 Plan Tasks ({min_seeds} seeds)", succ_rate_length1_plans, 'results/Bakingrealistic/bakingrealistic_succ_len1.png')   
+    #     plot_succ(f"Success Rate on Mixing and Subsequent Tasks ({min_seeds} seeds)", succ_rate_mixing_and_harder_tasks, 'results/Bakingrealistic/bakingrealistic_succ_mixing_and_harder.png')
+    #     plot_succ(f"Success Rate on Baking Dessert Tasks ({min_seeds} seeds)", succ_rate_baking_desserts, 'results/Bakingrealistic/bakingrealistic_succ_baking_desserts.png')
+    for plot_name, plot_path in PLOTS:
+        plot_succ(plot_name, succ_rates[plot_name], succ_rates_std[plot_name], plot_path)
 
  
 
-def plot_succ(title, succ_rate_dict, out_path):
+def tolerant_mean(arrs):
+    lens = [len(i) for i in arrs]
+    arr = np.ma.empty((np.max(lens),len(arrs)))
+    arr.mask = True
+    for idx, l in enumerate(arrs):
+        arr[:len(l),idx] = l
+    mean =  arr.mean(axis = -1), arr.std(axis=-1)
+    return mean
+
+def plot_succ(title, succ_rate_dict, succ_rate_std_dict, out_path, plot_std=True):
     """_summary_
 
     Args:
@@ -325,10 +310,15 @@ def plot_succ(title, succ_rate_dict, out_path):
     colors = [next(ax._get_lines.prop_cycler)['color'] for _ in range(number_of_colors)]
     color_idx = 0
     for curve_name, succ_rates in sorted([(curve_name, succ_list) for curve_name, succ_list in succ_rate_dict.items()], key=lambda x: x[0]):
-        plt.plot(np.arange(len(succ_rates)), succ_rates, label=curve_name, color=colors[color_idx], alpha=0.5)
+        xs = np.arange(len(succ_rates) + 1)
+        results_mean = np.array([0] + succ_rates.tolist())
+        results_std = np.array([0] + succ_rate_std_dict[curve_name].tolist())
+        plt.plot(xs, results_mean, label=curve_name, color=colors[color_idx], alpha=0.5)
+        if plot_std:
+            plt.fill_between(xs, results_mean+results_std, results_mean-results_std, alpha=0.2)
         color_idx += 1
     
-    plt.xlabel("Iterations")
+    plt.xlabel("Environment Interactions")
     plt.ylabel("Success Rate")
     plt.title(title)
     plt.legend(loc='lower right')
@@ -566,7 +556,7 @@ def _main():
     append_demos = {}
     for agent, learning_name, curiosity_name in pc.agent_learner_explorer:
         if agent == 'demoagent':
-            curve_name = f"{curiosity_name}-{agent}"
+            curve_name = f"{curiosity_name} with demos"
             append_demos[curve_name] = True
         else:
             curve_name = f'{curiosity_name}' 
@@ -589,7 +579,7 @@ def _main():
     results_list = []
 
     # Load the new method results
-    new_method_curve_name = f"Method"
+    new_method_curve_name = f"Our method"
     append_demos[new_method_curve_name] = False
     for seed in pc.seeds:
         results_path = os.path.join('results/Bakingrealistic', 'LNDR', 'GLIB_G1', f'Bakingrealistic_LNDR_GLIB_G1_interactive_{seed}.pkl')
@@ -610,3 +600,19 @@ def _main():
     
 if __name__ == '__main__':
     _main()
+
+    # Evaluate demos data
+
+    # with open(DEMO_RESULTS_PATH, 'rb') as f:
+    #     demo_results = pickle.load(f)
+    # demo_successes = demo_results["successes"]
+
+    # with open(DEMO_RESULTS_PATH, 'rb') as f:
+    #     results_dict = pickle.load(f)
+    # results_dict['mode'] = 'evaluated'
+    # # print(results_dict['successes'])
+    # # s = evaluate(results_dict, 1, False)
+
+    # # results_dict["successes"] = s
+    # with open(DEMO_RESULTS_PATH, 'wb') as f:
+    #     pickle.dump(results_dict, f)

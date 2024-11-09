@@ -472,7 +472,7 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_
                     train_env.observation_space, curiosity_name, learning_name, log_llm_path=log_llmi_path,
                     planning_module_name=ac.planner_name[domain_name])
     else:
-        agent = Agent(domain_name, train_env.action_space,
+        agent = InteractiveAgent(domain_name, train_env.action_space,
                     train_env.observation_space, curiosity_name, learning_name, log_llm_path=log_llmi_path,
                     planning_module_name=ac.planner_name[domain_name])
 
