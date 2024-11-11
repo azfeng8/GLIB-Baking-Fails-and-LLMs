@@ -184,11 +184,15 @@ MIXING_AND_HARDER_TASKS = set([0,1,2,3,4,5,6,8,9])
 GENERALIZATION_TASKS = set([0,1])
 TRAIN_TASKS = set(range(3,22))
 EASY_TRAIN_TASKS = set(range(10, 22))
+ALL_TASKS = set(range(22))
 
 PLOTS = {
     ("Success Rate on Test Tasks", 'results/Bakingrealistic/bakingrealistic_succ_generalized.png'): GENERALIZATION_TASKS,
-    ("Success Rate on Training Tasks", 'results/Bakingrealistic/bakingrealistic_succ_training.png'): TRAIN_TASKS,
-    ("Success Rate on Easy Training Tasks", 'results/Bakingrealistic/bakingrealistic_succ_easy_training.png'): EASY_TRAIN_TASKS,
+    # ("Success Rate on Training Tasks", 'results/Bakingrealistic/bakingrealistic_succ_training.png'): TRAIN_TASKS,
+    # ("Success Rate on Easy Training Tasks", 'results/Bakingrealistic/bakingrealistic_succ_easy_training.png'): EASY_TRAIN_TASKS,
+
+
+    # ("Success Rate on All Tasks (Train and Test)", 'results/Bakingrealistic/bakingrealistic_succ_demos.png'): ALL_TASKS,
 }
 
 def get_plots_for_bakinglarge(results_dict, results_filepaths_dict, append_demos_dict):
@@ -266,6 +270,10 @@ def get_plots_for_bakinglarge(results_dict, results_filepaths_dict, append_demos
 
 
             for plot_name, _ in PLOTS:
+                # extend the line here.
+                if len(rates_result[plot_name]) < 2000:
+                    print(rates_result[plot_name])
+                    rates_result[plot_name] = rates_result[plot_name] + (rates_result[plot_name][-1] * np.ones((2000 - len(rates_result[plot_name]),))).tolist()
                 rates[plot_name].append(rates_result[plot_name])
 
 
@@ -578,7 +586,7 @@ def _main():
 
     results_list = []
 
-    # Load the new method results
+    # # Load the new method results
     new_method_curve_name = f"Our method"
     append_demos[new_method_curve_name] = False
     for seed in pc.seeds:

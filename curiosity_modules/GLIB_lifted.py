@@ -230,6 +230,7 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
             # Ignore mutex
             if self._ignore_mutex and goal in self._goal_mutex_pairs:
                 continue
+            # Skip visited (goal, action pairs). This is the novelty measure.
             for state, action in self._seen_state_actions:
                 goal_assignments = find_satisfying_assignments(state.literals, tuple([l for l in goal]), allow_redundant_variables=False)
                 action_assignment = find_satisfying_assignments([action], [lifted_action], allow_redundant_variables=False)
