@@ -20,24 +20,29 @@ from agent import Agent
 
 DEMO_RESULTS_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results/Bakingrealistic/LNDR/GLIB_G1/Bakingrealistic_LNDR_GLIB_G1_demos_1.pkl'
 
-def learn_and_test(dataset, seed):
+def learn_and_test(dataset, seed, init_rule_sets=None):
     """evaluates the dataset on Bakingrealistic and returns the successes list."""
     MAX_EE_TRANSITIONS = ac.max_zpk_explain_examples_transitions['Bakingrealistic']
 
     def get_batch_probs():
         assert False, 'assumed off'
 
-    init_rule_sets = None
     _rand_state = np.random.RandomState(seed=seed)
 
 
     rule_set = {}
     for action_predicate in dataset:
+
+        if init_rule_sets is not None:
+            init_rule_set = {action_predicate: init_rule_sets[action_predicate]}
+        else:
+            init_rule_set = None
+
         learned_ndrs = learn_ndrs({action_predicate : dataset[action_predicate]},
             max_timeout=ac.max_zpk_learning_time,
             max_action_batch_size=ac.max_zpk_action_batch_size['Bakingrealistic'],
             get_batch_probs=get_batch_probs,
-            init_rule_sets=init_rule_sets,
+            init_rule_sets=init_rule_set,
             rng=_rand_state,
             max_ee_transitions=MAX_EE_TRANSITIONS,
         )
@@ -47,22 +52,22 @@ def learn_and_test(dataset, seed):
         name_suffix = 0
         ndrset = rule_set[act_pred]
         for ndr in ndrset.ndrs:
-            op_name = "{}{}".format(ndr.action.predicate.name, name_suffix)
-            indices = [i for i, eff in enumerate(ndr.effects) if len(eff) > 0 ]
-            effs = ndr.effects
-            for idx in indices:
-                op_name = "{}{}".format(ndr.action.predicate.name, name_suffix)
-                effects = LiteralConjunction(sorted(effs[idx]))
-                if len(effects.literals) == 0 or NOISE_OUTCOME in effects.literals:
-                    continue
-                preconds = LiteralConjunction(sorted(ndr.preconditions) + [ndr.action])
-                params = set()
-                for lit in preconds.literals + effects.literals:
-                    for v in lit.variables:
-                        params.add(v)
-                params= sorted(params)
-                ops.append(Operator(op_name, params, preconds, effects))
-                name_suffix += 1
+            # op_name = "{}{}".format(ndr.action.predicate.name, name_suffix)
+            # probs, effs = ndr.effect_probs, ndr.effects
+            # max_idx = np.argmax(probs)
+            # max_effects = LiteralConjunction(sorted(effs[max_idx]))
+            # preconds = LiteralConjunction(sorted(ndr.preconditions) + [ndr.action])
+            # params = set()
+            # for lit in preconds.literals + max_effects.literals:
+            #     for v in lit.variables:
+            #         params.add(v)
+            # params= sorted(params)
+            # operator = Operator(op_name, params, preconds, max_effects)
+            operator = ndr.determinize(name_suffix=name_suffix)
+            ops.append(operator)
+            if len(operator.effects.literals) == 0 or NOISE_OUTCOME in operator.effects.literals:
+                continue
+            name_suffix += 1
     
     # Eval
     domain_name = 'Bakingrealistic'
@@ -71,7 +76,7 @@ def learn_and_test(dataset, seed):
 
     ac.planner_timeout = 400
     # Set these two variables to arbitrary vals to make initialization of agent not fail
-    ac.seed = 1
+    ac.seed = seed 
     ac.train_env = pddlgym.make("PDDLEnvBakingrealistic-v0")
     agent = Agent(domain_name, test_env.action_space,
                     test_env.observation_space, "GLIB_G1", "LNDR", log_llm_path='',
@@ -84,7 +89,6 @@ def learn_and_test(dataset, seed):
         
     successes = []
     for i in range(len(test_env.problems)):
-        print(f"Problem {i}")
         test_env.fix_problem_index(i)
         obs, debug_info = test_env.reset()
         
@@ -110,11 +114,13 @@ def learn_and_test(dataset, seed):
         # Reward is 1 iff goal is reached
         if reward == 1.:
             successes.append(1)
+            print(f"Problem {i}: PASS")
         else:
             assert reward == 0.
             successes.append(0)
+            print(f"Problem {i}: FAIL")
 
-    return successes
+    return successes, rule_set
 
 def evaluate(results_dict, seed, include_demos=True):
     """Learns the operators and outputs success arrays at each of the iterations where operators changed."""
@@ -131,6 +137,9 @@ def evaluate(results_dict, seed, include_demos=True):
         demo_successes = demo_results["successes"]
 
         # append the demo transitions and operators changed iterations to the beginning of those transitions to eval
+        if 0 not in iterations_to_eval:
+            iterations_to_eval.tolist().insert(0, 0)
+            iterations_to_eval = np.array(iterations_to_eval)
         iterations_to_eval = np.array(iterations_to_eval) + len(demo_transitions)
         success_lists.extend(demo_successes)
         transitions = demo_transitions + transitions
@@ -142,12 +151,14 @@ def evaluate(results_dict, seed, include_demos=True):
         iterations_to_eval.append(last_idx)
     
     dataset = {} 
+    rule_set = None
     for i, t in enumerate(transitions):
         dataset.setdefault(t[1].predicate, [])
         dataset[t[1].predicate].append(t)
         if i in iterations_to_eval:
             print(f"Evaluating iteration {i}: {iterations_to_eval.index(i) + 1} out of {len(iterations_to_eval)} evals")
-            successes = learn_and_test(dataset, seed)
+            successes, rule_set = learn_and_test(dataset, seed, rule_set)
+            print(successes)
             success_lists.append((i, successes))
 
     return success_lists

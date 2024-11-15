@@ -1,6 +1,78 @@
 
 Getting more seeds for documenting examples and getting a plot.
 
+- Seed 7
+
+1. precondition targeting
+- stopped at 507
+
+2. problem4l.txt
+
+3. problem4o.txt
+- demos
+
+4. problem4q.txt
+
+5. problem4t.txt
+_____________________________________________________________________________________________________________
+- Seed 2
+1. Precondition targeting in episode 3.
+- declined at iter 466.
+- stopped at iter 469.
+- Eval: 16/22
+
+2. problem4n.txt
+- declined.
+
+3. problem4o.txt
+- declined.
+
+4. problem4o.txt
+- skipped preconds.
+
+5. problem4q.txt
+
+- ended experiment. 2/2.
+_____________________________________________________________________________________________________________
+- Seed 6
+
+1. precondition targeting
+- stopped at iter 464.
+
+2. problem4l.txt
+
+3. problem4o.txt
+
+4. problem4o.txt
+
+- demos: (remove-pan-from-oven pan-0 oven-0) (move-baked-good-in-container-to-different-container pan-0 plate-0 dessert-0)
+
+5. problem4q.txt <- here
+
+6. problem4v.txt
+
+7. problem4s.txt
+
+_____________________________________________________________________________________________________________
+- Seed 5
+
+1. Precondition targeting
+-declined
+
+2. problem4l.txt
+
+3. problem4n.txt
+
+4. problem4o.txt
+- demos
+
+5. probelm4q.txt
+
+6. problem4v.txt
+- Ended experiment, 2/2.
+_____________________________________________________________________________________________________________
+
+
 - Seed 4
 - auto precond targeting
 
