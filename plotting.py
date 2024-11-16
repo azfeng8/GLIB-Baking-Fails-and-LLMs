@@ -123,7 +123,10 @@ def learn_and_test(dataset, seed, init_rule_sets=None):
     return successes, rule_set
 
 def evaluate(results_dict, seed, include_demos=True):
-    """Learns the operators and outputs success arrays at each of the iterations where operators changed."""
+    """Learns the operators and outputs success arrays at each of the iterations where operators changed.
+
+FIXME BUG: Don't evaluate. There's a bug where the operators learned this way are different than those learned in the experiment; havne't figured out what is the source; many moving factors.
+"""
     assert results_dict['mode'] == 'needs_eval'
     success_lists = [] # (itr, success list)
     transitions = results_dict['transitions']
@@ -223,6 +226,7 @@ def get_plots_for_bakinglarge(results_dict, results_filepaths_dict, append_demos
     """
     succ_rates = {name: {} for name, _ in PLOTS}
     succ_rates_std = {name: {} for name, _ in PLOTS}
+    succ_rates_max_min = {name: {} for name, _ in PLOTS}
 
     with open(DEMO_RESULTS_PATH, 'rb') as f:
         demo_results = pickle.load(f)
@@ -246,7 +250,7 @@ def get_plots_for_bakinglarge(results_dict, results_filepaths_dict, append_demos
     min_seeds = np.inf 
     max_seeds = 0
     for curve_name, results_list in results_dict.items():
-        assert len(results_list) > 0, f"No results found"
+        assert len(results_list) > 0, f"No results found for {curve_name}"
 
         rates = {name: [] for name, _ in PLOTS}
 
@@ -283,13 +287,13 @@ def get_plots_for_bakinglarge(results_dict, results_filepaths_dict, append_demos
             for plot_name, _ in PLOTS:
                 # extend the line here.
                 if len(rates_result[plot_name]) < 2000:
-                    print(rates_result[plot_name])
                     rates_result[plot_name] = rates_result[plot_name] + (rates_result[plot_name][-1] * np.ones((2000 - len(rates_result[plot_name]),))).tolist()
                 rates[plot_name].append(rates_result[plot_name])
 
 
         for plot_name, _ in PLOTS:
             succ_rates[plot_name][curve_name], succ_rates_std[plot_name][curve_name], = tolerant_mean(rates[plot_name])
+            succ_rates_max_min[plot_name][curve_name] = tolerant_max_min(rates[plot_name])
 
     # if min_seeds != max_seeds:
     #     plot_succ(f"Success Rate on All Tasks ({min_seeds} to {max_seeds} seeds)", succ_rate_all_tasks, 'results/Bakingrealistic/bakingrealistic_succ_all_tasks.png')
@@ -302,7 +306,7 @@ def get_plots_for_bakinglarge(results_dict, results_filepaths_dict, append_demos
     #     plot_succ(f"Success Rate on Mixing and Subsequent Tasks ({min_seeds} seeds)", succ_rate_mixing_and_harder_tasks, 'results/Bakingrealistic/bakingrealistic_succ_mixing_and_harder.png')
     #     plot_succ(f"Success Rate on Baking Dessert Tasks ({min_seeds} seeds)", succ_rate_baking_desserts, 'results/Bakingrealistic/bakingrealistic_succ_baking_desserts.png')
     for plot_name, plot_path in PLOTS:
-        plot_succ(plot_name, succ_rates[plot_name], succ_rates_std[plot_name], plot_path)
+        plot_succ(plot_name, succ_rates[plot_name], succ_rates_std[plot_name], succ_rates_max_min[plot_name], plot_path)
 
  
 
@@ -312,10 +316,19 @@ def tolerant_mean(arrs):
     arr.mask = True
     for idx, l in enumerate(arrs):
         arr[:len(l),idx] = l
-    mean =  arr.mean(axis = -1), arr.std(axis=-1)
-    return mean
+    mean,std =  arr.mean(axis = -1), arr.std(axis=-1)
+    return mean,std
 
-def plot_succ(title, succ_rate_dict, succ_rate_std_dict, out_path, plot_std=True):
+def tolerant_max_min(arrs):
+    lens = [len(i) for i in arrs]
+    arr = np.ma.empty((np.max(lens),len(arrs)))
+    arr.mask = True
+    for idx, l in enumerate(arrs):
+        arr[:len(l),idx] = l
+    maxes, mins = arr.max(axis=-1), arr.min(axis=-1)
+    return maxes, mins
+
+def plot_succ(title, succ_rate_dict, succ_rate_std_dict, succ_rate_max_min_dict, out_path, plot_std=True):
     """_summary_
 
     Args:
@@ -332,9 +345,14 @@ def plot_succ(title, succ_rate_dict, succ_rate_std_dict, out_path, plot_std=True
         xs = np.arange(len(succ_rates) + 1)
         results_mean = np.array([0] + succ_rates.tolist())
         results_std = np.array([0] + succ_rate_std_dict[curve_name].tolist())
+        maxes, mins = succ_rate_max_min_dict[curve_name]
+        maxes = np.array([0] + maxes.tolist())
+        mins = np.array([0] + mins.tolist())
         plt.plot(xs, results_mean, label=curve_name, color=colors[color_idx], alpha=0.5)
         if plot_std:
-            plt.fill_between(xs, results_mean+results_std, results_mean-results_std, alpha=0.2)
+            top_line = np.min(np.vstack([results_mean+results_std, maxes]),axis=0)
+            bot_line = np.max(np.vstack([results_mean-results_std, mins]), axis=0)
+            plt.fill_between(xs, top_line, bot_line, alpha=0.2)
         color_idx += 1
     
     plt.xlabel("Environment Interactions")
