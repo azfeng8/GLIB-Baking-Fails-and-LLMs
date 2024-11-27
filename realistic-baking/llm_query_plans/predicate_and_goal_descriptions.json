@@ -8,6 +8,14 @@
         },
     "predicates":
             {
+            "pan-is-full": "The pan {} is full and can't contain anymore things. #0",
+            "cups-of-flour-is-consumed": "{} is used up. #0",
+            "baking-powder-is-consumed": "{} is used up. #0",
+            "mixture-has-blended-raw-egg-whites": "{} has raw egg whites that were smoothly and uniformly mixed in. #0",
+            "mixture-has-folded-raw-egg-whites": "{} has folded raw egg whites with pockets of air in them. #0",
+            "sugar-is-consumed": "{} is used up. #0",
+            "butter-is-consumed": "{} is used up. #0",
+            "tablespoons-of-flour-is-consumed": "{} is used up. #0",
             "is-oven": "{} is an oven. #0",
             "mixture-is-hypothetical": "{} is a hypothetical object that doesn't exist yet. #0",
             "is-whole-raw-egg": "{} is out of its shell and is a whole raw egg, with the egg whites and yolk not separated. #0",
@@ -100,27 +108,27 @@
                 "the container that will contain the powdery ingredient after pouring"
             ],
             "pour-mixture-only": [
-                "the container that has the mixture initially",
+                "the container that has the mixture right now",
                 "the container to pour the mixture into",
                 "the mixture to be poured between the containers"
             ],
             "pour-powdery-ingredient-from-container": [
-                "the container that has the powdery ingredient initially",
+                "the container that has the powdery ingredient right now",
                 "the container to pour the powdery ingredient into",
                 "the powdery ingredient to be poured between the containers"
             ],
             "transfer-butter-from-pan-or-bowl": [
-                "the container that the butter is in initially",
+                "the container that the butter is in right now",
                 "the container to put the butter in",
                 "the butter that will be moved"
             ],
             "transfer-egg-from-pan-or-bowl": [
-                "the container that the egg is in initially",
+                "the container that the egg is in right now",
                 "the container to put the egg in",
                 "the egg that will be moved"
             ],
             "move-baked-good-in-container-to-different-container": [
-                "the container that the dessert is in initially",
+                "the container that the dessert is in right now",
                 "the container to put the dessert in",
                 "the dessert that will be moved"
             ],
