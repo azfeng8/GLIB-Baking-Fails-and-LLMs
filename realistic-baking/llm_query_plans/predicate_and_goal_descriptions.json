@@ -170,10 +170,10 @@
                 "the souffle mixture that we are baking"
             ],
             "separate-raw-yolk-from-egg-whites": [
-                "the name of the whole raw egg to do the separation on, whose name will represent the egg yolk after separation",
-                "the hypothetical egg object that will represent the egg whites after separation",
-                "the name of the container that will contain the raw egg yolk after separation",
-                "the name of the container that will contain the raw egg whites after separation"
+                "the name of the whole raw egg to do the separation on, whose name will represent the egg yolk after separation and remain in the original container",
+                "the hypothetical egg object that will represent the egg whites after separation and be moved to the new container",
+                "the name of the container that will contain the raw egg yolk after separation, which is the same container that the entire egg is now in",
+                "the name of the container that will contain the raw egg whites after separation, which is a different container than the egg is now in"
             ],
             "beat-egg-whites": [
                 "the electric stand mixer to use to beat the egg whites",

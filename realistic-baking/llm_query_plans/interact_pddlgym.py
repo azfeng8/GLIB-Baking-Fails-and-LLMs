@@ -93,8 +93,6 @@ class LLMAgent:
         You are a household robot in a kitchen. You are in front of the kitchen counter, where there are some prepared ingredients. 
 
         More specifically, you will be given a set of facts that are currently true in the world, and a set of facts that is your goal to make true in the world. With my step-by-step guidance, you will think through how to act to achieve the goal.
-
-        Since you are baking desserts, first determine what are the differences between a cake and sweet, light, and airy souffle. Please rationalize what are the essential ingredients and their amounts to make those desserts and use only those. Please note that our souffles require a very small amount of flour.
         """
         self._query_llm(intro_prompt, None, conversation)
 
@@ -113,6 +111,8 @@ class LLMAgent:
         electric stand mixer
 
         Right now, you see the some of these ingredients and items on the counter. You also see some appliances in the kitchen. 
+
+        To start making a mixture for a souffle, you need to mix together egg yolk, sugar, butter, and a little bit of flour. To make a mixture for a cake, you need to mix together a whole egg, sugar, butter, more flour, and baking powder.
         """
         self._query_llm(types_prompt, None, conversation)
         self.intro_conversation = conversation
@@ -376,7 +376,7 @@ class LLMAgent:
                 ground_objs.append(obj_match[0])
         action_description_info = descriptions["predicates"][action_name]
         action_description, arg_order = action_description_info.split('#')
-        ground_action_literal_description = action_description.strip().format(*[ground_objs[int(index)] for index in arg_order.strip()])
+        ground_action_literal_description = action_description.strip().format(*[ground_objs[int(index)]._str.split(':')[0] for index in arg_order.strip()])
         action = self.action_preds[action_name](*ground_objs)
         return action, ground_action_literal_description
  
@@ -419,4 +419,4 @@ def main(problem_idx, max_actions):
             print("Reached goal!")
 
 if __name__ == '__main__':
-    main(2, 30)
+    main(0, 30)
