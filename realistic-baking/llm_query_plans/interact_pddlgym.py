@@ -1,13 +1,15 @@
-"""TODO:
-
+"""
 DONE: Keep executing the plan open-loop until it fails. If it fails, then make the observation and make a new open-loop plan. 
 DONE: update the Baking domain to be able to bake a cake with two eggs.
 
 DONE: update the pipeline to be able to revise the plan sketch while grounding objects.
 DONE: update domain because the plan for souffle mixture is correct but not executing.
 
-TODO: update the pipeline to handle feedback from failed plan executions.
-TODO: allow environment reset to the very beginning and replan.
+DONE: update the pipeline to handle feedback from failed plan executions.
+DONE: allow environment reset to the very beginning and replan.
+
+TODO: get a program that passes all four train problems once.
+TODO: try over many seeds, benchmarking how many times the problems are solved.
 """
 import numpy as np
 import pickle
@@ -124,6 +126,9 @@ class LLMAgent:
         self.planning_attempts += 1
         self.actions_done_descriptions = []
     
+    def reset_env(self):
+        return self.env.reset()
+
     def give_plan_failure_feedback_and_replan(self, obs, problem_idx):
         """Append the plan failure feedback prompt to the conversation, and plan again with the failed plan in the context."""
         CONVO_SAVE_PATH = os.path.join(SAVE_PATH, f'problem{problem_idx}', f'plan_attempt_{self.planning_attempts}', f'action0.pkl')
@@ -133,13 +138,11 @@ class LLMAgent:
         last_action_description = executed_plan_string[-1]
         executed_plan_string = '\n'.join(executed_plan_string)
 
-        with open('predicate_and_goal_descriptions.json', 'r') as f:
-            descriptions = json.load(f)
         state = ''
         for lit in obs.literals:
             if lit.predicate.name not in ('different', 'name-less-than') and lit.predicate not in self.env.action_space.predicates:
                 state += lit.pddl_str() + '\n'
-        state_description = get_facts(descriptions, state)
+        state_description = get_facts(self.descriptions, state)
         failure_prompt = f"""Based on your plan, we've just executed these actions:""" +  executed_plan_string + \
         f"""However, the last action failed to execute properly. Before we executed the last action, the following facts were true in the environment:
 
@@ -154,9 +157,27 @@ class LLMAgent:
         self._query_llm(failure_prompt, CONVO_SAVE_PATH, self.plan_sketch_conversation)
         print("Plan failure explanation at: ", CONVO_SAVE_PATH)
 
+        # when replan, reset the environment to the start state.
+        initial_obs, _ = self.reset_env()
+        initial_state = ''
+        for lit in initial_obs.literals:
+            if lit.predicate.name not in ('different', 'name-less-than') and lit.predicate not in self.env.action_space.predicates:
+                initial_state += lit.pddl_str() + '\n'
+        initial_state_description = get_facts(self.descriptions, initial_state)
+        problem_name = f'problem{problem_idx+1}'
+        goal_state_description = self.descriptions['train_goals'][problem_name]
+ 
         replan_prompt = \
         f"""
         Ok, thanks for the explanation. Now, let's replan to the goal from the beginning and avoid this mistake and all previous mistakes.
+
+        Currently, these facts are true:
+        
+        {initial_state_description}
+
+        We want these things to be true:
+        
+        {goal_state_description}
 
         These are the names of the atomic actions that we can perform, along with their descriptions:
         {self.action_description_string}
@@ -168,6 +189,7 @@ class LLMAgent:
         conv = self.plan_sketch_conversation
         self.reset_plan()
         self.action_name_sequence, self.instruction_steps, self.plan_sketch_conversation = self._parse_plan_sketch_from_LLM(conv, CONVO_SAVE_PATH)
+        return initial_obs
 
     def get_action(self, obs, problem_idx):
         """Prompt LLM for the next action.
@@ -183,7 +205,7 @@ class LLMAgent:
         while action is None:
             action, action_description = self._query_LLM_for_action(obs, problem_idx, action_name, instruction, self.plan_sketch_conversation, self.action_number)
             if action is None:
-                # Replan.
+                # Replan without resetting to the start state.
                 self.reset_plan()
                 self.action_name_sequence, self.instruction_steps, self.plan_sketch_conversation  = self._query_LLM_for_action_name_sequence(obs, problem_idx)
         self.actions_done_descriptions.append(action_description)
@@ -383,7 +405,7 @@ def main(problem_idx, max_actions):
         print("Effects: ", effects)
         if len(effects) == 0:
             print("Plan failed! Replanning.")
-            llm_agent.give_plan_failure_feedback_and_replan(obs, problem_idx)
+            next_obs = llm_agent.give_plan_failure_feedback_and_replan(obs, problem_idx)
         obs = next_obs
 
         if action == prev_action:
@@ -397,4 +419,4 @@ def main(problem_idx, max_actions):
             print("Reached goal!")
 
 if __name__ == '__main__':
-    main(3, 40)
+    main(2, 30)
