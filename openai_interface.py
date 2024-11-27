@@ -11,6 +11,7 @@ from transformers import GPT2TokenizerFast
 
 from settings import LLMConfig as lc
 
+
 class OpenAI_Model:
     def __init__(self):
         assert "OPENAI_API_KEY" in os.environ
@@ -21,9 +22,9 @@ class OpenAI_Model:
         if not os.path.exists(self._cache_dir) or not os.path.isdir(self._cache_dir):
             os.makedirs(self._cache_dir, exist_ok=True)
         self._max_tokens = lc.max_tokens
-        if "gpt-4" in self._model or "gpt-3.5" in self._model:
-            # self._tokenizer = tiktoken.get_encoding("cl100k_base")
-            self._tokenizer = tiktoken.encoding_for_model(self._model)
+        self._max_response_tokens = lc.max_response_tokens
+        if "gpt-4" in self._model:
+            self._tokenizer = tiktoken.encoding_for_model('gpt-4')
 
         elif "davinci" in self._model:
             self._tokenizer = GPT2TokenizerFast.from_pretrained('Xenova/text-davinci-003')
@@ -74,7 +75,7 @@ class OpenAI_Model:
 
         """
         num_prompt_tokens = sum([len(self._tokenizer.encode(prompt["content"])) for prompt in conversation])
-        max_response_tokens = self._max_tokens - num_prompt_tokens
+        max_response_tokens = min(self._max_response_tokens, self._max_tokens - num_prompt_tokens)
         if max_response_tokens <= 0:
             logging.warn("Max tokens exceeded by prompts")
             return []

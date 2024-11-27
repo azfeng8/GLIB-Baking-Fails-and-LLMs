@@ -64,12 +64,12 @@
             "preheat-oven-with-cake-settings": "Close the oven door if it's open, and preheat the oven {} at 350 degrees Fahrenheit, the temperature at which to bake cakes. #0",
             "preheat-oven-with-souffle-settings":  "Close the oven door if it's open, and preheat the oven {} at 375 degrees Fahrenheit, the temperature at which to bake souffles. #0",
             "use-stand-mixer": "Mix the ingredients in {} with the mixer {} to create a new mixture {} with all the ingredients fused together. #102",
-            "remove-pan-from-oven": "Remove the pan {} from the oven it is in and place it on the counter to cool, leaving the oven door open. #0",
-            "set-oven-with-cake-bake-time-and-press-start": "Set the amount of time to bake a cake and press 'start' on {} to begin baking, not opening the oven again until done baking. #0",
-            "set-oven-with-souffle-bake-time-and-press-start": "Set the amount of time to bake a souffle and press 'start' on {} to begin baking, not opening the oven again until done baking. #0",
+            "remove-pan-from-oven": "Remove the pan {} from the oven {} it is in and place it on the counter to cool, leaving the oven door open. #01",
+            "set-oven-with-cake-bake-time-and-press-start": "Set the amount of time to bake a cake and press 'start' on {} to begin baking the mixture {} into the dessert {}, not opening the oven again until done baking. #021",
+            "set-oven-with-souffle-bake-time-and-press-start": "Set the amount of time to bake a souffle and press 'start' on {} to begin baking the mixture {} into the dessert {}, not opening the oven again until done baking. #021",
             "separate-raw-yolk-from-egg-whites": "Separate the raw egg {} that is out of its shell into an egg yolk, now called {} and in the container {}, and egg whites called {} and in the container {}. #00213",
             "beat-egg-whites": "Beat the egg {} with the mixer {} in the {}. #201",
-            "fold-stiff-egg-whites-into-mixture": "Fold the egg whites {} in {} into the contents of {}, using the {}. #3120"
+            "fold-stiff-egg-whites-into-mixture": "Fold the egg whites {} in {} into the mixture {} in {}, using the {}. #31420"
        },
        "lifted_skill_descriptions":
             {
@@ -148,13 +148,18 @@
                 "the name of the new mixture that didn't exist before"
             ],
             "remove-pan-from-oven": [
-                "the container to remove from the oven"
+                "the container to remove from the oven",
+                "the oven that the container is in"
             ],
             "set-oven-with-cake-bake-time-and-press-start": [
-                "the oven to start baking"
+                "the oven to start baking in",
+                "the name of the dessert object that will become a physical cake",
+                "the cake mixture that we are baking"
             ],
             "set-oven-with-souffle-bake-time-and-press-start": [
-                "the oven to start baking"
+                "the oven to start baking in",
+                "the name of the dessert object that will become a physical souffle",
+                "the souffle mixture that we are baking"
             ],
             "separate-raw-yolk-from-egg-whites": [
                 "the name of the whole raw egg to do the separation on, whose name will represent the egg yolk after separation",
@@ -171,7 +176,8 @@
                 "the spatula to use for folding the egg whites",
                 "the container containing the stiff egg whites",
                 "the container containing the mixture",
-                "the stiff, beaten egg whites"
+                "the stiff, beaten egg whites",
+                "the mixture to fold the egg whites into"
             ]
             }
 }

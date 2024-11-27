@@ -322,10 +322,11 @@ class GeneralConfig:
 
 class LLMConfig:
     """LLM Configuration."""
-    model = "gpt-4"
+    model = "gpt-4o"
     cache_dir = "./llm_cache"
     iterative_log_path = 'llm_iterative_log'
-    max_tokens = 4096
+    max_tokens = 128000
+    max_response_tokens = 4096
 
 class PlottingConfig:
     """Plotting from cached results.

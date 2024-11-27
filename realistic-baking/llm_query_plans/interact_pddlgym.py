@@ -1,4 +1,13 @@
+"""TODO:
+
+DONE: Keep executing the plan open-loop until it fails. If it fails, then make the observation and make a new open-loop plan. 
+DONE: update the Baking domain to be able to bake a cake with two eggs.
+
+TODO: save this script: solves problem 0.
+TODO: update the pipeline to be able to revise the plan sketch while grounding objects.
+"""
 import numpy as np
+import pickle
 import json
 import re
 import gym
@@ -10,6 +19,7 @@ from pprint import pprint
 from pddlgym.structs import Anti, State
 
 from openai_interface import OpenAI_Model
+SAVE_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/realistic-baking/llm_query_plans/conversations'
 
 def get_objects_of_type(objects_: frozenset, object_type):
     objs = []
@@ -48,6 +58,7 @@ class LLMAgent:
         self.llm = OpenAI_Model()
         self.env = env
         self.action_preds = {p.name: p for p in env.action_space.predicates}
+        self.plan = []
         self._get_intro()
    
     def _get_intro(self):
@@ -63,23 +74,40 @@ class LLMAgent:
         # print("**********************PROMPT********************")
         # print(intro_prompt)
         conversation.append( {"role": "user", "content": intro_prompt})
-        responses, _ = self.llm.sample_completions(self.conversation, num_completions=1, temperature=0, seed=1)
+        responses, _ = self.llm.sample_completions(conversation, num_completions=1, temperature=0, seed=1)
         conversation.append({"role": "assistant", 'content': responses[0]})
         self.intro_conversation = conversation
 
 
-    def get_action(self, obs, problem_idx):
+    def reset_plan(self):
+        self.plan = []
+
+    def get_action(self, obs, problem_idx, planning_attempts):
         """Prompt LLM for the next action.
 
         Args:
             obs (pddlgym.structs.State): observation.
         """
-        action = self._query_LLM_for_ground_action(obs, problem_idx)
-        return action 
+        if len(self.plan) == 0:
+            plan = self._query_LLM_for_ground_plan(obs, problem_idx, planning_attempts)
+            self.plan = plan
+        return self.plan.pop(0)
 
     
-    def _query_LLM_for_ground_action(self, obs, problem_idx):
-        """Queries LLM and returns the ground action predicate.
+    def _save_conversation(self, conversation, filepath):
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        with open(filepath, 'wb') as f:
+            pickle.dump(conversation, f)
+
+    def _query_llm(self, prompt, convo_save_path, conversation):
+        """Appends the prompt to the conversation and prompts the LLM, and appends the LLM's response to the conversation. Saves the conversation to PKL file."""
+        conversation.append({"role": "user", "content": prompt})
+        responses, _ = self.llm.sample_completions(conversation, num_completions=1, temperature=0, seed=1)
+        conversation.append({"role": "assistant", 'content': responses[0]})
+        self._save_conversation(conversation, convo_save_path)
+
+    def _query_LLM_for_ground_plan(self, obs, problem_idx, planning_attempts):
+        """Queries LLM and returns the ground plan.
         """
         conversation = deepcopy(self.intro_conversation) # Conversation with the LLM for this action
         with open('predicate_and_goal_descriptions.json', 'r') as f:
@@ -91,6 +119,9 @@ class LLMAgent:
         initial_state_predicate_fstrings = get_facts(descriptions, initial_state)
         problem_name = f'problem{problem_idx+1}'
         goal_state_predicate_fstrings = descriptions['train_goals'][problem_name]
+
+        action_i = 0
+        CONVO_SAVE_PATH = os.path.join(SAVE_PATH, f'problem{problem_idx}', f'plan_attempt_{planning_attempts}', f'action{action_i}.pkl')
         problem_setting_prompt = \
         f"""
         In the kitchen, there different kinds of objects that you can interact with. The different kind of objects that you see are categorized into the following:
@@ -114,11 +145,9 @@ class LLMAgent:
 
         You should have all of the ingredients that you need on the counter prepared for you. I'll let you know what desserts you will make shortly. 
         """
-        print("**********************PROMPT********************")
-        print(problem_setting_prompt)
-        conversation.append({"role": "user", "content": problem_setting_prompt})
-        responses, _ = self.llm.sample_completions(conversation, num_completions=1, temperature=0, seed=1)
-        conversation.append({"role": "assistant", 'content': responses[0]})
+        # print("**********************PROMPT********************")
+        # print(problem_setting_prompt)
+        self._query_llm(problem_setting_prompt, CONVO_SAVE_PATH, conversation)
 
         action_description_string = ""
         action_names_string = ""
@@ -134,67 +163,94 @@ class LLMAgent:
         These are the names of the atomic actions that we can perform, along with their descriptions:
         {action_description_string}
 
-        Can you please give a sequence of these phrases that will get us to the goal? Format it using a numbered list with one line per step, starting with "1.". Give a little explanation of each step underneath each bullet point. Mark the end of the plan with '***' in your response.
+        Can you please give a sequence of these phrases that will get us to the goal? Include the exact phrase in each step of your answer. Format it using a numbered list with one line per step, starting with "1.". Give a little explanation of each step underneath each bullet point. Mark the end of the plan with '***' in your response.
         """
-        print("**********************PROMPT********************")
-        print(formalizing_intro)
-        input("Insert response") 
-        response =  "" #TODO:: get response from API
-        match = re.search('\s1\.(.|\n)*\s2\.', response)
-        if match is None:
-            # Maybe there are fewer than two steps to the goal.
-            match = re.search('\s1\.(.|\n)*\*\*\*', response)
-            first_instruction = response[match.start():match.end() - len('***')].strip()
-        else:
-            first_instruction = response[match.start():match.end() - len('2.')]
-        assert match is not None, f'Parsing failed for finding step 1 in plan: {response}'
-        action_name = None
-        for action_pred_name in self.action_preds:
-            if action_pred_name in first_instruction:
-                action_name = action_pred_name
-                break
-        assert action_name is not None, f"No action name found in: {first_instruction}"
-        variable_description_list = descriptions["skill_variable_descriptions"][action_name]
-        grounding_prompt = \
-        f"""Thanks. Let's think step by step what objects are associated with each of these actions.
-        Let's recap what we've talked about. Currently, the following facts are true:
-
-        {initial_state_predicate_fstrings}
-
-        We want to make these facts true:
-        {goal_state_predicate_fstrings}
-
-        We're thinking through a plan step-by-step to our goal. You gave a sketch of the plan in the response above.
-
-        We are going to do the first step in the plan. We need to identify the names of the specific objects involved in this action. Here are more details about how the objects involved need to relate to the action.
-        """ + '\n'.join(variable_description_list) 
-        print(grounding_prompt)
-        input()
-
-        ground_objs = []
-        for i, variable_description in enumerate(variable_description_list):
-            object_type = self.action_preds[action_name].var_types[i]
-            objects_list = get_objects_of_type(obs.objects, object_type)
-
-            if len(objects_list) == 1:
-                ground_objs.append(objects_list[0])
+        # print("**********************PROMPT********************")
+        # print(formalizing_intro)
+        self._query_llm(formalizing_intro, CONVO_SAVE_PATH, conversation)
+        response =  conversation[-1]['content']
+        instruction_steps = []
+        action_name_seq = []
+        matches = list(re.finditer('\s[\d]+\.', response))
+        for i, number_match in enumerate(matches):
+            step_number = int(response[number_match.start():number_match.end() - len('.')].strip())
+            if i < len(matches) - 1:
+                pattern = f'\s{step_number}\.(.|\n)*\s{step_number + 1}\.'
             else:
-                action_description_with_nonspecific_articles = descriptions["lifted_skill_descriptions"][action_name]
-                action_grounding_variable_prompt = \
-    f"""We are going to {action_description_with_nonspecific_articles[:-1].lower()}. Given knowledge of the current state and our planned actions, which of the following objects fits the description, {variable_description}?
-    """ + '\n'.join(objects_list) + '\n' + 'Please explain your answer, and then answer with the object name on the last line after "Answer:".'
+                pattern = f'\s{step_number}\.(.|\n)*\*\*\*'
+            match = re.search(pattern, response)
+            if match is None:
+                # Maybe there are fewer than two steps to the goal.
+                instruction = response[match.start():match.end() - len('***')].strip()
+            else:
+                instruction = response[match.start():match.end() - len('2.')]
+            assert match is not None, f'Parsing failed for finding step 1 in plan: {response}'
+            action_name = None
+            for action_pred_name in self.action_preds:
+                if action_pred_name in instruction:
+                    action_name = action_pred_name
+                    break
+            assert action_name is not None, f"No action name found in: {instruction}"
+            instruction_steps.append(instruction)
+            action_name_seq.append(action_name)
+        
+        plan_sketch_convo = conversation
+        conversation = None
+        steps_completed = []
+        plan = []
+        for action_name, instruction in zip(action_name_seq, instruction_steps):
+            CONVO_SAVE_PATH = os.path.join(SAVE_PATH, f'problem{problem_idx}', f'plan_attempt_{planning_attempts}', f'action{action_i}.pkl')
+            conversation = deepcopy(plan_sketch_convo)
+            variable_description_list = descriptions["skill_variable_descriptions"][action_name]
+            grounding_prompt = \
+            f"""Thanks. Let's think step by step what objects are associated with each of these actions.
+            Let's recap what we've talked about. Currently, the following facts are true:
 
-                print(action_grounding_variable_prompt)
-                response = input()
-                match = re.search("Answer\:\s*\w+", response)
-                assert match is not None, response
-                obj_name = response[match.start() + len('Answer:'): match.end()]
-                ground_objs.append([o for o in objects_list if o._str.split(':')[0] == obj_name][0])
-        action_description_info = descriptions["predicates"][action_name]
-        action_description, arg_order = action_description_info.split('#')
-        action_str = f'({action_name} ' + ' '.join(ground_objs) + ')'
-        action = self.action_preds[action_name]( *[ground_objs[int(index)] for index in arg_order.strip()])
-        return action
+            {initial_state_predicate_fstrings}
+
+            We want to make these facts true:
+            {goal_state_predicate_fstrings}
+
+            We're thinking through a plan step-by-step to our goal. You gave a sketch of the plan in the response above. We have performed the following steps:
+            """ + '\n'.join(steps_completed) + \
+            f"""
+            We are about to do the next step in the plan:
+
+            {instruction}
+            """ + \
+            """We need to identify the names of the specific objects involved in this action. Here are more details about how the objects involved need to relate to the action.
+            """ + '\n'.join(variable_description_list) 
+            # print(grounding_prompt)
+            # input()
+            self._query_llm(grounding_prompt, CONVO_SAVE_PATH, conversation)
+            ground_objs = []
+            for i, variable_description in enumerate(variable_description_list):
+                object_type = self.action_preds[action_name].var_types[i].strip()
+                objects_list = get_objects_of_type(obs.objects, object_type)
+
+                if len(objects_list) == 1:
+                    ground_objs.append(objects_list[0])
+                else:
+                    action_description_with_nonspecific_articles = descriptions["lifted_skill_descriptions"][action_name]
+                    action_grounding_variable_prompt = \
+        f"""We are going to {action_description_with_nonspecific_articles[:-1].lower()}. Given knowledge of the current state and our planned actions, which of the following objects fits the description, {variable_description}?
+        """ + '\n'.join(objects_list) + '\n' + 'Please explain your answer, and then answer with the object name on the last line after "Answer:".'
+
+                    # print(action_grounding_variable_prompt)
+                    self._query_llm(action_grounding_variable_prompt, CONVO_SAVE_PATH, conversation)
+                    response = conversation[-1]['content']
+                    match = re.search("Answer\:\s*[\w\d-]+", response)
+                    assert match is not None, response
+                    obj_name = response[match.start() + len('Answer:'): match.end()].strip()
+                    ground_objs.append([o for o in objects_list if o._str.split(':')[0] == obj_name][0])
+            action_description_info = descriptions["predicates"][action_name]
+            action_description, arg_order = action_description_info.split('#')
+            ground_action_literal_description = action_description.strip().format(*[ground_objs[int(index)] for index in arg_order.strip()])
+            steps_completed.append(ground_action_literal_description)
+            action = self.action_preds[action_name](*ground_objs)
+            plan.append(action)
+            action_i += 1
+        return plan
  
 
 
@@ -209,16 +265,26 @@ def main(problem_idx, max_actions):
 
     goal_reached = False
     num_actions = 0
+    prev_action = None
+    plan_attempts = 0
     while not goal_reached and num_actions < max_actions:
 
-        action = llm_agent.get_action(obs, problem_idx)
+        action = llm_agent.get_action(obs, problem_idx, plan_attempts)
         print("Executing action ", action)
         next_obs, rew, episode_done, _ = env.step(action)
         positive_effects = {e for e in next_obs.literals - obs.literals}
         negative_effects = {Anti(ne) for ne in obs.literals - next_obs.literals}
         effects = positive_effects | negative_effects
         print("Effects: ", effects)
+        if len(effects) == 0:
+            print("Plan failed! Will replan.")
+            llm_agent.reset_plan()
+            plan_attempts += 1
         obs = next_obs
+
+        if action == prev_action:
+            input("Press Ctrl-C to quit")
+        prev_action = action
 
         num_actions += 1
 
@@ -227,4 +293,4 @@ def main(problem_idx, max_actions):
             print("Reached goal!")
 
 if __name__ == '__main__':
-    main(0, 1)
+    main(1, 20)
