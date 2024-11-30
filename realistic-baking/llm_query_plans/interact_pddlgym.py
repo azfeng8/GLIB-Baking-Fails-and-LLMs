@@ -8,8 +8,17 @@ DONE: update domain because the plan for souffle mixture is correct but not exec
 DONE: update the pipeline to handle feedback from failed plan executions.
 DONE: allow environment reset to the very beginning and replan.
 
-TODO: get a program that passes all four train problems once.
-TODO: try over many seeds, benchmarking how many times the problems are solved.
+DONE: get a program that passes all four train problems once.
+DONE: literature review: LLMs vs. AI planners. LLMs with closed-loop planning in open-world settings vs. AI planners in closed domains. Write the project report based on work done so far. Show that different agentic workflows have different effectiveness. Discuss how current things like DSPy are inadequate for optimizing workflows for planning long-horizons with environment interactions.
+DONE: create experimental plan: try test problems, maybe try training problems over many seeds, benchmarking how many times the problems are solved, and plan failures.
+
+TODO: modify to run 4 methods over 10 seeds, saving successes and conversations:
+
+    - closed-loop (horizon = 1)
+    - closed-loop (horizon = 5)
+    - closed-loop (horizon = 10)
+    - open-loop (horizon = inf)
+
 """
 import numpy as np
 import pickle
@@ -55,16 +64,16 @@ def get_facts(descriptions, state_string):
         true_facts += (description.format(*fstring_object_order)) + '\n'
     return true_facts.strip()
 
-
 class LLMAgent:
     """
     
     Attributes:
         self.plan_sketch_conversation: The conversation where planning mistakes are discussed and in which the most recent plan sketch is the last response in. 
     """
-    def __init__(self, env):
+    def __init__(self, env, horizon):
         """Create the prompting agent.
         """
+        self.horizon = horizon
         self.llm = OpenAI_Model()
         self.env = env
         self.action_preds = {p.name: p for p in env.action_space.predicates}
@@ -85,6 +94,7 @@ class LLMAgent:
  
         self.planning_attempts = 0
         self.action_number = 0
+        self.plan = []
    
     def _get_intro(self):
         conversation = []
@@ -125,6 +135,7 @@ class LLMAgent:
         self.action_number = 0
         self.planning_attempts += 1
         self.actions_done_descriptions = []
+        self.plan = []
     
     def reset_env(self):
         return self.env.reset()
@@ -197,17 +208,27 @@ class LLMAgent:
         Args:
             obs (pddlgym.structs.State): observation.
         """
+        if len(self.plan) > 0:
+            action, action_description = self.plan.pop(0)
+            self.actions_done_descriptions.append(action_description)
+            self.action_number += 1
+            return action
+
         if len(self.action_name_sequence) == 0:
             self.action_name_sequence, self.instruction_steps, self.plan_sketch_conversation  = self._query_LLM_for_action_name_sequence(obs, problem_idx)
-        action_name = self.action_name_sequence.pop(0)
-        instruction = self.instruction_steps.pop(0)
-        action = None
-        while action is None:
-            action, action_description = self._query_LLM_for_action(obs, problem_idx, action_name, instruction, self.plan_sketch_conversation, self.action_number)
-            if action is None:
+        
+        action_names = [self.action_name_sequence.pop(0) for _ in range(self.horizon) if len(self.action_name_sequence) > 0]
+        instructions = [self.instruction_steps.pop(0) for _ in range(self.horizon) if len(self.instruction_steps) > 0]
+        actions = None
+        while actions is None:
+            actions, action_descriptions = self._query_LLM_for_actions(obs, problem_idx, action_names, instructions, self.plan_sketch_conversation, self.action_number)
+            if actions is None:
                 # Replan without resetting to the start state.
                 self.reset_plan()
                 self.action_name_sequence, self.instruction_steps, self.plan_sketch_conversation  = self._query_LLM_for_action_name_sequence(obs, problem_idx)
+            else:
+                self.plan = list(zip(actions, action_descriptions))
+        action, action_description = self.plan.pop(0)
         self.actions_done_descriptions.append(action_description)
         self.action_number += 1
         return action
@@ -221,7 +242,7 @@ class LLMAgent:
     def _query_llm(self, prompt, convo_save_path, conversation):
         """Appends the prompt to the conversation and prompts the LLM, and appends the LLM's response to the conversation. Saves the conversation to PKL file."""
         conversation.append({"role": "user", "content": prompt})
-        responses, _ = self.llm.sample_completions(conversation, num_completions=1, temperature=0, seed=1)
+        responses, _ = self.llm.sample_completions(conversation, num_completions=1, temperature=0, seed=1, disable_cache=True)
         conversation.append({"role": "assistant", 'content': responses[0]})
         if convo_save_path is not None:
             self._save_conversation(conversation, convo_save_path)
@@ -252,8 +273,6 @@ class LLMAgent:
 
         You should have all of the ingredients that you need on the counter prepared for you. I'll let you know what desserts you will make shortly. 
         """
-        # print("**********************PROMPT********************")
-        # print(problem_setting_prompt)
         self._query_llm(problem_setting_prompt, CONVO_SAVE_PATH, conversation)
 
         action_description_string = self.action_description_string
@@ -317,7 +336,7 @@ class LLMAgent:
                 conversation = conversation[:first_plan_sketch_index] + [conversation[-1]]
                 return action_name_seq, instruction_steps, conversation
         
-    def _query_LLM_for_action(self, obs, problem_idx, action_name, instruction, conversation, action_i):
+    def _query_LLM_for_actions(self, obs, problem_idx, action_names, instructions, conversation, action_i):
         descriptions = self.descriptions
         initial_state = ''
         for lit in obs.literals:
@@ -326,70 +345,75 @@ class LLMAgent:
         initial_state_predicate_fstrings = get_facts(descriptions, initial_state)
         problem_name = f'problem{problem_idx+1}'
         goal_state_predicate_fstrings = descriptions['train_goals'][problem_name]
+        first_grounding_prompt = \
+            f"""Thanks. Let's think step by step what objects are associated with each of these actions.
+            Let's recap what we've talked about. Currently, the following facts are true:
 
-        plan_sketch_convo = conversation
-        conversation = None
-        CONVO_SAVE_PATH = os.path.join(SAVE_PATH, f'problem{problem_idx}', f'plan_attempt_{self.planning_attempts}', f'action{action_i}.pkl')
-        conversation = deepcopy(plan_sketch_convo)
-        variable_description_list = descriptions["skill_variable_descriptions"][action_name]
-        grounding_prompt = \
-        f"""Thanks. Let's think step by step what objects are associated with each of these actions.
-        Let's recap what we've talked about. Currently, the following facts are true:
+            {initial_state_predicate_fstrings}
 
-        {initial_state_predicate_fstrings}
+            We want to make these facts true:
+            {goal_state_predicate_fstrings}
 
-        We want to make these facts true:
-        {goal_state_predicate_fstrings}
+            We're thinking through a plan step-by-step to our goal. 
+            """ 
+        conversation = deepcopy(conversation)
+        actions = []
+        action_descriptions = []
+        initial_i = action_i
+        for action_name, instruction in zip(action_names, instructions):
+            CONVO_SAVE_PATH = os.path.join(SAVE_PATH, f'problem{problem_idx}', f'plan_attempt_{self.planning_attempts}', f'action{action_i}.pkl')
+            variable_description_list = descriptions["skill_variable_descriptions"][action_name]
+            grounding_prompt = \
+                f"""
+                We are about to do the next step in the plan:
 
-        We're thinking through a plan step-by-step to our goal. 
-        """  + \
-        f"""
-        We are about to do the next step in the plan:
+                {instruction}
+                """ + \
+                """We need to identify the names of the specific objects involved in this action. Here are more details about how the objects involved need to relate to the action.
+                """ + '\n'.join(variable_description_list) 
+            if initial_i == action_i:
+                grounding_prompt = first_grounding_prompt + grounding_prompt 
 
-        {instruction}
-        """ + \
-        """We need to identify the names of the specific objects involved in this action. Here are more details about how the objects involved need to relate to the action.
-        """ + '\n'.join(variable_description_list) 
-        self._query_llm(grounding_prompt, CONVO_SAVE_PATH, conversation)
-        ground_objs = []
-        for i, variable_description in enumerate(variable_description_list):
-            object_type = self.action_preds[action_name].var_types[i].strip()
-            objects_list = get_objects_of_type(obs.objects, object_type)
+            self._query_llm(grounding_prompt, CONVO_SAVE_PATH, conversation)
+            ground_objs = []
+            for i, variable_description in enumerate(variable_description_list):
+                object_type = self.action_preds[action_name].var_types[i].strip()
+                objects_list = get_objects_of_type(obs.objects, object_type)
 
-            if len(objects_list) == 1:
-                ground_objs.append(objects_list[0])
-            else:
-                action_description_with_nonspecific_articles = descriptions["lifted_skill_descriptions"][action_name]
-                action_grounding_variable_prompt = \
-    f"""We are going to {action_description_with_nonspecific_articles[:-1].lower()}. Given knowledge of the current state and our planned actions, which of the following objects fits the description, {variable_description}?
-    """ + '\n'.join([o._str.split(':')[0] for o in objects_list]) + '\n' + 'Please explain your answer, and then answer with the object name on the last line after "Answer:".'
+                if len(objects_list) == 1:
+                    ground_objs.append(objects_list[0])
+                else:
+                    action_description_with_nonspecific_articles = descriptions["lifted_skill_descriptions"][action_name]
+                    action_grounding_variable_prompt = \
+        f"""We are going to {action_description_with_nonspecific_articles[:-1].lower()}. Given knowledge of the current state and our planned actions, which of the following objects fits the description, {variable_description}?
+        """ + '\n'.join([o._str.split(':')[0] for o in objects_list]) + '\n' + 'Please explain your answer, and then answer with the object name on the last line after "Answer:".'
 
-                # print(action_grounding_variable_prompt)
-                self._query_llm(action_grounding_variable_prompt, CONVO_SAVE_PATH, conversation)
-                response = conversation[-1]['content']
-                match = re.search("Answer\:\s*[\w\d-]+", response)
-                assert match is not None, response
-                obj_name = response[match.start() + len('Answer:'): match.end()].strip()
-                obj_match = [o for o in objects_list if o._str.split(':')[0] == obj_name]
-                if len(obj_match) == 0:
-                    return None, None
-                ground_objs.append(obj_match[0])
-        action_description_info = descriptions["predicates"][action_name]
-        action_description, arg_order = action_description_info.split('#')
-        ground_action_literal_description = action_description.strip().format(*[ground_objs[int(index)]._str.split(':')[0] for index in arg_order.strip()])
-        action = self.action_preds[action_name](*ground_objs)
-        return action, ground_action_literal_description
- 
+                    self._query_llm(action_grounding_variable_prompt, CONVO_SAVE_PATH, conversation)
+                    response = conversation[-1]['content']
+                    match = re.search("Answer(.|\n)+\s[\w\d-]+", response)
+                    assert match is not None, response
+                    obj_name = response[match.start(): match.end()].strip().split()[-1]
+                    obj_match = [o for o in objects_list if o._str.split(':')[0] == obj_name]
+                    if len(obj_match) == 0:
+                        return None, None
+                    ground_objs.append(obj_match[0])
+            action_description_info = descriptions["predicates"][action_name]
+            action_description, arg_order = action_description_info.split('#')
+            ground_action_literal_description = action_description.strip().format(*[ground_objs[int(index)]._str.split(':')[0] for index in arg_order.strip()])
+            action = self.action_preds[action_name](*ground_objs)
+            action_i += 1
+            actions.append(action)
+            action_descriptions.append(ground_action_literal_description)
+        return actions, action_descriptions
 
 
-def main(problem_idx, max_actions):
+def run_closed_loop(env, problem_idx, max_actions, horizon=1):
     """Runs the LLM prompting program on a training episode for `max_actions` number of actions or until the goal is reached."""
 
-    env = pddlgym.make("PDDLEnvBakingrealistic-v0")
     env.fix_problem_index(problem_idx)
     obs, _ = env.reset()
 
-    llm_agent = LLMAgent(env)
+    llm_agent = LLMAgent(env, horizon)
 
     goal_reached = False
     num_actions = 0
@@ -417,6 +441,79 @@ def main(problem_idx, max_actions):
         if rew == 1.0:
             goal_reached = True
             print("Reached goal!")
+    return goal_reached
+
+def run_open_loop(env, problem_idx, max_actions):
+    env.fix_problem_index(problem_idx)
+    obs, _ = env.reset()
+
+    llm_agent = LLMAgent(env, horizon=100) # 100 = Infinite horizon
+
+    goal_reached = False
+    num_actions = 0
+    prev_action = None
+    while not goal_reached and num_actions < max_actions:
+
+        action = llm_agent.get_action(obs, problem_idx)
+        print("Executing action ", action)
+        next_obs, rew, episode_done, _ = env.step(action)
+        positive_effects = {e for e in next_obs.literals - obs.literals}
+        negative_effects = {Anti(ne) for ne in obs.literals - next_obs.literals}
+        effects = positive_effects | negative_effects
+        print("Effects: ", effects)
+        if len(effects) == 0:
+            print("Plan failed!.")
+            # next_obs = llm_agent.give_plan_failure_feedback_and_replan(obs, problem_idx)
+            break
+        obs = next_obs
+
+        if action == prev_action:
+            input("Press Ctrl-C to quit")
+        prev_action = action
+
+        num_actions += 1
+
+        if rew == 1.0:
+            goal_reached = True
+            print("Reached goal!")
+    return goal_reached
+
+from pprint import pprint
+def run_experiments():
+    env = pddlgym.make("PDDLEnvBakingrealistic-v0")
+
+    agents = {
+        # 'closed-loop-h1': {},
+        'closed-loop-h5': {},
+        # 'closed-loop-h10': {},
+        # 'open-loop': {},
+        }
+ 
+    with open('experiments.pkl', 'rb') as f:
+        agents = pickle.load(f)
+
+    agents.setdefault('closed-loop-h5', {})
+
+    for problem_i in range(len(env.problems))[::-1]:
+        # agents['closed-loop-h1'][problem_i] = []
+        agents['closed-loop-h5'][problem_i] = []
+        # agents['closed-loop-h10'][problem_i] = []
+        # agents['open-loop'][problem_i] = []
+
+        for _ in range(5):
+            # agents['closed-loop-h1'][problem_i].append(run_closed_loop(env, problem_i, 50, 1))
+            agents['closed-loop-h5'][problem_i].append(run_closed_loop(env, problem_i, 30, 5))
+            # agents['closed-loop-h10'][problem_i].append(run_closed_loop(env, problem_i, 30, 10))
+            # agents['open-loop'][problem_i].append(run_open_loop(env, problem_i, 50))
+
+            with open('experiments.pkl', 'wb') as f:
+                pickle.dump(agents, f)
+            
+            pprint(agents)
+
+    with open('experiments.pkl', 'wb') as f:
+        pickle.dump(agents, f)
+    pprint(agents)
 
 if __name__ == '__main__':
-    main(0, 30)
+    run_experiments()
