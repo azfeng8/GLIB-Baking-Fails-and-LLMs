@@ -20,6 +20,7 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
     _k = None # Must be set by subclasses
     _ignore_statics = True
     _ignore_mutex = True
+    _compute_goals = True
 
     ### Initialization ###
 
@@ -30,10 +31,11 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
         self._episode_start_state = None
         self._seen_state_actions = set()
 
-        if self._domain_name.lower() == 'bakingrealistic':
-            self._sampling_iterator = self._yield_goal_action(self._action_space.predicates, [p for p in self._observation_space.predicates if p.name not in ('different', 'name-less-than')], self._k)
-        else:
-            self._sampling_iterator = self._yield_goal_action(self._action_space.predicates, self._observation_space.predicates, self._k)
+        if self._compute_goals:
+            if self._domain_name.lower() == 'bakingrealistic':
+                self._sampling_iterator = self._yield_goal_action(self._action_space.predicates, [p for p in self._observation_space.predicates if p.name not in ('different', 'name-less-than')], self._k)
+            else:
+                self._sampling_iterator = self._yield_goal_action(self._action_space.predicates, self._observation_space.predicates, self._k)
 
     @classmethod
     def _use_goal_preds(cls, goal_preds):
@@ -123,12 +125,13 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
             self._goal_mutex_pairs = self._compute_lifted_mutex_literals(self._episode_start_state)
             logging.info(f"Goal mutex pairs compute took {time.time() - start} s")
         # Forget the goal-action that was going to be taken at the end of the plan in progress
-        if self._domain_name.lower() == 'bakingrealistic':
-            start = time.time()
-            self._sampling_iterator = self._yield_goal_action(self._action_space.predicates, [p for p in self._observation_space.predicates if p.name not in ('different', 'name-less-than')], self._k)
-            logging.info(f'Creating goal sampler generator took {time.time() - start} s')
-        else:
-            self._sampling_iterator = self._yield_goal_action(self._action_space.predicates, self._observation_space.predicates, self._k)
+        if self._compute_goals:
+            if self._domain_name.lower() == 'bakingrealistic':
+                start = time.time()
+                self._sampling_iterator = self._yield_goal_action(self._action_space.predicates, [p for p in self._observation_space.predicates if p.name not in ('different', 'name-less-than')], self._k)
+                logging.info(f'Creating goal sampler generator took {time.time() - start} s')
+            else:
+                self._sampling_iterator = self._yield_goal_action(self._action_space.predicates, self._observation_space.predicates, self._k)
         self._current_goal_action = None
 
     def _get_goal_action_priority(self, goal_action):
@@ -189,6 +192,8 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
         for lit in state.literals:
             for obj in lit.variables:
                 types_to_objs[obj.var_type].add(obj)
+        for obj in state.objects:
+            types_to_objs[obj.var_type].add(obj)
         # Sample a grounding for all the unbound variables.
         grounding = []
         for v in lifted_action.variables:

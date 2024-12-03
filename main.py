@@ -4,7 +4,7 @@ from flags import parse_flags
 
 import matplotlib
 matplotlib.use("Agg")
-from agent import Agent, InteractiveAgent, DemonstrationsAgent, CreateDemonstrationsAgent, dump_intermediate_state
+from agent import Agent, InteractiveAgentGrounded, InteractiveAgentLifted, DemonstrationsAgent, CreateDemonstrationsAgent, dump_intermediate_state
 from planning_modules.base_planner import PlannerTimeoutException, \
     NoPlanFoundException
 from plotting import plot_results
@@ -48,7 +48,7 @@ class Runner:
         self.curiosity_name = curiosity_name
         self.num_train_iters = ac.num_train_iters[domain_name]
 
-        if isinstance(agent, InteractiveAgent) or isinstance(agent, CreateDemonstrationsAgent):
+        if isinstance(agent, InteractiveAgentGrounded) or isinstance(agent, CreateDemonstrationsAgent):
             self.AUTO_EVAL = False
         elif isinstance(agent, Agent) or isinstance(agent, DemonstrationsAgent):
             self.AUTO_EVAL = True
@@ -92,7 +92,7 @@ class Runner:
         problem_idx = 0 
 
         # Logging 
-        if isinstance(self.agent, InteractiveAgent):
+        if isinstance(self.agent, InteractiveAgentGrounded):
             results = {"mode": "needs_eval", "transitions": [], "ops_changed_iterations": []}
         else:
             results = {"mode": "evaluated", "successes": []} 
@@ -108,7 +108,9 @@ class Runner:
         transitions = []
 
         # Learn the ops from demos
-        if isinstance(self.agent, InteractiveAgent):
+        if isinstance(self.agent, InteractiveAgentGrounded):
+            obs, _ = self.train_env.reset()
+            self.agent.reset_episode(obs, '')
             self.agent.learn(0)
             logging.info("Learned operators:")
             for op in sorted(self.agent.learned_operators, key=lambda x: x.name):
@@ -126,11 +128,15 @@ class Runner:
             if not self.AUTO_EVAL and len(cycle) == 0 and episode_done:
                 if isinstance(self.agent, CreateDemonstrationsAgent):
                     if input("Cycle finished. Dump transitions and exit? y or anything ") == 'y':
-                        with open('bakingrealistic_demonstrations.pkl', 'wb') as f:
+                        with open(f'demonstrations/{self.domain_name.lower()}_demonstrations.pkl', 'wb') as f:
                             pickle.dump(self.agent._operator_learning_module._transitions, f)
                         SOLVED = True
                         continue
  
+                elif isinstance(self.agent, InteractiveAgentGrounded):
+                    logging.info("Cycle finished. Refreshing operators to execute.")
+                    self.agent._ops_preconds_executed.clear()
+                    self.agent.precondition_targeting = True
                 uip = input("Cycle finished. Dumping state. Filename or n to decline?")
                 while not uip.endswith('.pkl') and uip != 'n':
                     uip = input("Cycle finished. Dumping state? transitions pkl filename or n")
@@ -349,10 +355,10 @@ class Runner:
                 if not self.AUTO_EVAL:
                     LOOPING = False
                     if prev_action == action:
-                        if isinstance(self.agent, InteractiveAgent) and input("Dump program state? y/n") == 'y':
+                        if isinstance(self.agent, InteractiveAgentGrounded) and input("Dump program state? y/n") == 'y':
                             logging.info("Dumping state...")
                             dump_intermediate_state(self.agent)
-                        if isinstance(self.agent, InteractiveAgent) and input("Stuck in a loop, and reprompt for next task? y or anything") == 'y':
+                        if isinstance(self.agent, InteractiveAgentGrounded) and input("Stuck in a loop, and reprompt for next task? y or anything") == 'y':
                             LOOPING = True
                             obs_literals = set()
                             for lit in obs.literals:
@@ -471,10 +477,21 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_
         agent = DemonstrationsAgent(domain_name, train_env.action_space,
                     train_env.observation_space, curiosity_name, learning_name, log_llm_path=log_llmi_path,
                     planning_module_name=ac.planner_name[domain_name])
-    else:
-        agent = InteractiveAgent(domain_name, train_env.action_space,
+    elif gc.create_demos:
+         logging.info("Creating demonstrations.")
+         agent = CreateDemonstrationsAgent(domain_name, train_env.action_space,
                     train_env.observation_space, curiosity_name, learning_name, log_llm_path=log_llmi_path,
                     planning_module_name=ac.planner_name[domain_name])
+
+    else:
+        if 'GLIB_L' in curiosity_name:
+            agent = InteractiveAgentLifted(domain_name, train_env.action_space,
+                        train_env.observation_space, curiosity_name, learning_name, log_llm_path=log_llmi_path,
+                        planning_module_name=ac.planner_name[domain_name])
+        else:
+            agent = InteractiveAgentGrounded(domain_name, train_env.action_space,
+                        train_env.observation_space, curiosity_name, learning_name, log_llm_path=log_llmi_path,
+                        planning_module_name=ac.planner_name[domain_name])
 
             
     test_env = gym.make("PDDLEnv{}Test-v0".format(domain_name))

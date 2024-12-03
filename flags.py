@@ -31,6 +31,7 @@ def parse_flags() -> None:
     gc.planning_results_dir = args.planning_results_dir
     gc.dataset_logging = args.dataset_logging
     gc.use_demos = args.use_demonstrations
+    gc.create_demos = args.create_demos
 
     ac.curiosity_methods_to_run = args.curiosity_methods
     ac.learning_name = args.learning_name
@@ -65,6 +66,7 @@ def parse_general_config(parser:argparse.ArgumentParser):
     parser.add_argument("--timings_dir", type=str, default='results/timings')
     parser.add_argument("--planning_results_dir", type=str, default='results/planning_results')
     parser.add_argument("--use_demonstrations", action='store_true', default=False)
+    parser.add_argument("--create_demos", action='store_true', default=False)
 
 def parse_env_config(parser:argparse.ArgumentParser):
     parser.add_argument("--domains", required=True, nargs='+')

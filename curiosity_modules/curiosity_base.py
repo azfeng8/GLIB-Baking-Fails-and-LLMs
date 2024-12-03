@@ -74,15 +74,16 @@ class BaseCuriosityModule:
         objects = state.objects
         initial_state = set([lit for lit in state.literals if lit.predicate.name != 'name-less-than'])
         # inject differents
-        Different = structs.Predicate('different', 2)
-        for obj1 in objects:
-            for obj2 in objects:
-                if obj1 == obj2:
-                    continue
-          
-                if obj1.var_type == obj2.var_type:
-                    diff_lit = Different(obj1, obj2)
-                    initial_state.add(diff_lit)
+        if self._domain_name.lower() == 'bakingrealistic':
+            Different = structs.Predicate('different', 2)
+            for obj1 in objects:
+                for obj2 in objects:
+                    if obj1 == obj2:
+                        continue
+            
+                    if obj1.var_type == obj2.var_type:
+                        diff_lit = Different(obj1, obj2)
+                        initial_state.add(diff_lit)
         initial_state = frozenset(initial_state)
         problem_name = "{}_problem".format(prefix)
         domain_name = self._planning_module.domain_name

@@ -3,7 +3,7 @@ from planning_modules.base_planner import PlannerTimeoutException, \
 from curiosity_modules import create_curiosity_module
 from operator_learning_modules import create_operator_learning_module
 from planning_modules import create_planning_module
-from pddlgym.structs import Anti, State, Not, LiteralConjunction, ground_literal
+from pddlgym.structs import Anti, State, Not, LiteralConjunction, ground_literal, Exists
 from settings import LLMConfig as lc
 from openai_interface import OpenAI_Model
 from settings import EnvConfig as ec
@@ -78,10 +78,6 @@ class Agent:
         # Flag to tell if at the episode start. Unset after observing the first effect.
         self.episode_start = False
 
-        #  # Load the demos
-        # with open('bakingrealistic_demonstrations.pkl', 'rb') as f:
-        #     transitions = pickle.load(f)
-        # self._operator_learning_module._transitions = transitions       
 
     ## Training time methods
     def get_action(self, state, _problem_idx, _precond_targeting_only):
@@ -192,7 +188,7 @@ class Agent:
         """Get a plan given the learned operators and a PDDL problem file."""
         return self._planning_module.get_policy(problem_fname, use_learned_ops)
 
-class InteractiveAgent(Agent):
+class InteractiveAgentGrounded(Agent):
     """An agent with initial demonstration data to each of the 4 train tasks.
 
     Must be run with GLIB_G, since goals will be grounded.
@@ -220,8 +216,7 @@ class InteractiveAgent(Agent):
         self._plan_to_op_preconds_failed = False
 
         # Load the demos
-        with open('bakingrealistic_demonstrations.pkl', 'rb') as f:
-        # with open('transitions.pkl', 'rb') as f:
+        with open(f'demonstrations/{self.domain_name.lower()}_demonstrations.pkl', 'rb') as f:
             transitions = pickle.load(f)
         self._operator_learning_module._transitions = transitions
         # for action_pred in transitions:
@@ -251,7 +246,7 @@ class InteractiveAgent(Agent):
 
         # Planning to preconditions
         self.precondition_targeting = True
-        self._preconds_plan = []
+        self._preconds_plan = None
         # This is set by the Runner.run() method and also self._get_action_with_preconds_as_goals()
         self.finished_preconds_plan = False
         self._last_preconds_action = None
@@ -349,7 +344,7 @@ class InteractiveAgent(Agent):
             If all of the preconditions are either unreachable from this state or the same preconditions has already had an action tried from it.
         """
         # Have successfully executed the plan to the operator preconds, and will execute the operator next
-        if len(self._preconds_plan) == 1:
+        if self._preconds_plan is not None and len(self._preconds_plan) == 1:
             self.finished_preconds_plan = True
             self.actions_since_last_subgoal = []
             logging.info(f"FOLLOWING PLAN: {self._preconds_plan}")
@@ -358,7 +353,7 @@ class InteractiveAgent(Agent):
             return self._preconds_plan.pop()
 
         # Follow plan to the operator's preconditions
-        elif len(self._preconds_plan) > 0:
+        elif self._preconds_plan is not None and len(self._preconds_plan) > 0:
             self.finished_preconds_plan = False
             logging.info(f"FOLLOWING PLAN: {self._preconds_plan}")
             return self._preconds_plan.pop(0)
@@ -370,7 +365,8 @@ class InteractiveAgent(Agent):
         for op in self._rand_state.permutation(sorted(self.learned_operators, key=lambda op: op.name)):
             # since the last time operators were learned, if operator has been successfully executed at the end of the plan, or
             # the plan failed in the middle to the operator preconditions, skip it.
-            if op.name in self._ops_preconds_executed: continue
+            if op.name in self._ops_preconds_executed:
+                continue
             if op.name in ops_to_exclude: continue
             preconds = op.preconds.literals
 
@@ -739,7 +735,7 @@ class InteractiveAgent(Agent):
                 self.finished_preconds_plan = True
                 # About to reset to the previous subgoal, so clear this list.
                 self.actions_since_last_subgoal = []
-                self._preconds_plan = []
+                self._preconds_plan = None
                 # If the operators don't change as a result of adding the NOP, then the op preconds should be added to the visited set.
                 self._plan_to_op_preconds_failed = True
             else:
@@ -820,6 +816,113 @@ class InteractiveAgent(Agent):
                     self._op_preconds_to_execute = None
         return some_learned_operator_changed, some_learned_operator_changed
     
+class InteractiveAgentLifted(InteractiveAgentGrounded):
+    def __init__(self, domain_name, action_space, observation_space,
+                 curiosity_module_name, operator_learning_name,
+                 planning_module_name, log_llm_path:Optional[str]):
+        super().__init__(domain_name, action_space, observation_space,
+                 curiosity_module_name, operator_learning_name,
+                 planning_module_name, log_llm_path)
+        self._curiosity_module._ignore_mutex = False
+        self._curiosity_module._ignore_statics = False
+        self._curiosity_module._compute_goals = False
+ 
+    def _get_action_with_preconds_as_goals(self, state, ops_to_exclude):
+        # Have successfully executed the plan to the operator preconds, and will execute the operator next
+        if self._preconds_plan is not None and len(self._preconds_plan) == 0:
+            self.finished_preconds_plan = True
+            self.actions_since_last_subgoal = []
+            self._ops_preconds_executed.add(self._op_preconds_to_execute)
+            self._op_preconds_to_execute = None
+            self._preconds_plan = None
+            # Ground action
+            goal, lifted_act = self._current_goal_action
+            ground_act = self._curiosity_module._sample_action_from_goal(goal, lifted_act,state, self._rand_state)
+            logging.info(f"GROUNDED ACTION: {ground_act}")
+            return ground_act
+
+        # Follow plan to the operator's preconditions
+        elif self._preconds_plan is not None and len(self._preconds_plan) > 0:
+            self.finished_preconds_plan = False
+            logging.info(f"FOLLOWING PLAN: {self._preconds_plan}")
+            return self._preconds_plan.pop(0)
+
+        action_predicates = set(p.name for p in self.action_space.predicates)
+        for op in self._rand_state.permutation(sorted(self.learned_operators, key=lambda op: op.name)):
+            # since the last time operators were learned, if operator has been successfully executed at the end of the plan, or
+            # the plan failed in the middle to the operator preconditions, skip it.
+            if op.name in self._ops_preconds_executed:
+                continue
+            if op.name in ops_to_exclude: continue
+            preconds = op.preconds.literals
+
+            logging.info(f"Trying preconds for op: {op.name}: {preconds}")
+
+            # plan to lifted preconditions.
+            preconds_hash = get_hashable_preconds_action(preconds)
+            lifted_act = [p for p in preconds if p.predicate.name in action_predicates][0]
+            if (preconds_hash, state) in self._visited_preconds_states[lifted_act.predicate]:
+                continue
+            lifted_precond_no_act = [p for p in preconds if p.predicate.name not in action_predicates]
+            plan = self._get_plan_to_preconds(lifted_precond_no_act, state)
+            self._current_goal_action = (tuple(lifted_precond_no_act), lifted_act)
+            self._visited_preconds_states[lifted_act.predicate].add((preconds_hash, state))
+            if plan == 'skip':
+                self._ops_preconds_executed.add(op.name)
+                break
+            elif plan is not None:
+                self._preconds_plan = plan
+                logging.info(f"Found plan to preconds: {preconds_hash}")
+                logging.info(f"PLAN: {self._preconds_plan}")
+                self._op_preconds_to_execute = op.name
+                if len(self._preconds_plan) == 0:
+                    # ground action
+                    goal, lifted_act = self._current_goal_action
+                    ground_act = self._curiosity_module._sample_action_from_goal(goal, lifted_act,state, self._rand_state)
+                    logging.info(f"GROUNDED ACTION: {ground_act}")
+ 
+                    self.finished_preconds_plan = True
+                    self.actions_since_last_subgoal = []
+                    self._ops_preconds_executed.add(self._op_preconds_to_execute)
+                    self._op_preconds_to_execute = None
+                    self._preconds_plan = None
+                    return ground_act
+                else:
+                    return self._preconds_plan.pop(0)
+
+        # once done, proceed to the next subgoal in the file.
+        return None
+
+    def _get_plan_to_preconds(self, lifted_precond_lits:list, state):
+        """Returns None if no plan found, otherwise a list of action literals."""
+        variables = sorted({ v for lit in lifted_precond_lits for v in lit.variables })
+        body = LiteralConjunction(lifted_precond_lits)
+        goal = Exists(variables, body)
+        logging.info(f"Planning to goal: {goal}")
+
+        # Create a pddl problem file with the goal and current state
+        problem_fname = self._curiosity_module._create_problem_pddl(
+            state, goal, prefix='glibl_preconds')
+
+        # Get a plan
+        try:
+            plan, _ = self._planning_module.get_plan(
+                problem_fname, use_cache=False, use_learned_ops=True)
+            os.remove(problem_fname)
+            return plan
+        except NoPlanFoundException:
+            logging.info(f"No plan found.")
+        except PlannerTimeoutException:
+            logging.info(f"PLANNER TIMED OUT")
+            if input("skip this preconditions? y or anything").strip() == 'y':
+                os.remove(problem_fname)
+                return 'skip'
+
+        os.remove(problem_fname)
+
+        return None
+ 
+
 class DemonstrationsAgent(Agent):
      def __init__(self, domain_name, action_space, observation_space,
                  curiosity_module_name, operator_learning_name,
@@ -910,13 +1013,10 @@ class CreateDemonstrationsAgent(Agent):
 
     def _get_plans(self):
         """Fill in self.plans with the plans from txt files."""
-        FILEPATHS = [
-           '/home/catalan/GLIB-Baking-Fails-and-LLMs/realistic-baking/llm_plans/train/1/problem1.txt',
-           '/home/catalan/GLIB-Baking-Fails-and-LLMs/realistic-baking/llm_plans/train/2/problem2.txt',
-           '/home/catalan/GLIB-Baking-Fails-and-LLMs/realistic-baking/llm_plans/train/3/problem3.txt',
-           '/home/catalan/GLIB-Baking-Fails-and-LLMs/realistic-baking/llm_plans/train/4/problem4.txt',
-        ]
-        for problem_i, filepath in enumerate(FILEPATHS):
+        demos_path = f'/home/catalan/GLIB-Baking-Fails-and-LLMs/demonstrations/{self.domain_name.capitalize()}'
+        for i, file in enumerate(sorted(os.listdir(demos_path))):
+            filepath = os.path.join(demos_path, file)
+            problem_i = int(file[len('problem'):-len('.txt')])
             with open(filepath, 'r') as f:
                 self.plans[problem_i] = [l for l in f.readlines() if l.strip() != '']
     
@@ -947,7 +1047,7 @@ def get_hashable_preconds_action(preconds):
     s = ','.join(sorted(strings))
     return s
     
-def dump_intermediate_state(agent:InteractiveAgent, fname='transitions.pkl'):
+def dump_intermediate_state(agent:InteractiveAgentGrounded, fname='transitions.pkl'):
     with open(fname, 'wb') as f:
         pickle.dump(agent._operator_learning_module._transitions, f)
     with open('ops.pkl', 'wb') as f:

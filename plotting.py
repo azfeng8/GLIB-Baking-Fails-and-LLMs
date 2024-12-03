@@ -7,7 +7,7 @@ import os
 import seaborn as sns
 import pickle
 from ndr.learn import run_main_search as learn_ndrs
-from settings import AgentConfig as ac
+from settings import PlottingConfig as pc
 from ndr.ndrs import NOISE_OUTCOME
 from collections import defaultdict
 from pddlgym.structs import LiteralConjunction
@@ -18,11 +18,10 @@ from planning_modules.base_planner import Planner, PlannerTimeoutException, \
     NoPlanFoundException
 from agent import Agent
 
-DEMO_RESULTS_PATH = '/home/catalan/GLIB-Baking-Fails-and-LLMs/results/Bakingrealistic/LNDR/GLIB_G1/Bakingrealistic_LNDR_GLIB_G1_demos_1.pkl'
 
 def learn_and_test(dataset, seed, init_rule_sets=None):
     """evaluates the dataset on Bakingrealistic and returns the successes list."""
-    MAX_EE_TRANSITIONS = ac.max_zpk_explain_examples_transitions['Bakingrealistic']
+    MAX_EE_TRANSITIONS = ac.max_zpk_explain_examples_transitions[pc.domain]
 
     def get_batch_probs():
         assert False, 'assumed off'
@@ -40,7 +39,7 @@ def learn_and_test(dataset, seed, init_rule_sets=None):
 
         learned_ndrs = learn_ndrs({action_predicate : dataset[action_predicate]},
             max_timeout=ac.max_zpk_learning_time,
-            max_action_batch_size=ac.max_zpk_action_batch_size['Bakingrealistic'],
+            max_action_batch_size=ac.max_zpk_action_batch_size[pc.domain],
             get_batch_probs=get_batch_probs,
             init_rule_sets=init_rule_set,
             rng=_rand_state,
@@ -70,14 +69,13 @@ def learn_and_test(dataset, seed, init_rule_sets=None):
             name_suffix += 1
     
     # Eval
-    domain_name = 'Bakingrealistic'
+    domain_name = pc.domain
+    test_env = pddlgym.make(f"PDDLEnv{pc.domain}Test-v0")
 
-    test_env = pddlgym.make("PDDLEnvBakingrealisticTest-v0")
-
-    ac.planner_timeout = 400
+    ac.planner_timeout = 30
     # Set these two variables to arbitrary vals to make initialization of agent not fail
     ac.seed = seed 
-    ac.train_env = pddlgym.make("PDDLEnvBakingrealistic-v0")
+    ac.train_env = pddlgym.make(f"PDDLEnv{pc.domain}-v0")
     agent = Agent(domain_name, test_env.action_space,
                     test_env.observation_space, "GLIB_G1", "LNDR", log_llm_path='',
                     planning_module_name=ac.planner_name[domain_name])
@@ -132,6 +130,7 @@ FIXME BUG: Don't evaluate. There's a bug where the operators learned this way ar
     transitions = results_dict['transitions']
     iterations_to_eval = np.array(results_dict['ops_changed_iterations'])
 
+    DEMO_RESULTS_PATH = f'/home/catalan/GLIB-Baking-Fails-and-LLMs/results/{pc.domain}/LNDR/GLIB_G1/{pc.domain}_LNDR_GLIB_G1_demos_5.pkl'
     if include_demos:
         # add the demonstrations results before this results 
         with open(DEMO_RESULTS_PATH, 'rb') as f:
@@ -203,13 +202,14 @@ ALL_TASKS = set(range(22))
 PLOTS = {
     # ("Success Rate on Test Tasks", 'results/Bakingrealistic/bakingrealistic_succ_generalized.png'): GENERALIZATION_TASKS,
     # ("Success Rate on Training Tasks", 'results/Bakingrealistic/bakingrealistic_succ_training.png'): TRAIN_TASKS,
-    ("Success Rate on Easy Training Tasks", 'results/Bakingrealistic/bakingrealistic_succ_easy_training.png'): EASY_TRAIN_TASKS,
+    (f"Success Rate in {pc.domain}", f'results/{pc.domain}/{pc.domain.lower()}_succ.png'): ALL_TASKS,
+    # ("Success Rate on Easy Training Tasks", f'results/{pc.domain}/{pc.domain.lower()}_succ_easy_training.png'): EASY_TRAIN_TASKS,
 
 
     # ("Success Rate on All Tasks (Train and Test)", 'results/Bakingrealistic/bakingrealistic_succ_demos.png'): ALL_TASKS,
 }
 
-def get_plots_for_bakinglarge(results_dict, results_filepaths_dict, append_demos_dict):
+def get_plots(results_dict, results_filepaths_dict, append_demos_dict, old_results_dict, old_results_filepaths_dict):
     """Generates 4 plots:
 
     1. Success rate on all tasks
@@ -228,6 +228,7 @@ def get_plots_for_bakinglarge(results_dict, results_filepaths_dict, append_demos
     succ_rates_std = {name: {} for name, _ in PLOTS}
     succ_rates_max_min = {name: {} for name, _ in PLOTS}
 
+    DEMO_RESULTS_PATH = f'/home/catalan/GLIB-Baking-Fails-and-LLMs/results/{pc.domain}/LNDR/GLIB_G1/{pc.domain}_LNDR_GLIB_G1_demos_5.pkl'
     with open(DEMO_RESULTS_PATH, 'rb') as f:
         demo_results = pickle.load(f)
     for curve_name, results_list in results_dict.items():
@@ -250,7 +251,9 @@ def get_plots_for_bakinglarge(results_dict, results_filepaths_dict, append_demos
     min_seeds = np.inf 
     max_seeds = 0
     for curve_name, results_list in results_dict.items():
-        assert len(results_list) > 0, f"No results found for {curve_name}"
+        if len(results_list) == 0: 
+            print(f"No results in new format found for {curve_name}")
+            continue
 
         rates = {name: [] for name, _ in PLOTS}
 
@@ -296,18 +299,28 @@ def get_plots_for_bakinglarge(results_dict, results_filepaths_dict, append_demos
             succ_rates[plot_name][curve_name], succ_rates_std[plot_name][curve_name], = tolerant_mean(rates[plot_name])
             succ_rates_max_min[plot_name][curve_name] = tolerant_max_min(rates[plot_name])
 
-    # if min_seeds != max_seeds:
-    #     plot_succ(f"Success Rate on All Tasks ({min_seeds} to {max_seeds} seeds)", succ_rate_all_tasks, 'results/Bakingrealistic/bakingrealistic_succ_all_tasks.png')
-    #     plot_succ(f"Success Rate on Length 1 Plan Tasks ({min_seeds} to {max_seeds} seeds)", succ_rate_length1_plans, 'results/Bakingrealistic/bakingrealistic_succ_len1.png')   
-    #     plot_succ(f"Success Rate on Mixing and Subsequent Tasks ({min_seeds} to {max_seeds} seeds)", succ_rate_mixing_and_harder_tasks, 'results/Bakingrealistic/bakingrealistic_succ_mixing_and_harder.png')
-    #     plot_succ(f"Success Rate on Baking Dessert Tasks ({min_seeds} to {max_seeds} seeds)", succ_rate_baking_desserts, 'results/Bakingrealistic/bakingrealistic_succ_baking_desserts.png')
-    # else:
-    #     plot_succ(f"Success Rate on All Tasks ({min_seeds} seeds)", succ_rate_all_tasks, 'results/Bakingrealistic/bakingrealistic_succ_all_tasks.png')
-    #     plot_succ(f"Success Rate on Length 1 Plan Tasks ({min_seeds} seeds)", succ_rate_length1_plans, 'results/Bakingrealistic/bakingrealistic_succ_len1.png')   
-    #     plot_succ(f"Success Rate on Mixing and Subsequent Tasks ({min_seeds} seeds)", succ_rate_mixing_and_harder_tasks, 'results/Bakingrealistic/bakingrealistic_succ_mixing_and_harder.png')
-    #     plot_succ(f"Success Rate on Baking Dessert Tasks ({min_seeds} seeds)", succ_rate_baking_desserts, 'results/Bakingrealistic/bakingrealistic_succ_baking_desserts.png')
+    for curve_name, results_list in old_results_dict.items():
+        rates_across_seeds = []
+        for results in results_list:
+            rates_for_one_seed = []
+            i = 0
+            prev_succ_rate = 0
+            for itr, succ_rate, _ in results:
+                while i < itr:
+                    rates_for_one_seed.append(prev_succ_rate)
+                    i+= 1
+                rates_for_one_seed.append(succ_rate)
+                i+= 1
+                prev_succ_rate = succ_rate
+            rates_across_seeds.append(rates_for_one_seed)
+                
+        for plot_name, _ in PLOTS:
+            succ_rates[plot_name][curve_name], succ_rates_std[plot_name][curve_name] = tolerant_mean(rates_across_seeds)
+            succ_rates_max_min[plot_name][curve_name] = tolerant_max_min(rates_across_seeds)
+
     for plot_name, plot_path in PLOTS:
         plot_succ(plot_name, succ_rates[plot_name], succ_rates_std[plot_name], succ_rates_max_min[plot_name], plot_path)
+    
 
  
 
@@ -587,10 +600,12 @@ def old_plotting():
 
 def _main():
     # Load the demoagent and agent results
-    base_path = 'results_openstack/results/Bakingrealistic'
-    # base_path = 'results/Bakingrealistic'
+    # base_path = 'results_openstack/results/Bakingrealistic'
+    base_path = f'results/{pc.domain}'
     all_results = {}
     all_results_filepaths = {}
+    old_result_format_results = {}
+    old_results_filepaths = {}
     append_demos = {}
     for agent, learning_name, curiosity_name in pc.agent_learner_explorer:
         if agent == 'demoagent':
@@ -599,9 +614,12 @@ def _main():
         else:
             curve_name = f'{curiosity_name}' 
             append_demos[curve_name] = False
+
         results_list = []
+        old_results_list = []
+
         for seed in pc.seeds:
-            results_path = os.path.join(base_path, learning_name, curiosity_name, f'Bakingrealistic_{learning_name}_{curiosity_name}_{agent}_{seed}.pkl')
+            results_path = os.path.join(base_path, learning_name, curiosity_name, f'{pc.domain}_{learning_name}_{curiosity_name}_{agent}_{seed}.pkl')
 
             if os.path.exists(results_path):
                 print("Loading from ", results_path)
@@ -612,7 +630,18 @@ def _main():
                 all_results_filepaths.setdefault(curve_name, [])
                 all_results_filepaths[curve_name].append(results_path)
 
+            old_results_path = os.path.join(base_path, learning_name, curiosity_name, f'{pc.domain}_{learning_name}_{curiosity_name}_{seed}.pkl')
+            if os.path.exists(old_results_path):
+                print("Loading from ", old_results_path)
+                with open(old_results_path, 'rb') as f:
+                    results = pickle.load(f)
+                    old_results_list.append(results)
+
+                old_results_filepaths.setdefault(curve_name, [])
+                old_results_filepaths[curve_name].append(old_results_path)
+
         all_results[curve_name]  = results_list
+        old_result_format_results[curve_name] = old_results_list
 
     results_list = []
 
@@ -620,7 +649,7 @@ def _main():
     new_method_curve_name = f"Our method"
     append_demos[new_method_curve_name] = False
     for seed in pc.seeds:
-        results_path = os.path.join('results/Bakingrealistic', 'LNDR', 'GLIB_G1', f'Bakingrealistic_LNDR_GLIB_G1_interactive_{seed}.pkl')
+        results_path = os.path.join(f'results/{pc.domain}', 'LNDR', 'GLIB_G1', f'{pc.domain}_LNDR_GLIB_G1_interactive_{seed}.pkl')
 
         if os.path.exists(results_path):
             with open(results_path, 'rb') as f:
@@ -633,7 +662,7 @@ def _main():
 
     all_results[new_method_curve_name] = results_list
 
-    get_plots_for_bakinglarge(all_results, all_results_filepaths, append_demos)
+    get_plots(all_results, all_results_filepaths, append_demos, old_result_format_results, old_results_filepaths)
 
     
 if __name__ == '__main__':
