@@ -179,12 +179,15 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
     @staticmethod
     def _sample_action_from_goal(lifted_goal, lifted_action, state, rand_state):
         """Sample a grounding for the action conditioned on the lifted goal and state"""
+        logging.info(f"Grounding goal {lifted_goal} and action {lifted_action}")
         # Try to find a grounding of the lifted goal in the state
         all_assignments = find_satisfying_assignments(state.literals, lifted_goal,
             allow_redundant_variables=False)
         # If none exist, return action None
         if len(all_assignments) == 0:
+            logging.info("No assignments found.")
             return None
+            
         assignments = all_assignments[0]
         # Sample an action conditioned on the assignments.
         # Find possible groundings for each object by type.
@@ -207,6 +210,7 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
                 choices -= set(grounding)
                 # There's no way to bind the variables of the action.
                 if len(choices) == 0:
+                    logging.info("No groundings found.")
                     return None
                 choice = sorted(choices)[rand_state.choice(len(choices))]
                 grounding.append(choice)

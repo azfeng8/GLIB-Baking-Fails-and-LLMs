@@ -362,6 +362,161 @@ class LLM_PDDL_Parser:
 
         return [self._observation_predicates[pred](*typed_args)]
 
+class GoalParser(LLM_PDDL_Parser):
+    def _parse_into_cnf(self, string: str, param_names: list, param_types: list, is_effect: bool) -> list[Literal | None]:
+        """Parses the string into a CNF or None if predicate name or argument types are invalid.
+
+        Args:
+            string: Effect or Precondition string. Starts with '(' and ends with its closing mirror ')'
+            is_effect (bool): if the string is effect.
+            param_names (list): variable names (such as '?x0') 
+            param_types (list): types (such as 'ingredient')
+        Returns:
+            [ Literal or None ]: lists of the literals. Each literal in the list is an item in the Disjunction, like a CNF: [ [AND] OR [AND] ].
+        """
+        if string.startswith("(and") and string[4] in (" ", "\n", "(", ")"):
+            clauses = self._find_all_balanced_expressions(string[4:-1].strip())
+            if clauses is None:
+               return [None]
+            clauses = clauses
+            lits_list = [self._parse_into_cnf(clause, param_names, param_types, 
+                                        is_effect=is_effect) for clause in clauses]
+            clauses_to_and = []
+            # AND together the cnfs in `lits_list`
+            for _cnf in lits_list:
+                # Clear out empty clauses
+                _cnf = [l for l in _cnf if l is not None]
+                if len(_cnf) != 0:
+                    # itertools.product needs iterables, so create `final_cnf` which is just making the clauses in cnf into iterables if they aren't already.
+                    clauses_to_and.append(_cnf)
+
+            if len(clauses_to_and) == 0:
+                return [None]
+
+            if len(clauses_to_and) == 1:
+                # [ expression ]
+                if isinstance(clauses_to_and[0], list):
+                    return clauses_to_and[0]
+                elif isinstance(clauses_to_and[0], Literal) or isinstance(cnf[0], LiteralConjunction):
+                    return clauses_to_and
+                else: 
+                    raise Exception(f"Got type unexpected: {cnf}")
+                    
+            lcs = []
+            
+            for lits in product(*clauses_to_and):
+                conj = []
+                for l in lits:
+                    if isinstance(l, LiteralConjunction):
+                        conj.extend(l.literals)
+                    elif isinstance(l, Literal):
+                        conj.append(l)
+                    else:
+                        raise Exception(f"Got unexpected type: {l} in {lits}")
+                lcs.append(LiteralConjunction(list(conj)))
+            return lcs
+
+        if string.startswith("(not") and string[4] in (" ", "\n", "("):
+            clause = string[4:-1].strip()
+            # the list contains a LiteralConjunction or literals (Disjunction)
+            lits = self._parse_into_cnf(clause, param_names, param_types, is_effect=is_effect)
+
+            lits = [l for l in lits if l is not None]
+            if len(lits) == 0:
+                return [None]
+            
+            # DeMorgan's: Push in the negation
+            if is_effect:
+                negated_lits = [rAnti(l) for l in lits]
+            else:
+                negated_lits = [Not(l) for l in lits]
+
+            if len(lits) == 1:
+                if isinstance(lits[0], LiteralConjunction):
+                # Conjunction at the top turns into a Disjunction
+                    return negated_lits[0].literals
+                elif isinstance(lits[0], Literal):
+                    return negated_lits
+                else:
+                    raise Exception(f"Got unexpected type {lits[0]}")
+            else:
+                # Disjunction at the top turns into a Conjunction
+                # [ [OR] AND [OR] AND [OR] ]
+                conjunction = []
+                for nl in negated_lits:
+                    if isinstance(nl, LiteralDisjunction):
+                        conjunction.append(nl.literals)
+                    elif isinstance(nl, LiteralConjunction):
+                        for l in nl.literals:
+                            conjunction.append([l])
+                    elif isinstance(nl, Literal): # Literal
+                        conjunction.append([nl])
+                    else:
+                        raise Exception(f"Got unexpected type {lits[0]}")
+                if len(conjunction) == 1:
+                    # A Conjunction of 1 literal
+                    return conjunction[0]
+
+                # Turn [ [OR] AND [OR] AND [OR] ] into CNF: [ [AND] OR [AND] ]
+                cnf = []
+                for lits in product(*conjunction):
+                    cnf.append(list(lits))
+                return [LiteralConjunction(clause) for clause in cnf]
+
+        if string.startswith("(or") and string[3] in (" ", "\n", "(", ")"):
+            clauses = self._find_all_balanced_expressions(string[3:-1].strip())
+            lits_list = [self._parse_into_cnf(clause, param_names, param_types, is_effect=is_effect) for clause in clauses]
+            # OR the AND clauses
+            disjunctions = []
+            for _cnf in lits_list:
+                _cnf = [l for l in _cnf if l is not None]
+                for clause in _cnf:
+                    if isinstance(clause, list):
+                        disjunctions.extend(clause)
+                    else:
+                        disjunctions.append(clause)
+
+            if len(disjunctions) == 0:
+                return [None]
+            return disjunctions
+ 
+        string = string[1:-1].split()
+        pred, args = string[0], string[1:]
+        typed_args = []
+
+        # Validate types against the given param names.
+        is_obs_pred = pred in self._observation_predicates
+        is_act_pred = pred in self._action_predicates
+        if is_obs_pred:
+            predicate = self._observation_predicates[pred]
+        elif is_act_pred:
+            predicate = self._action_predicates[pred]
+
+        if not (is_obs_pred or is_act_pred):
+            PARSING_LOGGER.debug(f"Parsed unknown predicate {pred}")
+            return [None]
+        if len(args) != predicate.arity:
+            PARSING_LOGGER.debug(f"Parsed incongruent number of argument types for predicate {pred}")
+            return [None]
+
+        arg_types = []
+        for i, arg in enumerate(args):
+            if arg not in param_names:
+                PARSING_LOGGER.debug("Argument {} not in params {}".format(arg, param_names))
+                return [None]
+            t = param_types[param_names.index(arg)]
+            typed_arg = TypedEntity(arg, Type(t))
+            arg_types.append(t)
+            typed_args.append(typed_arg)
+
+        if predicate.var_types != arg_types:
+            PARSING_LOGGER.debug(f"Parsed incongruent argument types for predicate {pred}")
+            return [None]
+
+        return [predicate(*typed_args)]
+
+
+
 def find_closing_paran(string:str) -> str:
     """Finds the substring that up to and including the enclosed parantheses.
 

@@ -20,10 +20,11 @@ class FastDownwardPlanner(Planner):
             return actions.pop(0)
         return policy
     
-    def get_plan(self,  raw_problem_fname, use_learned_ops=False, use_cache=True):
-        if (not use_learned_ops and not self._planning_operators) or (use_learned_ops and not self._learned_operators):
+    def get_plan(self,  raw_problem_fname, use_learned_ops=False, use_cache=True, ops=None):
+        if (not use_learned_ops and not ops) or (use_learned_ops and not self._learned_operators):
             raise NoPlanFoundException()
-        domain_fname = self._create_domain_file(use_learned_ops)
+        ops = self._learned_operators if use_learned_ops else ops
+        domain_fname = self._create_domain_file(ops)
         problem_fname, objects = self._create_problem_file(raw_problem_fname)
         cmd_str1, cmd_str2 = self._get_cmd_str(domain_fname, problem_fname)
         start_time = time.time()
@@ -41,7 +42,7 @@ class FastDownwardPlanner(Planner):
         except Exception as e:
             self.delete_cached_plan_files(domain_fname, problem_fname, use_cache=True)
             raise e 
-        actions, operator_names = self._plan_to_actions(plan, objects, domain_fname, use_learned_ops=use_learned_ops)
+        actions, operator_names = self._plan_to_actions(plan, objects, domain_fname, use_learned_ops=use_learned_ops, ops=ops)
         self.delete_cached_plan_files(domain_fname, problem_fname, use_cache=True)
         return actions, operator_names
 
@@ -57,11 +58,11 @@ class FastDownwardPlanner(Planner):
         plan = [line[:-3].strip() for line in output.split('\n') if line.endswith('(1)')]
         return plan
 
-    def _plan_to_actions(self, plan, objects, domain_fname, use_learned_ops=False):
+    def _plan_to_actions(self, plan, objects, domain_fname, use_learned_ops=False, ops=None):
         if use_learned_ops:
             operators = self._learned_operators
         else:
-            operators = self._planning_operators
+            operators = ops
         action_predicates = self._action_space.predicates
 
         actions = []

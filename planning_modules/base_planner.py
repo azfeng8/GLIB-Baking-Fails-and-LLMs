@@ -31,19 +31,14 @@ class Planner:
     def get_policy(self, raw_problem_fname, use_learned_ops=False):
         pass
 
-    def _create_domain_file(self, use_learned_ops=False):
+    def _create_domain_file(self, ops):
         dom_str = self._create_domain_file_header()
         dom_str += self._create_domain_file_types()
         dom_str += self._create_domain_file_predicates()
 
-        if use_learned_ops:
-            for operator in sorted(self._learned_operators, key=lambda o:o.name):
-                dom_str += self._create_domain_file_operator(operator)
-            dom_str += '\n)'
-        else:
-            for operator in sorted(self._planning_operators, key=lambda o:o.name):
-                dom_str += self._create_domain_file_operator(operator)
-            dom_str += '\n)'
+        for operator in sorted(ops, key=lambda o:o.name):
+            dom_str += self._create_domain_file_operator(operator)
+        dom_str += '\n)'
 
         return self._create_domain_file_from_str(dom_str)
 

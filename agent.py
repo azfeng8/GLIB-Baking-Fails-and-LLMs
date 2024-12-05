@@ -1,20 +1,24 @@
+import traceback 
 from planning_modules.base_planner import PlannerTimeoutException, \
     NoPlanFoundException
+from collections import defaultdict
+import itertools
 from curiosity_modules import create_curiosity_module
 from operator_learning_modules import create_operator_learning_module
 from planning_modules import create_planning_module
-from pddlgym.structs import Anti, State, Not, LiteralConjunction, ground_literal, Exists
+from pddlgym.structs import Anti, State, Not, LiteralConjunction, ground_literal, Exists, Literal, Type, TypedEntity
 from settings import LLMConfig as lc
 from openai_interface import OpenAI_Model
 from settings import EnvConfig as ec
 from settings import AgentConfig as ac
 from ndr.learn import print_rule_set
 from ndr.ndrs import NOISE_OUTCOME
+from llm_parsing import GoalParser
 import os
 import pickle
 import time
 import numpy as np
-from typing import Optional
+from typing import Optional, Tuple
 import logging
 from pprint import pprint
 from copy import deepcopy
@@ -962,7 +966,10 @@ class CreateDemonstrationsAgent(Agent):
         self.terminated_episodes = set()
         self.action_space = action_space
         self.finished_preconds_plan = False
-
+        # for action_pred in transitions:
+        #     self._operator_learning_module._fits_all_data[action_pred] = True
+ 
+        
 
     def get_action(self, state, problem_idx, _precond_targeting_only):
 
@@ -1033,6 +1040,230 @@ class CreateDemonstrationsAgent(Agent):
         logging.info(f"Resetting episode for curiosity took {time.time() - start_time}")
         self.curiosity_time += time.time()-start_time
         self.episode_start = True
+    
+class StudentAgent(InteractiveAgentLifted):
+    def __init__(self, domain_name, action_space, observation_space,
+                 curiosity_module_name, operator_learning_name,
+                 planning_module_name, log_llm_path:Optional[str]):
+        super().__init__(domain_name, action_space, observation_space,
+                 curiosity_module_name, operator_learning_name,
+                 planning_module_name, log_llm_path)
+ 
+        self.name = 'student'
+        self._ops_executed = set()
+        self._mode = 'preconds_as_goals'
+        self.plan = None
+        self._ground_truth_operators = {op for op in ac.train_env.domain.operators.values()}
+        obj_types = set()
+        for p in (self.action_space.predicates + self.obs_space.predicates):
+            for t in p.var_types:
+                obj_types.add(t)
+        self.parser = GoalParser({p.name: p for p in self.action_space.predicates}, {p.name: p for p in self.obs_space.predicates}, obj_types)
+        self._action_in_plan_to_preconds = False       
+
+
+    def observe(self, state, action, next_state, itr):
+        """Observe a transition.
+
+        Args:
+            state (pddlgym.structs.State): initial state of the transition
+            action (Literal): action taken
+            effects (set[Literal]): effects of the transition
+            itr (int): training iteration #
+        """
+        if self.domain_name.lower() == 'bakingrealistic':
+            obs_literals = set()
+            next_obs_literals = set()
+            for lit in state.literals:
+                if lit.predicate.name not in ('different', 'name-less-than'):
+                    obs_literals.add(lit)
+            for lit in next_state.literals:
+                if lit.predicate.name not in ('different', 'name-less-than'):
+                    next_obs_literals.add(lit)
+            state = State(frozenset(obs_literals), state.objects, state.goal)
+            next_state = State(frozenset(next_obs_literals), next_state.objects, next_state.goal)
+        # Get effects
+        effects = self._compute_effects(state, next_state)
+        logging.info(f"EFFECTS: \n{effects}")
+        # Add data
+        self._operator_learning_module.observe(state, action, effects, start_episode=self.episode_start, itr=itr)
+        # Some curiosity modules might use transition data
+        start_time = time.time()
+        self._curiosity_module.observe(state, action, effects)
+        self.curiosity_time += time.time()-start_time
+        self.episode_start = False
+
+        # Check if planned to preconditions
+        if self._action_in_plan_to_preconds:
+            # Stop executing the plan if it failed in the middle.
+            if len(effects) == 0:
+                self.finished_preconds_plan = True
+                # About to reset to the previous subgoal, so clear this list.
+                self.actions_since_last_subgoal = []
+                self._preconds_plan = None
+                # If the operators don't change as a result of adding the NOP, then the op preconds should be added to the visited set.
+                self._plan_to_op_preconds_failed = True
+            else:
+                self._plan_to_op_preconds_failed = False
+                
+        else:
+            if len(effects) == 0:
+                logging.info(f"Setting plan to none ")
+                self.plan = None
+
+
+        # Check if planned to the next subgoal
+ 
+    def get_action(self, state,  _problem_idx, precond_targeting_only):
+
+        if self.plan is not None:
+            return self._execute_plan(self.plan, state)
+
+        if self._mode == 'preconds_as_goals':
+            action = self._get_action_with_preconds_as_goals(state, set())
+            if action is None:
+                self._mode = 'teacher_subgoals' 
+                self._action_in_plan_to_preconds = False
+            else:
+                self._action_in_plan_to_preconds = True
+                return action
+
+        if self._mode == 'teacher_subgoals':
+            self._action_in_plan_to_preconds = False
+            if input("Evaluate? y or anything").strip() == 'y':
+                self.option = 9
+                return None
+            goals_without_plans = []
+            operator_names_tried = set()
+            all_operator_names = {o.name for o in self.learned_operators}
+            while operator_names_tried != all_operator_names:
+                goal, op_names = self._get_goal(operator_names_tried)
+                operator_names_tried.update(op_names)
+                if goal is None:
+                    continue
+                plan = self._get_plan(goal, state)
+                if plan is not None:
+                    logging.info(f"FOUND PLAN UNDER LEARNED OPS: {plan}")
+                    return self._execute_plan(plan, state)
+                else:
+                    goals_without_plans.append(goal)
+            for goal in goals_without_plans:
+                plan =  self._get_ground_truth_plan(goal, state)
+                if plan is not None:
+                    logging.info(f"FOUND PLAN UNDER GT OPS: {plan}")
+                    return self._execute_plan(plan, state)
+            raise Exception(f"Don't know what to do when get here...")
+                
+        else:
+            raise ValueError(self._mode)
+
+    def _get_goal(self, operators_tried_already) -> Tuple[list,set[str]]:
+        """Return the goals to plan to."""
+        #todo: automation is more complex that first thought...remove-pan-from-oven or preheat example:
+            # NOT just identify the ground truth operator with the same lifted effects
+            # What I want is to accumulate the preconditions to the effects for the learned operator, and then check if that is a subset of the ground truth operator.
+            # but then, the preconditions are different => multiple operators may aggreagate to be equivalent to one operator
+
+        # print ops and manually match. Need to change function signature to agg with other operators.
+        for o in self.learned_operators:
+            if o.name in operators_tried_already: continue
+            logging.info(o.pddl_str())
+        ops_to_try = []
+        name = input("Enter the operator name or q to quit: ")
+        while name != 'q':
+            while name != 'q' and name not in [o.name for o in self.learned_operators if o.name not in operators_tried_already]:
+                name = input("Enter the operator name or q to quit: ")
+            if name != 'q':
+                ops_to_try.append(name)
+                name = None
+        logging.info("Enter the goal for these operators:")
+        for name in ops_to_try:
+            for o in self.learned_operators:
+                if o.name == name:
+                    logging.info(o.pddl_str()) 
+        param_names = []
+        param_types = []
+        while True:
+            goal_file = input("Enter the lifted goal file:").strip()
+            try:
+                with open(goal_file, 'r') as f:
+                    lines = f.readlines()
+                for variable_type in lines[0].split(','):
+                    name, v_type = variable_type.split('-')
+                    param_names.append(name.strip())
+                    param_types.append(v_type.strip())
+                goal_str = ''.join(lines[1:])
+                body = self.parser._parse_into_cnf(goal_str, param_names, param_types, False)
+                body = body[0]
+                if isinstance(body, Literal):
+                    body = LiteralConjunction([body])
+                logging.info(f"parsed: {body}")
+                lifted_act = [lit for lit in body.literals if lit.predicate in self.action_space.predicates][0]
+                g = [lit for lit in body.literals if lit.predicate not in self.action_space.predicates]
+                body = LiteralConjunction(g)
+                variables = sorted({ v for lit in body.literals for v in lit.variables })
+                goal = Exists(variables, body)
+                self._current_goal_action = (g, lifted_act)
+                return goal, set(ops_to_try)         
+            except Exception as e:
+                print(e)
+                traceback.print_exc() 
+                input("Continue or Ctrl-C to quit:")
+                continue
+
+    def _get_plan(self, goal, state):
+        # Create a pddl problem file with the goal and current state
+        problem_fname = self._curiosity_module._create_problem_pddl(
+            state, goal, prefix='glibl_preconds')
+
+        # Get a plan
+        try:
+            plan, _ = self._planning_module.get_plan(
+                problem_fname, use_cache=False, use_learned_ops=True)
+            os.remove(problem_fname)
+            return plan
+        except NoPlanFoundException:
+            logging.info(f"No plan found.")
+        except PlannerTimeoutException:
+            logging.info(f"PLANNER TIMED OUT")
+
+        os.remove(problem_fname)
+
+        return None
+ 
+    
+    def _get_ground_truth_plan(self, goal, state):
+        problem_fname = self._curiosity_module._create_problem_pddl(
+            state, goal, prefix='glibl_preconds')
+        # Get a plan
+        try:
+            plan, _ = self._planning_module.get_plan(
+                problem_fname, use_cache=False, use_learned_ops=False, ops=self._ground_truth_operators)
+            os.remove(problem_fname)
+            return plan
+        except NoPlanFoundException:
+            logging.info(f"No plan found.")
+        except PlannerTimeoutException:
+            logging.info(f"PLANNER TIMED OUT")
+
+        os.remove(problem_fname)
+
+        return None
+
+
+    def _execute_plan(self, plan, state):
+
+        self.plan = plan
+
+        if len(self.plan) == 0:
+            goal, lifted_act = self._current_goal_action
+            ground_act = self._curiosity_module._sample_action_from_goal(goal, lifted_act,state, self._rand_state)
+            self.plan = None
+            self.finished_preconds_plan = True
+            logging.info(f"Executing grounded action: {ground_act}")
+            return ground_act
+
+        return self.plan.pop(0)
 
 
 def get_hashable_preconds_action(preconds):
@@ -1061,3 +1292,57 @@ def dump_intermediate_state(agent:InteractiveAgentGrounded, fname='transitions.p
     with open('rand_state.pkl', 'wb') as f:
         rand_state = agent._rand_state.get_state()
         pickle.dump(rand_state, f)
+
+def rename_variables(literals:list):
+
+    params = set()
+    for lit in literals:
+        for v in lit.variables:
+            params.add(v) 
+    i = 0
+    rename_map = {}
+    for v in params:
+        name, v_type = v._str.split(':')
+        new_var = TypedEntity(f'?x{i}', Type(v_type))
+        rename_map[v] = new_var 
+        i += 1
+
+    for lit in literals:
+        lit.set_variables([rename_map[v] for v in lit.variables])
+
+    return literals
+
+def effects_equal(op1, op2):
+    """Returns True if the lifted effects of the operators are equal, False otherwise."""
+
+    op1_effects = deepcopy(op1.effects.literals)
+    op2_effects = deepcopy(op2.effects.literals)
+
+    # renumber the variables in the effects from 0 for both operators.
+    op1_effects = rename_variables(op1_effects)
+    op2_effects = rename_variables(op2_effects)
+
+    # Get all parameterizations of the op1 params.
+        # get all the variable names in a list, and use itertools.permutations(var_names)
+    op1_params_list = []
+    for lit in op1_effects:
+        for param in lit:
+            op1_params_list.append(param._str.split(':')[0])
+    for perm in itertools.permutations(op1_params_list):
+        # map from the original variable name list to the permutation
+        variables = dict(zip(op1_params_list, perm))
+        # Change the preconds and effects of op1 to the new arg names
+        # Change the name from op1 param to the corresponding op2 param in preconditions and effects
+        effects = []
+        for l in op1_effects:
+            args = []
+            for v in l.variables:
+                args.append(variables[v.split(':')[0]])
+            effects.append(Literal(l.predicate, args))
+
+        # Check that the preconditions and effects of the changed op1 are the same as in op2
+        if set(op2_effects) == set(effects):
+        # If the effects match, return True
+            return True
+ 
+    return False
