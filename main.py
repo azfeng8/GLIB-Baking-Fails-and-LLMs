@@ -135,8 +135,32 @@ class Runner:
                         SOLVED = True
                         continue
  
-                # cycle = list(range(len(self.train_env.problems)))
-                cycle = [3]
+                num_probs = len(self.train_env.problems)
+                uip = input(f"By default, all {num_probs} train problems are in the cycle. Press 'n' to enter manually the episodes, or anything else to accept.")
+                if uip == 'n':
+                    episodes_uip = input("Enter the episode indices, split by whitespace.")  
+                    logging.info("Episode indices:")
+                    logging.info(episodes_uip)
+                    valid = True
+                    accept_uip =  input("Press y to accept")
+                    if not all(i < len(self.train_env.problems) for i in [int(j) for j in episodes_uip.split()]):
+                        logging.info("Invalid episodes. Try again.")
+                        valid = False
+                    while accept_uip != 'y' or not valid:
+                        episodes_uip = input("Enter the episode indices, split by whitespace.")  
+                        if not all(i < len(self.train_env.problems) for i in [int(j) for j in episodes_uip.split()]):
+                            logging.info("Invalid episodes. Try again.")
+                            valid = False
+                        else:
+                            valid = True
+                        logging.info("Episode indices:")
+                        logging.info(episodes_uip)
+                        accept_uip =  input("Press y to accept")
+                    cycle = [int(i) for i in episodes_uip.split()]
+                else:
+                    cycle = list(range(num_probs))
+                logging.info(f"Episodes: " + ','.join([str(s) for s in cycle]))
+
                 precond_targeting_only = False
 
                 episode_done = True

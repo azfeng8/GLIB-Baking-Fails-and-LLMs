@@ -6,7 +6,7 @@ import itertools
 from curiosity_modules import create_curiosity_module
 from operator_learning_modules import create_operator_learning_module
 from planning_modules import create_planning_module
-from pddlgym.structs import Anti, State, Not, LiteralConjunction, ground_literal, Exists, Literal, Type, TypedEntity
+from pddlgym.structs import Anti, State, Not, LiteralConjunction, ground_literal, Exists, Literal, Type, TypedEntity, Predicate
 from settings import LLMConfig as lc
 from openai_interface import OpenAI_Model
 from settings import EnvConfig as ec
@@ -868,6 +868,20 @@ class InteractiveAgentLifted(InteractiveAgentGrounded):
             if (preconds_hash, state) in self._visited_preconds_states[lifted_act.predicate]:
                 continue
             lifted_precond_no_act = [p for p in preconds if p.predicate.name not in action_predicates]
+            # add differents
+            variables = sorted({ v for lit in lifted_precond_no_act for v in lit.variables })
+            logging.info(f"variables: {variables}")
+            Different = Predicate('different', 2)
+            for param1 in variables:
+                param1_type = param1._str[param1._str.find(':'):]
+                for param2 in variables:
+                    if param1._str >= param2._str:
+                        continue
+                    param2_type = param2._str[param2._str.find(':'):]
+
+                    if param1_type == param2_type:
+                        lifted_precond_no_act.append(Different(param1, param2))
+
             plan = self._get_plan_to_preconds(lifted_precond_no_act, state)
             self._current_goal_action = (tuple(lifted_precond_no_act), lifted_act)
             self._visited_preconds_states[lifted_act.predicate].add((preconds_hash, state))
@@ -1150,7 +1164,7 @@ class StudentAgent(InteractiveAgentLifted):
             for goal in goals_without_plans:
                 plan =  self._get_ground_truth_plan(goal, state)
                 if plan is not None:
-                    logging.info(f"FOUND PLAN UNDER GT OPS: {plan}")
+                    logging.info(f"FOUND PLAN UNDER GT OPS. Goal: {goal}\nPlan: {plan}")
                     return self._execute_plan(plan, state)
             raise Exception(f"Don't know what to do when get here...")
                 
@@ -1159,15 +1173,11 @@ class StudentAgent(InteractiveAgentLifted):
 
     def _get_goal(self, operators_tried_already) -> Tuple[list,set[str]]:
         """Return the goals to plan to."""
-        #todo: automation is more complex that first thought...remove-pan-from-oven or preheat example:
-            # NOT just identify the ground truth operator with the same lifted effects
-            # What I want is to accumulate the preconditions to the effects for the learned operator, and then check if that is a subset of the ground truth operator.
-            # but then, the preconditions are different => multiple operators may aggreagate to be equivalent to one operator
 
         # print ops and manually match. Need to change function signature to agg with other operators.
         for o in self.learned_operators:
             if o.name in operators_tried_already: continue
-            logging.info(o.pddl_str())
+        #   logging.info(o.pddl_str())
         ops_to_try = []
         name = input("Enter the operator name or q to quit: ")
         while name != 'q':
@@ -1181,6 +1191,11 @@ class StudentAgent(InteractiveAgentLifted):
             for o in self.learned_operators:
                 if o.name == name:
                     logging.info(o.pddl_str()) 
+
+        #TODO: automation is more complex that first thought...remove-pan-from-oven or preheat example:
+            # NOT just identify the ground truth operator with the same lifted effects
+            # What I want is to accumulate the preconditions to the effects for the learned operator, and then check if that is a subset of the ground truth operator.
+            # but then, the preconditions are different => multiple operators may aggreagate to be equivalent to one operator
         param_names = []
         param_types = []
         while True:
@@ -1200,8 +1215,20 @@ class StudentAgent(InteractiveAgentLifted):
                 logging.info(f"parsed: {body}")
                 lifted_act = [lit for lit in body.literals if lit.predicate in self.action_space.predicates][0]
                 g = [lit for lit in body.literals if lit.predicate not in self.action_space.predicates]
-                body = LiteralConjunction(g)
                 variables = sorted({ v for lit in body.literals for v in lit.variables })
+                # add differents
+                Different = Predicate('different', 2)
+                for param1 in variables:
+                    param1_type = param1._str[param1._str.find(':'):]
+                    for param2 in variables:
+                        if param1._str>= param2._str:
+                            continue
+                        param2_type = param2._str[param2._str.find(':'):]
+ 
+                        if param1_type == param2_type:
+                            g.append(Different(param1, param2))
+                            
+                body = LiteralConjunction(g)
                 goal = Exists(variables, body)
                 self._current_goal_action = (g, lifted_act)
                 return goal, set(ops_to_try)         
