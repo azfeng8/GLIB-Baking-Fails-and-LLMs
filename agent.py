@@ -1,3 +1,4 @@
+import math
 import traceback 
 from planning_modules.base_planner import PlannerTimeoutException, \
     NoPlanFoundException
@@ -7,6 +8,7 @@ from curiosity_modules import create_curiosity_module
 from operator_learning_modules import create_operator_learning_module
 from planning_modules import create_planning_module
 from pddlgym.structs import Anti, State, Not, LiteralConjunction, ground_literal, Exists, Literal, Type, TypedEntity, Predicate
+from pddlgym.parser import Operator
 from settings import LLMConfig as lc
 from openai_interface import OpenAI_Model
 from settings import EnvConfig as ec
@@ -1065,7 +1067,7 @@ class StudentAgent(InteractiveAgentLifted):
  
         self.name = 'student'
         self._ops_executed = set()
-        self._mode = 'preconds_as_goals'
+        self._mode = "teacher_subgoals" #'preconds_as_goals'
         self.plan = None
         self._ground_truth_operators = {op for op in ac.train_env.domain.operators.values()}
         obj_types = set()
@@ -1174,28 +1176,101 @@ class StudentAgent(InteractiveAgentLifted):
     def _get_goal(self, operators_tried_already) -> Tuple[list,set[str]]:
         """Return the goals to plan to."""
 
-        # print ops and manually match. Need to change function signature to agg with other operators.
-        for o in self.learned_operators:
-            if o.name in operators_tried_already: continue
-        #   logging.info(o.pddl_str())
-        ops_to_try = []
-        name = input("Enter the operator name or q to quit: ")
-        while name != 'q':
-            while name != 'q' and name not in [o.name for o in self.learned_operators if o.name not in operators_tried_already]:
-                name = input("Enter the operator name or q to quit: ")
-            if name != 'q':
-                ops_to_try.append(name)
-                name = None
-        logging.info("Enter the goal for these operators:")
-        for name in ops_to_try:
-            for o in self.learned_operators:
-                if o.name == name:
-                    logging.info(o.pddl_str()) 
+       ### First step: operator matching
 
-        #TODO: automation is more complex that first thought...remove-pan-from-oven or preheat example:
-            # NOT just identify the ground truth operator with the same lifted effects
-            # What I want is to accumulate the preconditions to the effects for the learned operator, and then check if that is a subset of the ground truth operator.
-            # but then, the preconditions are different => multiple operators may aggreagate to be equivalent to one operator
+        # OP = None
+        # for o in self.learned_operators:
+        #     if o.name not in operators_tried_already:
+        #         OP = o
+        #         logging.info(f"Selected op: {OP.pddl_str()}")
+        #         break
+        # action_pred = [l.predicate for l in OP.preconds.literals if l.predicate in self.action_space.predicates][0]
+
+
+    #    # Group ops by action predicate.
+    #     ops_to_consider = []
+    #     for o in self.learned_operators:
+    #         if o.name == OP.name: continue
+    #         a = [l.predicate for l in o.preconds.literals if l.predicate in self.action_space.predicates][0]           
+    #         if a == action_pred:
+    #             ops_to_consider.append(o)
+           
+       # Attempt to join as many operators as possible.
+        # new_op_name = OP.name.rstrip('0123456789') + str(len(ops_to_consider) + 1)
+        # ops_covered = [OP.name]
+        # all_possible_joined = False
+        # while not all_possible_joined:
+        #     all_possible_joined = True
+        #     new_ops_to_consider = []
+        #     logging.info(f"Ops to consider: {ops_to_consider}")
+        #     for o in ops_to_consider:
+        #         logging.info(f"Considering {o.name}")
+        #         new_op = join_operators(o, OP, new_op_name)
+        #         if new_op is not None:
+        #             logging.info(f"JOINED with {o.name}")
+        #             ops_covered.append(o.name)
+        #             OP = new_op
+        #             all_possible_joined = False
+        #         else:
+        #             new_ops_to_consider.append(o)
+        #     ops_to_consider = new_ops_to_consider
+
+        # logging.info(f"Looking for g.t. operator that matches operator: {OP.pddl_str()}")
+        # # Compare the joined learned operator effects to the ground truth operators effects.
+        # ground_truth_operator = None
+        # for op in self._ground_truth_operators:
+        #     logging.info(f"Checking if equal: {op.name}")
+        #     if effects_equal(op, OP):
+        #         ground_truth_operator = op
+        #         break
+        
+        # assert ground_truth_operator is not None, "Unexpected."
+        # logging.info(f"Matched with ground truth operator: {ground_truth_operator.pddl_str()}")
+        
+
+        ### Testing code
+        for OP in self.learned_operators:
+            logging.info(f"Selected op: {OP.pddl_str()}")
+            action_pred = [l.predicate for l in OP.preconds.literals if l.predicate in self.action_space.predicates][0]
+            ops_to_consider = []
+            for o in self.learned_operators:
+                if o.name == OP.name: continue
+                a = [l.predicate for l in o.preconds.literals if l.predicate in self.action_space.predicates][0]           
+                if a == action_pred:
+                    ops_to_consider.append(o)
+            new_op_name = OP.name.rstrip('0123456789') + str(len(ops_to_consider) + 1)
+            ops_covered = [OP.name]
+            all_possible_joined = False
+            while not all_possible_joined:
+                all_possible_joined = True
+                new_ops_to_consider = []
+                logging.info(f"Ops to consider: {ops_to_consider}")
+                for o in ops_to_consider:
+                    logging.info(f"Considering {o.name}")
+                    new_op = join_operators(o, OP, new_op_name)
+                    if new_op is not None:
+                        logging.info(f"JOINED with {o.name}")
+                        ops_covered.append(o.name)
+                        OP = new_op
+                        logging.info(OP.pddl_str())
+                        all_possible_joined = False
+                    else:
+                        new_ops_to_consider.append(o)
+                ops_to_consider = new_ops_to_consider
+
+            ground_truth_operator = None
+            for op in self._ground_truth_operators:
+                logging.info(f"Checking if equal: {op.name}")
+                if effects_equal(op, OP):
+                    ground_truth_operator = op
+                    break
+            assert ground_truth_operator is not None, "Unexpected."
+            logging.info(f"Matched with ground truth operator: {ground_truth_operator.pddl_str()}")
+            
+
+
+        ### TODO: test, and then 2nd Step: goal selection.
+
         param_names = []
         param_types = []
         while True:
@@ -1231,7 +1306,7 @@ class StudentAgent(InteractiveAgentLifted):
                 body = LiteralConjunction(g)
                 goal = Exists(variables, body)
                 self._current_goal_action = (g, lifted_act)
-                return goal, set(ops_to_try)         
+                return goal, set(ops_covered)         
             except Exception as e:
                 print(e)
                 traceback.print_exc() 
@@ -1320,16 +1395,35 @@ def dump_intermediate_state(agent:InteractiveAgentGrounded, fname='transitions.p
         rand_state = agent._rand_state.get_state()
         pickle.dump(rand_state, f)
 
-def rename_variables(literals:list):
+# def rename_variables_in_operator(op):
+#     """Mutates the operator by renaming variables starting from ?x0."""
+#     mapping = {}
+#     i = 0
+#     for param in op.params:
+#         mapping[param] = TypedEntity(f'?x{i}', Type(param._str.split(':')[1]))
+#         i += 1
+#     for conjunction in [op.preconds.literals, op.effects.literals]:
+#         for lit in conjunction:
+#             lit.set_variables([mapping[param] for param in lit.variables])
+#     op.params = set(mapping.values())
+#     return op
 
+    
+def rename_variables_in_lits(given_lits:list, conditioned_mapping: dict = {}) -> Tuple[list, dict]:
+    literals = deepcopy(sorted(given_lits))
     params = set()
     for lit in literals:
         for v in lit.variables:
             params.add(v) 
+    variable_nums_taken = {int(v._str.split(':')[0][len("?x"):]) for v in conditioned_mapping.values()}
     i = 0
     rename_map = {}
     for v in params:
+        if v in conditioned_mapping:
+            rename_map[v] = conditioned_mapping[v]
         name, v_type = v._str.split(':')
+        while i in variable_nums_taken:
+            i += 1
         new_var = TypedEntity(f'?x{i}', Type(v_type))
         rename_map[v] = new_var 
         i += 1
@@ -1337,39 +1431,194 @@ def rename_variables(literals:list):
     for lit in literals:
         lit.set_variables([rename_map[v] for v in lit.variables])
 
-    return literals
+    return literals, rename_map
 
 def effects_equal(op1, op2):
     """Returns True if the lifted effects of the operators are equal, False otherwise."""
 
-    op1_effects = deepcopy(op1.effects.literals)
-    op2_effects = deepcopy(op2.effects.literals)
-
     # renumber the variables in the effects from 0 for both operators.
-    op1_effects = rename_variables(op1_effects)
-    op2_effects = rename_variables(op2_effects)
+    op1_preconds, op1_preconds_map = rename_variables_in_lits(op1.preconds.literals)
+    op2_preconds, op2_preconds_map = rename_variables_in_lits(op2.preconds.literals)
+    op1_effects, _ = rename_variables_in_lits(op1.effects.literals, op1_preconds_map)
+    op2_effects, _ = rename_variables_in_lits(op2.effects.literals, op2_preconds_map)
 
+    # # This IS A HEURISTIC that is incorrect for domains in general. covers the Antis in the effects that are already negative in the preconditions
+    # for eff_lit in op1_effects:
+    #     if eff_lit.is_anti and (eff_lit.inverted_anti not in op2_preconds) and (eff_lit not in op2_effects) and (eff_lit.inverted_anti not in op2_effects):
+    #         op2_effects.append(eff_lit)
+    # for eff_lit in op2_effects:
+    #     if eff_lit.is_anti and (eff_lit.inverted_anti not in op1_preconds) and (eff_lit not in op1_effects) and (eff_lit.inverted_anti not in op1_effects):
+    #         op1_effects.append(eff_lit)                       
+
+    op1_effects = sorted(op1_effects)
+    op2_effects = sorted(op2_effects)
+    logging.info(f"Comparing {op1_effects} to {op2_effects}")
     # Get all parameterizations of the op1 params.
         # get all the variable names in a list, and use itertools.permutations(var_names)
     op1_params_list = []
     for lit in op1_effects:
-        for param in lit:
+        for param in lit.variables:
             op1_params_list.append(param._str.split(':')[0])
-    for perm in itertools.permutations(op1_params_list):
+
+    # If number of literals aren't equal, return False.
+    predicate_name_counts_op1 = defaultdict(lambda: 0)
+    predicate_name_counts_op2 = defaultdict(lambda: 0)
+    type_to_param_op1_effects = defaultdict(lambda: [])
+    type_to_param_op2_effects = defaultdict(lambda: [])
+    for lit in op1_effects:
+        p_name = f'{lit.predicate.name}-{lit.is_anti}-{lit.is_negative}'
+        predicate_name_counts_op1[p_name] += 1
+        # for v in lit.variables:
+            # type_to_param_op1_effects[v._str.split(':')[1]].append(v)
+    for lit in op2_effects:
+        p_name = f'{lit.predicate.name}-{lit.is_anti}-{lit.is_negative}'
+        predicate_name_counts_op2[p_name] += 1
+        # for v in lit.variables:
+            # type_to_param_op2_effects[v._str.split(':')[1]].append(v)
+    
+    if sorted(predicate_name_counts_op1.keys()) != sorted(predicate_name_counts_op2.keys()):
+        return False
+
+    for key in predicate_name_counts_op1:
+        if predicate_name_counts_op1[key] != predicate_name_counts_op2[key]:
+            # logging.info("Returned at 2")
+            return False
+    
+    return True
+    # i = 0
+    # # restrict the variable types to match the op2_effects and do permutations within each type.
+    # d = {}
+    # for t in type_to_param_op1_effects:
+    #     logging.info(f"Computing length: {math.factorial(len(type_to_param_op2_effects[t]))}")
+    #     d[t]= [list(zip(type_to_param_op1_effects[t], perm)) for perm in itertools.permutations(type_to_param_op2_effects[t])]
+
+    # # 'assignment' is a list of lists
+    # for assignment in itertools.product(*d.values()):
+    #     p = []
+    #     for a in assignment:
+    #         p.extend(a)
+    #     variables = dict(p)
+    #     # map from the original variable name list to the permutation
+    #     # Change the preconds and effects of op1 to the new arg names
+    #     # Change the name from op1 param to the corresponding op2 param in preconditions and effects
+    #     effects = []
+    #     for l in op1_effects:
+    #         args = []
+    #         for v in l.variables:
+    #             args.append(variables[v])
+    #         effects.append(Literal(l.predicate, args))
+
+    #     # Check that the preconditions and effects of the changed op1 are the same as in op2
+    #     if set(op2_effects) == set(effects):
+    #     # If the effects match, return True
+    #         logging.info("Returned at 3")
+    #         return True
+    #     i += 1
+    #     if i % 10000 == 0:
+    #         logging.info(f"Checked {i+1} permutations")
+ 
+    # logging.info("Returned at 4")
+    # return False
+
+def join_operators(op1, op2, new_op_name):
+    """Returns a new operator if these operators can be joined, or None if they can't be joined."""
+    # Find a reparameterization where the preconditions can be joined, or return fail if not found.
+
+    # reparameterize the variables in the operators starting from 0
+    op1_preconds, op1_preconds_mapping = rename_variables_in_lits(op1.preconds.literals)
+    op2_preconds, op2_preconds_mapping = rename_variables_in_lits(op2.preconds.literals)
+
+    # Get all parameterizations of the op1 params.
+        # get all the variable names in a list, and use itertools.permutations(var_names)
+    op1_preconds_params_list = set()
+    for lit in op1_preconds:
+        for param in lit.variables:
+            op1_preconds_params_list.add(param)
+    op1_preconds_params_list = list(op1_preconds_params_list)
+
+    for perm in itertools.permutations(op1_preconds_params_list):
         # map from the original variable name list to the permutation
-        variables = dict(zip(op1_params_list, perm))
+        variables = dict(zip(op1_preconds_params_list, perm))
         # Change the preconds and effects of op1 to the new arg names
-        # Change the name from op1 param to the corresponding op2 param in preconditions and effects
-        effects = []
-        for l in op1_effects:
+        # Change the name from op1 param to the corresponding op2 param in preconditions
+        preconds = []
+        for l in op1_preconds:
             args = []
             for v in l.variables:
-                args.append(variables[v.split(':')[0]])
-            effects.append(Literal(l.predicate, args))
+                args.append(variables[v])
+            preconds.append(Literal(l.predicate, args))
+        # check if there's a subset that is a complement and then the rest of the preconds are equal.
+        common_in_op1 = []
+        common_in_op2 = []
+        for lit in preconds:
+            if lit.negative in op2_preconds:
+                common_in_op1.append(lit)
+                common_in_op2.append(lit.negative)
+        base_preconds = (set(preconds) - set(common_in_op1))
+        if base_preconds == (set(op2_preconds) - set(common_in_op2)):
 
-        # Check that the preconditions and effects of the changed op1 are the same as in op2
-        if set(op2_effects) == set(effects):
-        # If the effects match, return True
-            return True
- 
-    return False
+            # Carry over the precondition conditions to the effects if possible for both operators.
+
+            op1_conditioned_mapping = {}
+            for lit in op1.preconds.literals:
+                for v in lit.variables:
+                    op1_conditioned_mapping[v] = variables[op1_preconds_mapping[v]]
+            
+            op1_effects, op1_operator_mapping = rename_variables_in_lits(op1.effects.literals, op1_conditioned_mapping)
+            op2_effects, op2_operator_mapping = rename_variables_in_lits(op2.effects.literals, op2_preconds_mapping)
+
+            # get the variables not covered in the preconditions mapping
+            op1_effects_params_list = set() 
+            for lit in op1_effects:
+                for v in lit.variables:
+                    if v not in op1_conditioned_mapping.values():
+                        op1_effects_params_list.add(v)
+            op1_effects_params_list = list(op1_effects_params_list)
+
+            # Iterate over the permutations of the effects mappings conditioned on the preconditions mapping
+            for effects_perm in itertools.permutations(op1_effects_params_list):
+                op1_effects_var_mapping = dict(zip(op1_effects_params_list, effects_perm))
+
+                # Change the effects
+                new_effects = []
+                for lit in op1_effects:
+                    args = []
+                    for v in lit.variables:
+                        if v in op1_effects_var_mapping:
+                            args.append(op1_effects_var_mapping[v]) 
+                        else:
+                            args.append(v)
+                    new_effects.append(Literal(lit.predicate, args))
+
+                op1_effects = deepcopy(new_effects)
+
+                # carry over the preconditions
+                # This covers the lits in the preconds
+                for lit in base_preconds:
+                    if lit.predicate not in ac.train_env.action_space.predicates:
+                        if lit.negative not in op1_effects: 
+                            op1_effects.append(lit)
+                        if lit.negative not in op2_effects:
+                            op2_effects.append(lit)
+                    
+                # FIXME: In general, this is incorrect. but it works as an approximately correct alg for our domains. This covers the Antis in the effects that are already negative in the preconditions
+                for eff_lit in op1_effects:
+                    if eff_lit.is_anti and (eff_lit.inverted_anti not in base_preconds) and (eff_lit.predicate not in [l.predicate for l in op2_effects]):
+                        op2_effects.append(eff_lit)
+                for eff_lit in op2_effects:
+                    if eff_lit.is_anti and (eff_lit.inverted_anti not in base_preconds) and (eff_lit.predicate not in [l.predicate for l in op1_effects]):
+                        op1_effects.append(eff_lit)                       
+                        new_effects.append(eff_lit)
+
+                # Compare the effects to be equal or not. If equal, create the joined operator and return it.
+                logging.info(f"Comparing {sorted(op1_effects)} to {sorted(op2_effects)}")
+                if set(op1_effects) == set(op2_effects):
+                    params = set()
+                    for lits in [op1_effects, base_preconds]:
+                        for lit in lits:
+                            for v in lit.variables:
+                                params.add(v)
+                    return Operator(new_op_name, params, LiteralConjunction(list(base_preconds)), LiteralConjunction(new_effects))
+
+    return None
+

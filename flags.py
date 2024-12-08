@@ -33,6 +33,7 @@ def parse_flags() -> None:
     gc.use_demos = args.use_demonstrations
     gc.create_demos = args.create_demos
     gc.use_student = args.use_student
+    gc.use_interactive = args.use_interactive
 
     ac.curiosity_methods_to_run = args.curiosity_methods
     ac.learning_name = args.learning_name
@@ -69,6 +70,7 @@ def parse_general_config(parser:argparse.ArgumentParser):
     parser.add_argument("--use_demonstrations", action='store_true', default=False)
     parser.add_argument("--create_demos", action='store_true', default=False)
     parser.add_argument("--use_student", action='store_true', default=False)
+    parser.add_argument("--use_interactive", action='store_true', default=False)
 
 def parse_env_config(parser:argparse.ArgumentParser):
     parser.add_argument("--domains", required=True, nargs='+')
