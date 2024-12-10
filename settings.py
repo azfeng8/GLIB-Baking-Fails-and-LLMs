@@ -173,7 +173,7 @@ class AgentConfig:
         "Tsp": 501,
         "Rearrangement": 1001,
         "Glibrearrangement": 1501,
-        "Easygripper": 3001,
+        "Easygripper": 1501,
         "Gripper": 3001,
         "Doors": 2501,
         "Glibdoors": 2501,

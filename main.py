@@ -305,18 +305,18 @@ class Runner:
 
                 if not self.AUTO_EVAL:
                     LOOPING = False
-                    if prev_action == action:
-                        if isinstance(self.agent, InteractiveAgentGrounded) and input("Dump program state? y/n") == 'y':
-                            logging.info("Dumping state...")
-                            dump_intermediate_state(self.agent)
-                        if isinstance(self.agent, InteractiveAgentGrounded) and input("Stuck in a loop, and reprompt for next task? y or anything") == 'y':
-                            LOOPING = True
-                            obs_literals = set()
-                            for lit in obs.literals:
-                                if lit.predicate.name not in ('different', 'name-less-than'):
-                                    obs_literals.add(lit)
-                            state = State(frozenset(obs_literals), obs.objects, obs.goal)
-                            self.agent._prompt_demos_or_subgoals(state)
+                    # if prev_action == action:
+                    #     if isinstance(self.agent, InteractiveAgentGrounded) and input("Dump program state? y/n") == 'y':
+                    #         logging.info("Dumping state...")
+                    #         dump_intermediate_state(self.agent)
+                    #     # if isinstance(self.agent, InteractiveAgentGrounded) and input("Stuck in a loop, and reprompt for next task? y or anything") == 'y':
+                    #         LOOPING = True
+                    #         obs_literals = set()
+                    #         for lit in obs.literals:
+                    #             if lit.predicate.name not in ('different', 'name-less-than'):
+                    #                 obs_literals.add(lit)
+                    #         state = State(frozenset(obs_literals), obs.objects, obs.goal)
+                    #         self.agent._prompt_demos_or_subgoals(state)
                 prev_action = action
 
                 itr += 1

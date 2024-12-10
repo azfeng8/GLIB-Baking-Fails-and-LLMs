@@ -870,19 +870,20 @@ class InteractiveAgentLifted(InteractiveAgentGrounded):
             if (preconds_hash, state) in self._visited_preconds_states[lifted_act.predicate]:
                 continue
             lifted_precond_no_act = [p for p in preconds if p.predicate.name not in action_predicates]
-            # add differents
             variables = sorted({ v for lit in lifted_precond_no_act for v in lit.variables })
             logging.info(f"variables: {variables}")
-            Different = Predicate('different', 2)
-            for param1 in variables:
-                param1_type = param1._str[param1._str.find(':'):]
-                for param2 in variables:
-                    if param1._str >= param2._str:
-                        continue
-                    param2_type = param2._str[param2._str.find(':'):]
+            # add differents
+            if self.domain_name == 'Bakingrealistic':
+                Different = Predicate('different', 2)
+                for param1 in variables:
+                    param1_type = param1._str[param1._str.find(':'):]
+                    for param2 in variables:
+                        if param1._str >= param2._str:
+                            continue
+                        param2_type = param2._str[param2._str.find(':'):]
 
-                    if param1_type == param2_type:
-                        lifted_precond_no_act.append(Different(param1, param2))
+                        if param1_type == param2_type:
+                            lifted_precond_no_act.append(Different(param1, param2))
 
             plan = self._get_plan_to_preconds(lifted_precond_no_act, state)
             self._current_goal_action = (tuple(lifted_precond_no_act), lifted_act)
@@ -1058,6 +1059,10 @@ class CreateDemonstrationsAgent(Agent):
         self.episode_start = True
     
 class StudentAgent(InteractiveAgentLifted):
+
+    # Number of lits to change in the goal.
+    MAX_LIT_CHANGES = 3
+
     def __init__(self, domain_name, action_space, observation_space,
                  curiosity_module_name, operator_learning_name,
                  planning_module_name, log_llm_path:Optional[str]):
@@ -1067,7 +1072,7 @@ class StudentAgent(InteractiveAgentLifted):
  
         self.name = 'student'
         self._ops_executed = set()
-        self._mode = "teacher_subgoals" #'preconds_as_goals'
+        self._mode = 'preconds_as_goals'#"teacher_subgoals" 
         self.plan = None
         self._ground_truth_operators = {op for op in ac.train_env.domain.operators.values()}
         obj_types = set()
@@ -1076,6 +1081,7 @@ class StudentAgent(InteractiveAgentLifted):
                 obj_types.add(t)
         self.parser = GoalParser({p.name: p for p in self.action_space.predicates}, {p.name: p for p in self.obs_space.predicates}, obj_types)
         self._action_in_plan_to_preconds = False       
+        self._visited_preconds_states_teacher_mode = set()
 
 
     def observe(self, state, action, next_state, itr):
@@ -1146,28 +1152,196 @@ class StudentAgent(InteractiveAgentLifted):
 
         if self._mode == 'teacher_subgoals':
             self._action_in_plan_to_preconds = False
-            if input("Evaluate? y or anything").strip() == 'y':
-                self.option = 9
-                return None
-            goals_without_plans = []
+            # if input("Evaluate? y or anything").strip() == 'y':
+            #     self.option = 9
+            #     return None
+            goals_without_plans = defaultdict(lambda: [])
             operator_names_tried = set()
             all_operator_names = {o.name for o in self.learned_operators}
             while operator_names_tried != all_operator_names:
-                goal, op_names = self._get_goal(operator_names_tried)
-                operator_names_tried.update(op_names)
-                if goal is None:
-                    continue
-                plan = self._get_plan(goal, state)
-                if plan is not None:
-                    logging.info(f"FOUND PLAN UNDER LEARNED OPS: {plan}")
-                    return self._execute_plan(plan, state)
+
+                ### First step: operator matching
+
+                OP = None
+                for o in self.learned_operators:
+                    if o.name not in operator_names_tried:
+                        OP = o
+                        logging.info(f"Selected op: {OP.pddl_str()}")
+                        break
+                action_pred = [l.predicate for l in OP.preconds.literals if l.predicate in self.action_space.predicates][0]
+
+
+                # Group ops by action predicate.
+                ops_to_consider = []
+                for o in self.learned_operators:
+                    if o.name == OP.name: continue
+                    a = [l.predicate for l in o.preconds.literals if l.predicate in self.action_space.predicates][0]           
+                    if a == action_pred:
+                        ops_to_consider.append(o)
+                
+                #    Attempt to join as many operators as possible.
+                new_op_name = OP.name.rstrip('0123456789') + str(len(ops_to_consider) + 1)
+                ops_covered = [OP.name]
+                all_possible_joined = False
+                while not all_possible_joined:
+                    all_possible_joined = True
+                    new_ops_to_consider = []
+                    # logging.info(f"Ops to consider: {ops_to_consider}")
+                    for o in ops_to_consider:
+                        # logging.info(f"Considering {o.name}")
+                        new_op = join_operators(o, OP, new_op_name)
+                        if new_op is not None:
+                            logging.info(f"JOINED with {o.name}")
+                            ops_covered.append(o.name)
+                            OP = new_op
+                            all_possible_joined = False
+                        else:
+                            new_ops_to_consider.append(o)
+                    ops_to_consider = new_ops_to_consider
+
+                logging.info(f"Looking for g.t. operator that matches operator: {OP.pddl_str()}")
+                # Compare the joined learned operator effects to the ground truth operators effects.
+                ground_truth_operator = None
+                for op in self._ground_truth_operators:
+                    # logging.info(f"Checking if equal: {op.name}")
+                    if effects_equal(op, OP):
+                        ground_truth_operator = op
+                        break
+                
+                assert ground_truth_operator is not None, "Unexpected."
+                logging.info(f"Matched with ground truth operator: {ground_truth_operator.pddl_str()}")
+
+                ### Second step: goal selection.
+
+                ground_truth_preconds = []
+                if self.domain_name == 'Bakingrealistic':
+                    # remove the differents and name-less-thans from the preconditin
+                    for lit in deepcopy(ground_truth_operator.preconds.literals):
+                        if lit.predicate.name.lower() not in ('name-less-than', 'different'):
+                            ground_truth_preconds.append(lit)
                 else:
-                    goals_without_plans.append(goal)
-            for goal in goals_without_plans:
-                plan =  self._get_ground_truth_plan(goal, state)
-                if plan is not None:
-                    logging.info(f"FOUND PLAN UNDER GT OPS. Goal: {goal}\nPlan: {plan}")
-                    return self._execute_plan(plan, state)
+                    ground_truth_preconds = deepcopy(ground_truth_operator.preconds.literals)
+                    
+                #FIXME: this implementation doesn't take the parameterizations into account when finding the base preconds and preconds changes.
+                preconds_changes = {'weak': [], 'strong': []}
+                relation = None
+                # Get the strong lits
+                intersection_preconds = []
+                lit_i = 0
+                for lit in OP.preconds.literals:
+                    if strip_args(lit) in [strip_args(l) for l in ground_truth_preconds]:
+                        intersection_preconds.append(lit)
+                    else:
+                        preconds_changes['strong'].append((f'strong{lit_i}', lit)) 
+                        relation = 'strong'
+                    lit_i += 1
+
+                lit_i = 0
+
+                op_vars = set()
+                for lit in OP.preconds.literals:
+                    for v in lit.variables:
+                        op_vars.add( int(v._str.split(':')[0][len('?x'):]))
+                for lit in ground_truth_preconds:
+                    lit = strip_args(lit)
+                    if lit not in [strip_args(l) for l in OP.preconds.literals]:
+                        if relation == 'strong':
+                            relation = 'mixed'
+                        elif relation is None:
+                            relation = 'weak'
+                        # need to reparameterize `lit` to fit into OP.
+                            # Each reparametrization feeds into a new goal, exclusive of the other reparametrizations.
+                        variable_type_params = {}
+                        variable_type_counts = defaultdict(lambda: 0)
+                        # consider each param as a new variable.
+                        new_param_i = min([i for i in range(len(op_vars) + 1) if i not in op_vars]) 
+                        for param in lit.variables:
+                            v_type = param._str.split(':')[1]
+                            variable_type_params[v_type] = [TypedEntity(f'?x{new_param_i}', Type(v_type))]
+                            variable_type_counts[v_type] += 1
+                            op_vars.add(new_param_i)
+                            new_param_i = min([i for i in range(len(op_vars)+1) if i not in op_vars]) 
+                        for p in OP.params:
+                            v_type = p._str.split(':')[1]
+                            if v_type  in variable_type_params:
+                                variable_type_params[v_type].append(p)
+                        variable_types = [t for t in variable_type_counts.keys()]
+                        variables = []
+                        for t in variable_types:
+                            variables.append(itertools.permutations(variable_type_params[t], variable_type_counts[t]))
+                        for assignment in itertools.product(*variables):
+                            # logging.info(variable_types)
+                            # logging.info(assignment)
+                            variable_lookup = dict(zip(variable_types, [list(t) for t in assignment]))
+                            args = []
+                            for param in lit.variables:
+                                v_type = param._str.split(':')[1]
+                                args.append(variable_lookup[v_type].pop(0))
+                            reparametrized_lit = Literal(lit.predicate, args)
+                            preconds_changes['weak'].append((f'weak{lit_i}',reparametrized_lit ))
+                        lit_i += 1
+                base_preconds = []
+                if relation == 'weak' or relation == 'mixed':
+                    #  base is learned preconds
+                    base_preconds = deepcopy(OP.preconds.literals)
+                else:
+                    # base is intersection of g.t. and learned preconds
+                    base_preconds = intersection_preconds
+
+                if relation == 'weak' or relation == 'mixed':
+                    changes_bank = preconds_changes['weak']
+                else:
+                    changes_bank = preconds_changes['strong']
+                for n in range(1, min(len(changes_bank), self.MAX_LIT_CHANGES)):
+                    for changes in itertools.combinations(changes_bank, n):
+                        s = set()
+                        for change_type, lit in changes:
+                            s.add(change_type)
+                        # Exclude different parameterizations of the same weak literal. See above comment when adding weak precondition literals.
+                        if len(changes) != len(s):
+                            continue
+                        goal = [l for l in base_preconds]
+                        for change_type, lit in changes:
+                            if lit.is_negative:
+                                goal.append(lit.positive)
+                            else:
+                                goal.append(lit.negative)
+
+                        # mark = get_hashable_preconds_action(tuple([strip_args(l) for l in goal]))
+                        mark = get_hashable_preconds_action(tuple(goal))
+                        if (mark, state) in self._visited_preconds_states_teacher_mode:
+                            continue
+                        # mark this goal as visited, and unvisit operators once they update.
+                        self._visited_preconds_states_teacher_mode.add((mark, state))
+
+                        goal_no_action = [l for l in goal if goal if l.predicate not in self.action_space.predicates]
+                        lifted_act = [l for l in base_preconds if l.predicate in self.action_space.predicates][0]
+                        self._current_goal_action = (goal_no_action, lifted_act)
+                        body = LiteralConjunction(goal_no_action)
+                        vars_ = sorted({ v for lit in body.literals for v in lit.variables })
+                        goal = Exists(vars_, body)
+                        logging.info(f"SAMPLED GOAL: {goal}")
+                        plan = self._get_plan(goal, state)
+                        if plan is not None:
+                            logging.info(f"FOUND PLAN UNDER LEARNED OPS: {plan}")
+                            return self._execute_plan(plan, state)
+                        else:
+                            goals_without_plans[n].append(goal)
+
+                operator_names_tried.update(ops_covered)
+                ###
+
+            # If get here, then all of the goals have been tried under the learned model.
+            for num_changes in sorted(goals_without_plans):
+                for goal in goals_without_plans[num_changes]:
+                    plan =  self._get_ground_truth_plan(goal, state)
+                    if plan is not None:
+                        logging.info(f"FOUND PLAN UNDER GT OPS. Goal: {goal}\nPlan: {plan}")
+                        return self._execute_plan(plan, state)
+
+            if input("Evaluate before exception? y or anything").strip() == 'y':
+                self.option = 9
+                return None
             raise Exception(f"Don't know what to do when get here...")
                 
         else:
@@ -1176,142 +1350,91 @@ class StudentAgent(InteractiveAgentLifted):
     def _get_goal(self, operators_tried_already) -> Tuple[list,set[str]]:
         """Return the goals to plan to."""
 
-       ### First step: operator matching
-
-        # OP = None
-        # for o in self.learned_operators:
-        #     if o.name not in operators_tried_already:
-        #         OP = o
-        #         logging.info(f"Selected op: {OP.pddl_str()}")
-        #         break
-        # action_pred = [l.predicate for l in OP.preconds.literals if l.predicate in self.action_space.predicates][0]
-
-
-    #    # Group ops by action predicate.
-    #     ops_to_consider = []
-    #     for o in self.learned_operators:
-    #         if o.name == OP.name: continue
-    #         a = [l.predicate for l in o.preconds.literals if l.predicate in self.action_space.predicates][0]           
-    #         if a == action_pred:
-    #             ops_to_consider.append(o)
-           
-       # Attempt to join as many operators as possible.
-        # new_op_name = OP.name.rstrip('0123456789') + str(len(ops_to_consider) + 1)
-        # ops_covered = [OP.name]
-        # all_possible_joined = False
-        # while not all_possible_joined:
-        #     all_possible_joined = True
-        #     new_ops_to_consider = []
-        #     logging.info(f"Ops to consider: {ops_to_consider}")
-        #     for o in ops_to_consider:
-        #         logging.info(f"Considering {o.name}")
-        #         new_op = join_operators(o, OP, new_op_name)
-        #         if new_op is not None:
-        #             logging.info(f"JOINED with {o.name}")
-        #             ops_covered.append(o.name)
-        #             OP = new_op
-        #             all_possible_joined = False
-        #         else:
-        #             new_ops_to_consider.append(o)
-        #     ops_to_consider = new_ops_to_consider
-
-        # logging.info(f"Looking for g.t. operator that matches operator: {OP.pddl_str()}")
-        # # Compare the joined learned operator effects to the ground truth operators effects.
-        # ground_truth_operator = None
-        # for op in self._ground_truth_operators:
-        #     logging.info(f"Checking if equal: {op.name}")
-        #     if effects_equal(op, OP):
-        #         ground_truth_operator = op
-        #         break
-        
-        # assert ground_truth_operator is not None, "Unexpected."
-        # logging.info(f"Matched with ground truth operator: {ground_truth_operator.pddl_str()}")
         
 
         ### Testing code
-        for OP in self.learned_operators:
-            logging.info(f"Selected op: {OP.pddl_str()}")
-            action_pred = [l.predicate for l in OP.preconds.literals if l.predicate in self.action_space.predicates][0]
-            ops_to_consider = []
-            for o in self.learned_operators:
-                if o.name == OP.name: continue
-                a = [l.predicate for l in o.preconds.literals if l.predicate in self.action_space.predicates][0]           
-                if a == action_pred:
-                    ops_to_consider.append(o)
-            new_op_name = OP.name.rstrip('0123456789') + str(len(ops_to_consider) + 1)
-            ops_covered = [OP.name]
-            all_possible_joined = False
-            while not all_possible_joined:
-                all_possible_joined = True
-                new_ops_to_consider = []
-                logging.info(f"Ops to consider: {ops_to_consider}")
-                for o in ops_to_consider:
-                    logging.info(f"Considering {o.name}")
-                    new_op = join_operators(o, OP, new_op_name)
-                    if new_op is not None:
-                        logging.info(f"JOINED with {o.name}")
-                        ops_covered.append(o.name)
-                        OP = new_op
-                        logging.info(OP.pddl_str())
-                        all_possible_joined = False
-                    else:
-                        new_ops_to_consider.append(o)
-                ops_to_consider = new_ops_to_consider
+        # for OP in self.learned_operators:
+        #     logging.info(f"Selected op: {OP.pddl_str()}")
+        #     action_pred = [l.predicate for l in OP.preconds.literals if l.predicate in self.action_space.predicates][0]
+        #     ops_to_consider = []
+        #     for o in self.learned_operators:
+        #         if o.name == OP.name: continue
+        #         a = [l.predicate for l in o.preconds.literals if l.predicate in self.action_space.predicates][0]           
+        #         if a == action_pred:
+        #             ops_to_consider.append(o)
+        #     new_op_name = OP.name.rstrip('0123456789') + str(len(ops_to_consider) + 1)
+        #     ops_covered = [OP.name]
+        #     all_possible_joined = False
+        #     while not all_possible_joined:
+        #         all_possible_joined = True
+        #         new_ops_to_consider = []
+        #         logging.info(f"Ops to consider: {ops_to_consider}")
+        #         for o in ops_to_consider:
+        #             logging.info(f"Considering {o.name}")
+        #             new_op = join_operators(o, OP, new_op_name)
+        #             if new_op is not None:
+        #                 logging.info(f"JOINED with {o.name}")
+        #                 ops_covered.append(o.name)
+        #                 OP = new_op
+        #                 logging.info(OP.pddl_str())
+        #                 all_possible_joined = False
+        #             else:
+        #                 new_ops_to_consider.append(o)
+        #         ops_to_consider = new_ops_to_consider
 
-            ground_truth_operator = None
-            for op in self._ground_truth_operators:
-                logging.info(f"Checking if equal: {op.name}")
-                if effects_equal(op, OP):
-                    ground_truth_operator = op
-                    break
-            assert ground_truth_operator is not None, "Unexpected."
-            logging.info(f"Matched with ground truth operator: {ground_truth_operator.pddl_str()}")
+        #     ground_truth_operator = None
+        #     for op in self._ground_truth_operators:
+        #         logging.info(f"Checking if equal: {op.name}")
+        #         if effects_equal(op, OP):
+        #             ground_truth_operator = op
+        #             break
+        #     assert ground_truth_operator is not None, "Unexpected."
+        #     logging.info(f"Matched with ground truth operator: {ground_truth_operator.pddl_str()}")
             
 
+        ### 2nd Step: goal selection.
 
-        ### TODO: test, and then 2nd Step: goal selection.
-
-        param_names = []
-        param_types = []
-        while True:
-            goal_file = input("Enter the lifted goal file:").strip()
-            try:
-                with open(goal_file, 'r') as f:
-                    lines = f.readlines()
-                for variable_type in lines[0].split(','):
-                    name, v_type = variable_type.split('-')
-                    param_names.append(name.strip())
-                    param_types.append(v_type.strip())
-                goal_str = ''.join(lines[1:])
-                body = self.parser._parse_into_cnf(goal_str, param_names, param_types, False)
-                body = body[0]
-                if isinstance(body, Literal):
-                    body = LiteralConjunction([body])
-                logging.info(f"parsed: {body}")
-                lifted_act = [lit for lit in body.literals if lit.predicate in self.action_space.predicates][0]
-                g = [lit for lit in body.literals if lit.predicate not in self.action_space.predicates]
-                variables = sorted({ v for lit in body.literals for v in lit.variables })
-                # add differents
-                Different = Predicate('different', 2)
-                for param1 in variables:
-                    param1_type = param1._str[param1._str.find(':'):]
-                    for param2 in variables:
-                        if param1._str>= param2._str:
-                            continue
-                        param2_type = param2._str[param2._str.find(':'):]
+        # param_names = []
+        # param_types = []
+        # while True:
+        #     goal_file = input("Enter the lifted goal file:").strip()
+        #     try:
+        #         with open(goal_file, 'r') as f:
+        #             lines = f.readlines()
+        #         for variable_type in lines[0].split(','):
+        #             name, v_type = variable_type.split('-')
+        #             param_names.append(name.strip())
+        #             param_types.append(v_type.strip())
+        #         goal_str = ''.join(lines[1:])
+        #         body = self.parser._parse_into_cnf(goal_str, param_names, param_types, False)
+        #         body = body[0]
+        #         if isinstance(body, Literal):
+        #             body = LiteralConjunction([body])
+        #         logging.info(f"parsed: {body}")
+        #         lifted_act = [lit for lit in body.literals if lit.predicate in self.action_space.predicates][0]
+        #         g = [lit for lit in body.literals if lit.predicate not in self.action_space.predicates]
+        #         variables = sorted({ v for lit in body.literals for v in lit.variables })
+        #         # add differents
+        #         Different = Predicate('different', 2)
+        #         for param1 in variables:
+        #             param1_type = param1._str[param1._str.find(':'):]
+        #             for param2 in variables:
+        #                 if param1._str>= param2._str:
+        #                     continue
+        #                 param2_type = param2._str[param2._str.find(':'):]
  
-                        if param1_type == param2_type:
-                            g.append(Different(param1, param2))
+        #                 if param1_type == param2_type:
+        #                     g.append(Different(param1, param2))
                             
-                body = LiteralConjunction(g)
-                goal = Exists(variables, body)
-                self._current_goal_action = (g, lifted_act)
-                return goal, set(ops_covered)         
-            except Exception as e:
-                print(e)
-                traceback.print_exc() 
-                input("Continue or Ctrl-C to quit:")
-                continue
+        #         body = LiteralConjunction(g)
+        #         goal = Exists(variables, body)
+        #         self._current_goal_action = (g, lifted_act)
+        #         return goal, set(ops_covered)         
+        #     except Exception as e:
+        #         print(e)
+        #         traceback.print_exc() 
+        #         input("Continue or Ctrl-C to quit:")
+        #         continue
 
     def _get_plan(self, goal, state):
         # Create a pddl problem file with the goal and current state
@@ -1395,19 +1518,6 @@ def dump_intermediate_state(agent:InteractiveAgentGrounded, fname='transitions.p
         rand_state = agent._rand_state.get_state()
         pickle.dump(rand_state, f)
 
-# def rename_variables_in_operator(op):
-#     """Mutates the operator by renaming variables starting from ?x0."""
-#     mapping = {}
-#     i = 0
-#     for param in op.params:
-#         mapping[param] = TypedEntity(f'?x{i}', Type(param._str.split(':')[1]))
-#         i += 1
-#     for conjunction in [op.preconds.literals, op.effects.literals]:
-#         for lit in conjunction:
-#             lit.set_variables([mapping[param] for param in lit.variables])
-#     op.params = set(mapping.values())
-#     return op
-
     
 def rename_variables_in_lits(given_lits:list, conditioned_mapping: dict = {}) -> Tuple[list, dict]:
     literals = deepcopy(sorted(given_lits))
@@ -1452,7 +1562,7 @@ def effects_equal(op1, op2):
 
     op1_effects = sorted(op1_effects)
     op2_effects = sorted(op2_effects)
-    logging.info(f"Comparing {op1_effects} to {op2_effects}")
+    # logging.info(f"Comparing {op1_effects} to {op2_effects}")
     # Get all parameterizations of the op1 params.
         # get all the variable names in a list, and use itertools.permutations(var_names)
     op1_params_list = []
@@ -1463,8 +1573,8 @@ def effects_equal(op1, op2):
     # If number of literals aren't equal, return False.
     predicate_name_counts_op1 = defaultdict(lambda: 0)
     predicate_name_counts_op2 = defaultdict(lambda: 0)
-    type_to_param_op1_effects = defaultdict(lambda: [])
-    type_to_param_op2_effects = defaultdict(lambda: [])
+    # type_to_param_op1_effects = defaultdict(lambda: [])
+    # type_to_param_op2_effects = defaultdict(lambda: [])
     for lit in op1_effects:
         p_name = f'{lit.predicate.name}-{lit.is_anti}-{lit.is_negative}'
         predicate_name_counts_op1[p_name] += 1
@@ -1485,48 +1595,17 @@ def effects_equal(op1, op2):
             return False
     
     return True
-    # i = 0
-    # # restrict the variable types to match the op2_effects and do permutations within each type.
-    # d = {}
-    # for t in type_to_param_op1_effects:
-    #     logging.info(f"Computing length: {math.factorial(len(type_to_param_op2_effects[t]))}")
-    #     d[t]= [list(zip(type_to_param_op1_effects[t], perm)) for perm in itertools.permutations(type_to_param_op2_effects[t])]
 
-    # # 'assignment' is a list of lists
-    # for assignment in itertools.product(*d.values()):
-    #     p = []
-    #     for a in assignment:
-    #         p.extend(a)
-    #     variables = dict(p)
-    #     # map from the original variable name list to the permutation
-    #     # Change the preconds and effects of op1 to the new arg names
-    #     # Change the name from op1 param to the corresponding op2 param in preconditions and effects
-    #     effects = []
-    #     for l in op1_effects:
-    #         args = []
-    #         for v in l.variables:
-    #             args.append(variables[v])
-    #         effects.append(Literal(l.predicate, args))
-
-    #     # Check that the preconditions and effects of the changed op1 are the same as in op2
-    #     if set(op2_effects) == set(effects):
-    #     # If the effects match, return True
-    #         logging.info("Returned at 3")
-    #         return True
-    #     i += 1
-    #     if i % 10000 == 0:
-    #         logging.info(f"Checked {i+1} permutations")
- 
-    # logging.info("Returned at 4")
-    # return False
 
 def join_operators(op1, op2, new_op_name):
-    """Returns a new operator if these operators can be joined, or None if they can't be joined."""
+    """Returns a new operator based on op1's parameterization if these operators can be joined, or None if they can't be joined."""
     # Find a reparameterization where the preconditions can be joined, or return fail if not found.
 
     # reparameterize the variables in the operators starting from 0
     op1_preconds, op1_preconds_mapping = rename_variables_in_lits(op1.preconds.literals)
     op2_preconds, op2_preconds_mapping = rename_variables_in_lits(op2.preconds.literals)
+    op2_preconds_stripped = [strip_args(lit) for lit in op2_preconds]
+
 
     # Get all parameterizations of the op1 params.
         # get all the variable names in a list, and use itertools.permutations(var_names)
@@ -1551,11 +1630,14 @@ def join_operators(op1, op2, new_op_name):
         common_in_op1 = []
         common_in_op2 = []
         for lit in preconds:
-            if lit.negative in op2_preconds:
+            lit_no_args = strip_args(lit)
+            if lit_no_args.negative in op2_preconds_stripped:
                 common_in_op1.append(lit)
                 common_in_op2.append(lit.negative)
         base_preconds = (set(preconds) - set(common_in_op1))
-        if base_preconds == (set(op2_preconds) - set(common_in_op2)):
+        base_precond_comp = set([strip_args(lit) for lit in base_preconds])
+        precond_comp = set(strip_args(lit) for lit in (set(op2_preconds) - set(common_in_op2)))
+        if base_precond_comp == precond_comp:
 
             # Carry over the precondition conditions to the effects if possible for both operators.
 
@@ -1601,7 +1683,7 @@ def join_operators(op1, op2, new_op_name):
                         if lit.negative not in op2_effects:
                             op2_effects.append(lit)
                     
-                # FIXME: In general, this is incorrect. but it works as an approximately correct alg for our domains. This covers the Antis in the effects that are already negative in the preconditions
+                # FIXME: In general, this is incorrect. but it works for the cases in our domains (remove-pan-from-oven and preheat operators and ignores all other operators). This covers the Antis in the effects that are already negative in the preconditions
                 for eff_lit in op1_effects:
                     if eff_lit.is_anti and (eff_lit.inverted_anti not in base_preconds) and (eff_lit.predicate not in [l.predicate for l in op2_effects]):
                         op2_effects.append(eff_lit)
@@ -1611,8 +1693,10 @@ def join_operators(op1, op2, new_op_name):
                         new_effects.append(eff_lit)
 
                 # Compare the effects to be equal or not. If equal, create the joined operator and return it.
-                logging.info(f"Comparing {sorted(op1_effects)} to {sorted(op2_effects)}")
-                if set(op1_effects) == set(op2_effects):
+                op1_effects_stripped = [strip_args(lit) for lit in op1_effects]
+                op2_effects = [strip_args(lit) for lit in op2_effects]
+                # logging.info(f"Comparing {sorted(op1_effects)} to {sorted(op2_effects)}")
+                if set(op1_effects_stripped) == set(op2_effects):
                     params = set()
                     for lits in [op1_effects, base_preconds]:
                         for lit in lits:
@@ -1622,3 +1706,9 @@ def join_operators(op1, op2, new_op_name):
 
     return None
 
+
+def strip_args(lit:Literal):
+    args = []
+    for v in lit.variables:
+        args.append(TypedEntity('?x', Type(v._str.split(':')[1])))
+    return Literal(lit.predicate, args)

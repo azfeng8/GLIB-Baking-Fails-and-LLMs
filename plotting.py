@@ -32,7 +32,7 @@ def learn_and_test(dataset, seed, init_rule_sets=None):
     rule_set = {}
     for action_predicate in dataset:
 
-        if init_rule_sets is not None:
+        if init_rule_sets is not None and action_predicate in init_rule_sets:
             init_rule_set = {action_predicate: init_rule_sets[action_predicate]}
         else:
             init_rule_set = None
@@ -130,13 +130,16 @@ FIXME BUG: Don't evaluate. There's a bug where the operators learned this way ar
     transitions = results_dict['transitions']
     iterations_to_eval = np.array(results_dict['ops_changed_iterations'])
 
-    DEMO_RESULTS_PATH = f'/home/catalan/GLIB-Baking-Fails-and-LLMs/results/{pc.domain}/LNDR/GLIB_G1/{pc.domain}_LNDR_GLIB_G1_demos_5.pkl'
+    DEMO_RESULTS_PATH = f'/home/catalan/GLIB-Baking-Fails-and-LLMs/demonstrations/{pc.domain.lower()}_demonstrations.pkl'
     if include_demos:
         # add the demonstrations results before this results 
         with open(DEMO_RESULTS_PATH, 'rb') as f:
-            demo_results = pickle.load(f)
-        demo_transitions = demo_results['transitions']
-        demo_successes = demo_results["successes"]
+            # demo_results = pickle.load(f)
+            demos = pickle.load(f)
+            demo_transitions = []
+            (demo_transitions.extend(demos[t]) for t in demos)
+        # demo_transitions = demo_results['transitions']
+        demo_successes = []#demo_results["successes"]
 
         # append the demo transitions and operators changed iterations to the beginning of those transitions to eval
         if 0 not in iterations_to_eval:
@@ -209,7 +212,7 @@ PLOTS = {
     # ("Success Rate on All Tasks (Train and Test)", 'results/Bakingrealistic/bakingrealistic_succ_demos.png'): ALL_TASKS,
 }
 
-def get_plots(results_dict, results_filepaths_dict, append_demos_dict, old_results_dict, old_results_filepaths_dict):
+def get_plots(results_dict, results_filepaths_dict, append_demos_dict, old_results_dict, old_results_filepaths_dict, domain_name):
     """Generates 4 plots:
 
     1. Success rate on all tasks
@@ -228,9 +231,9 @@ def get_plots(results_dict, results_filepaths_dict, append_demos_dict, old_resul
     succ_rates_std = {name: {} for name, _ in PLOTS}
     succ_rates_max_min = {name: {} for name, _ in PLOTS}
 
-    DEMO_RESULTS_PATH = f'/home/catalan/GLIB-Baking-Fails-and-LLMs/results/{pc.domain}/LNDR/GLIB_G1/{pc.domain}_LNDR_GLIB_G1_demos_5.pkl'
-    with open(DEMO_RESULTS_PATH, 'rb') as f:
-        demo_results = pickle.load(f)
+    # DEMO_RESULTS_PATH = f'/home/catalan/GLIB-Baking-Fails-and-LLMs/results/{pc.domain}/LNDR/GLIB_G1/{pc.domain}_LNDR_GLIB_G1_demos_5.pkl'
+    # with open(DEMO_RESULTS_PATH, 'rb') as f:
+        # demo_results = pickle.load(f)
     for curve_name, results_list in results_dict.items():
         for i,results in enumerate(results_list):
             if results['mode'] == 'needs_eval':
@@ -243,9 +246,9 @@ def get_plots(results_dict, results_filepaths_dict, append_demos_dict, old_resul
                 print("Dumping success lists from evaluated transitions...")
                 with open(filepath, 'wb') as f:
                     pickle.dump(results, f)
-            if append_demos_dict[curve_name]:
-                successes = demo_results["successes"] + results['successes']
-                results["successes"] = successes
+            # if append_demos_dict[curve_name]:
+                # successes = demo_results["successes"] + results['successes']
+                # results["successes"] = successes
                 
 
     min_seeds = np.inf 
@@ -319,7 +322,7 @@ def get_plots(results_dict, results_filepaths_dict, append_demos_dict, old_resul
             succ_rates_max_min[plot_name][curve_name] = tolerant_max_min(rates_across_seeds)
 
     for plot_name, plot_path in PLOTS:
-        plot_succ(plot_name, succ_rates[plot_name], succ_rates_std[plot_name], succ_rates_max_min[plot_name], plot_path)
+        plot_succ(plot_name, succ_rates[plot_name], succ_rates_std[plot_name], succ_rates_max_min[plot_name], plot_path, domain_name)
     
 
  
@@ -342,7 +345,7 @@ def tolerant_max_min(arrs):
     maxes, mins = arr.max(axis=-1), arr.min(axis=-1)
     return maxes, mins
 
-def plot_succ(title, succ_rate_dict, succ_rate_std_dict, succ_rate_max_min_dict, out_path, plot_std=True):
+def plot_succ(title, succ_rate_dict, succ_rate_std_dict, succ_rate_max_min_dict, out_path, domain_name, plot_std=True):
     """_summary_
 
     Args:
@@ -356,12 +359,12 @@ def plot_succ(title, succ_rate_dict, succ_rate_std_dict, succ_rate_max_min_dict,
     colors = [next(ax._get_lines.prop_cycler)['color'] for _ in range(number_of_colors)]
     color_idx = 0
     for curve_name, succ_rates in sorted([(curve_name, succ_list) for curve_name, succ_list in succ_rate_dict.items()], key=lambda x: x[0]):
-        xs = np.arange(len(succ_rates) + 1)
-        results_mean = np.array([0] + succ_rates.tolist())
-        results_std = np.array([0] + succ_rate_std_dict[curve_name].tolist())
+        xs = np.arange(len(succ_rates) + 1)[:ac.num_train_iters[domain_name]]
+        results_mean = np.array([0] + succ_rates.tolist())[:ac.num_train_iters[domain_name]]
+        results_std = np.array([0] + succ_rate_std_dict[curve_name].tolist())[:ac.num_train_iters[domain_name]]
         maxes, mins = succ_rate_max_min_dict[curve_name]
-        maxes = np.array([0] + maxes.tolist())
-        mins = np.array([0] + mins.tolist())
+        maxes = np.array([0] + maxes.tolist())[:ac.num_train_iters[domain_name]]
+        mins = np.array([0] + mins.tolist())[:ac.num_train_iters[domain_name]]
         plt.plot(xs, results_mean, label=curve_name, color=colors[color_idx], alpha=0.5)
         if plot_std:
             top_line = np.min(np.vstack([results_mean+results_std, maxes]),axis=0)
@@ -649,7 +652,7 @@ def _main():
     new_method_curve_name = f"Our method"
     append_demos[new_method_curve_name] = False
     for seed in pc.seeds:
-        results_path = os.path.join(f'results/{pc.domain}', 'LNDR', 'GLIB_G1', f'{pc.domain}_LNDR_GLIB_G1_interactive_{seed}.pkl')
+        results_path = os.path.join(f'results/{pc.domain}', 'LNDR', 'GLIB_L2', f'{pc.domain}_LNDR_GLIB_L2_student_{seed}.pkl')
 
         if os.path.exists(results_path):
             with open(results_path, 'rb') as f:
@@ -662,7 +665,7 @@ def _main():
 
     all_results[new_method_curve_name] = results_list
 
-    get_plots(all_results, all_results_filepaths, append_demos, old_result_format_results, old_results_filepaths)
+    get_plots(all_results, all_results_filepaths, append_demos, old_result_format_results, old_results_filepaths, pc.domain)
 
     
 if __name__ == '__main__':
