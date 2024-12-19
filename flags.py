@@ -30,7 +30,7 @@ def parse_flags() -> None:
     gc.timings_dir = args.timings_dir
     gc.planning_results_dir = args.planning_results_dir
     gc.dataset_logging = args.dataset_logging
-    gc.use_demos = args.use_demonstrations
+    gc.use_demos = args.use_demos
     gc.create_demos = args.create_demos
     gc.use_student = args.use_student
     gc.use_interactive = args.use_interactive
@@ -67,7 +67,7 @@ def parse_general_config(parser:argparse.ArgumentParser):
     parser.add_argument("--results_dir", type=str, default='results')
     parser.add_argument("--timings_dir", type=str, default='results/timings')
     parser.add_argument("--planning_results_dir", type=str, default='results/planning_results')
-    parser.add_argument("--use_demonstrations", action='store_true', default=False)
+    parser.add_argument("--use_demos", action='store_true', default=False)
     parser.add_argument("--create_demos", action='store_true', default=False)
     parser.add_argument("--use_student", action='store_true', default=False)
     parser.add_argument("--use_interactive", action='store_true', default=False)

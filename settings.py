@@ -192,6 +192,7 @@ class AgentConfig:
     max_sampling_tries = 20
     max_planning_tries = 20 
     oracle_max_depth = 2
+    oracle_max_neighbors = 50
 
     ## Constants for mutex detection. ##
     mutex_num_episodes = {

@@ -151,7 +151,7 @@ class OracleCuriosityModule(BaseCuriosityModule):
             state = path[-1]
             if state is None or len(act_seq) == ac.oracle_max_depth:
                 continue
-            for action in self._action_space.all_ground_literals(state):
+            for action in self._rand_state.permutation(list(self._action_space.all_ground_literals(state)))[:ac.oracle_max_neighbors]:
                 if self._is_goal_state_action(state, action):
                     return act_seq+[action]
                 predicted_next_state = self._predict_ground_truth(state, action)

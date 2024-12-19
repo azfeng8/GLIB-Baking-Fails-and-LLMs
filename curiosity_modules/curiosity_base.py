@@ -141,7 +141,7 @@ class BaseCuriosityModule:
         """WARNING: Only use this method when self._planning_operators is
         GROUND TRUTH OPS!!!
         """
-        for op in self._planning_operators:
+        for op in self._learned_operators:
             assignments = self._preconds_satisfied(state, action, op.preconds.literals)
             if assignments is not None:
                 ground_effects = []
@@ -210,7 +210,7 @@ class BaseCuriosityModule:
         static_preds = set()
         for pred in self._observation_space.predicates:
             if any(self._op_changes_predicate(op, pred)
-                   for op in self._planning_operators):
+                   for op in self._learned_operators):
                 continue
             static_preds.add(pred)
         return static_preds
@@ -331,7 +331,7 @@ class BaseCuriosityModule:
             yield vs
 
     def _get_ground_effects(self, state, action):
-        for op in self._planning_operators:
+        for op in self._learned_operators:
             assignments = self._preconds_satisfied(state, action, op.preconds.literals)
 
             if assignments is not None:
@@ -427,7 +427,7 @@ class BaseCuriosityModule:
             current_links[lit].append(persist_lit)
             next_links[lit].append(persist_lit)
         for action in self._action_space.all_ground_literals(state):
-            for op in self._planning_operators:
+            for op in self._learned_operators:
                 assignments = self._preconds_satisfied(
                     state, action, op.preconds.literals)
                 if assignments is None:
