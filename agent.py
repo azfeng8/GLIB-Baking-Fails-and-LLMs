@@ -954,7 +954,8 @@ class DemonstrationsAgent(Agent):
         self.name = 'demoagent'   
 
         # Load the demos
-        with open('bakingrealistic_demonstrations.pkl', 'rb') as f:
+        demos_path = f'/home/catalan/GLIB-Baking-Fails-and-LLMs/demonstrations/{self.domain_name.lower()}_demonstrations.pkl'
+        with open(demos_path, 'rb') as f:
             transitions = pickle.load(f)
         self._operator_learning_module._transitions = transitions
  
@@ -1163,7 +1164,7 @@ class StudentAgent(InteractiveAgentLifted):
                 ### First step: operator matching
 
                 OP = None
-                for o in self.learned_operators:
+                for o in np.random.permutation(sorted(self.learned_operators, key = lambda operator: operator.name)):
                     if o.name not in operator_names_tried:
                         OP = o
                         logging.info(f"Selected op: {OP.pddl_str()}")
@@ -1315,6 +1316,21 @@ class StudentAgent(InteractiveAgentLifted):
                         self._visited_preconds_states_teacher_mode.add((mark, state))
 
                         goal_no_action = [l for l in goal if goal if l.predicate not in self.action_space.predicates]
+                        vars_ = sorted({ v for lit in goal_no_action for v in lit.variables })
+                        # add differents
+                        if self.domain_name == 'Bakingrealistic':
+                            Different = Predicate('different', 2)
+                            for param1 in vars_:
+                                param1_type = param1._str[param1._str.find(':'):]
+                                for param2 in vars_:
+                                    if param1._str >= param2._str:
+                                        continue
+                                    param2_type = param2._str[param2._str.find(':'):]
+
+                                    if param1_type == param2_type:
+                                        goal_no_action.append(Different(param1, param2))
+
+
                         lifted_act = [l for l in base_preconds if l.predicate in self.action_space.predicates][0]
                         self._current_goal_action = (goal_no_action, lifted_act)
                         body = LiteralConjunction(goal_no_action)
