@@ -418,7 +418,7 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_
     ac.seed = seed
     ec.seed = seed
     np.random.seed(seed)
-    ac.planner_timeout = 60 if "oracle" in curiosity_name else 400 
+    ac.planner_timeout = 60 if "oracle" in curiosity_name else 15 
 
     train_env = gym.make("PDDLEnv{}-v0".format(domain_name))
     train_env.seed(seed)

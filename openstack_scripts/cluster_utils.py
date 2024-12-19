@@ -8,7 +8,7 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 import yaml
 
 SAVE_DIRS = [
-    "logs", "results",# "llm_cache", "llm_iterative_log"
+    "logs", "results",
 ]
 DEFAULT_BRANCH = "master"
 
@@ -137,7 +137,7 @@ def get_cmds_to_prep_repo(branch: str) -> List[str]:
         f"git checkout {branch}",
         "git pull",
         # Remove old results.
-        f"rm -rf {old_dir_pattern}",
+        # f"rm -rf {old_dir_pattern}",
         "mkdir -p logs",
    ]
 
