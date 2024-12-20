@@ -48,9 +48,9 @@ class Runner:
         self.curiosity_name = curiosity_name
         self.num_train_iters = ac.num_train_iters[domain_name]
 
-        if isinstance(agent, InteractiveAgentGrounded) or isinstance(agent, CreateDemonstrationsAgent):
+        if isinstance(agent, CreateDemonstrationsAgent):
             self.AUTO_EVAL = False
-        elif isinstance(agent, Agent) or isinstance(agent, DemonstrationsAgent):
+        elif isinstance(agent, Agent) or isinstance(agent, DemonstrationsAgent) or isinstance(agent, StudentAgent):
             self.AUTO_EVAL = True
         else:
             raise Exception("Not supported agent type")
@@ -59,6 +59,7 @@ class Runner:
         """Run primitive operator learning loop.
         """
         def learn_and_test():
+            nonlocal SOLVED
             # Learn and test
             if itr % ac.learning_interval[self.domain_name] == 0:
 
@@ -78,6 +79,8 @@ class Runner:
                     successes_list = self._evaluate_operators(use_learned_ops=True)
                     test_solve_rate = sum(successes_list) / len(successes_list)
                     logging.info(f"Result: {test_solve_rate} solve rate")
+                    if test_solve_rate == 1.0:
+                        SOLVED = True
                     results["successes"].append((itr, successes_list))
 
                     logging.info("Learned operators:")
@@ -93,7 +96,7 @@ class Runner:
         problem_idx = 0 
 
         # Logging 
-        if isinstance(self.agent, InteractiveAgentGrounded):
+        if not self.AUTO_EVAL:
             results = {"mode": "needs_eval", "transitions": [], "ops_changed_iterations": []}
         else:
             results = {"mode": "evaluated", "successes": []} 
@@ -418,7 +421,7 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_
     ac.seed = seed
     ec.seed = seed
     np.random.seed(seed)
-    ac.planner_timeout = 60 if "oracle" in curiosity_name else 15 
+    ac.planner_timeout = 60 if "oracle" in curiosity_name else 4
 
     train_env = gym.make("PDDLEnv{}-v0".format(domain_name))
     train_env.seed(seed)
