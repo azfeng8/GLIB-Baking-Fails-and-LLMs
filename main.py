@@ -129,7 +129,8 @@ class Runner:
             logging.info("Iteration {} of {}".format(itr, self.num_train_iters))
 
             # ask user to input which episodes to do in the next cycle
-            if not self.AUTO_EVAL and len(cycle) == 0 and episode_done:
+            # if not self.AUTO_EVAL and len(cycle) == 0 and episode_done:
+            if isinstance(self.agent, StudentAgent) and len(cycle) == 0 and episode_done:
                 subgoals_paths = {i: '' for i in range(len(self.train_env.problems))}
                 if isinstance(self.agent, CreateDemonstrationsAgent):
                     if input("Cycle finished. Dump transitions and exit? y or anything ") == 'y':
@@ -169,7 +170,8 @@ class Runner:
                 episode_done = True
 
             if episode_done:
-                if self.AUTO_EVAL:
+                # if self.AUTO_EVAL:
+                if self.AUTO_EVAL and not isinstance(self.agent, StudentAgent):
                     problem_idx = (problem_idx + 1) % self.num_train_problems
                 else:
                     problem_idx = cycle.pop(0)
@@ -293,6 +295,8 @@ class Runner:
                     # End experiment.
                     SOLVED = True
                     continue
+                elif self.agent.option == 12:
+                    episode_done = True 
                 # Clear the option.
                 self.agent.option = None
                 LOOPING = False
@@ -301,10 +305,13 @@ class Runner:
                 logging.info(f"Taking action {action}")
                 next_obs, rew, episode_done, _ = self.train_env.step(action)
 
-                self.agent.observe(obs, action, next_obs, itr)
+                reset_env = self.agent.observe(obs, action, next_obs, itr)
 
                 obs = next_obs
                 learn_and_test()
+
+                if reset_env:
+                    obs, _ = self.train_env.reset()
 
                 if not self.AUTO_EVAL:
                     LOOPING = False
@@ -421,7 +428,7 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_
     ac.seed = seed
     ec.seed = seed
     np.random.seed(seed)
-    ac.planner_timeout = 60 if "oracle" in curiosity_name else 4
+    ac.planner_timeout = 60 if "oracle" in curiosity_name else 20
 
     train_env = gym.make("PDDLEnv{}-v0".format(domain_name))
     train_env.seed(seed)

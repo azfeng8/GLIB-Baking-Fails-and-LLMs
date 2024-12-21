@@ -120,53 +120,15 @@ def learn_and_test(dataset, seed, init_rule_sets=None):
 
     return successes, rule_set
 
-def evaluate(results_dict, seed, include_demos=True):
-    """Learns the operators and outputs success arrays at each of the iterations where operators changed.
-
-FIXME BUG: Don't evaluate. There's a bug where the operators learned this way are different than those learned in the experiment; havne't figured out what is the source; many moving factors.
-"""
-    assert results_dict['mode'] == 'needs_eval'
-    success_lists = [] # (itr, success list)
-    transitions = results_dict['transitions']
-    iterations_to_eval = np.array(results_dict['ops_changed_iterations'])
-
-    DEMO_RESULTS_PATH = f'/home/catalan/GLIB-Baking-Fails-and-LLMs/demonstrations/{pc.domain.lower()}_demonstrations.pkl'
-    if include_demos:
-        # add the demonstrations results before this results 
-        with open(DEMO_RESULTS_PATH, 'rb') as f:
-            # demo_results = pickle.load(f)
-            demos = pickle.load(f)
-            demo_transitions = []
-            (demo_transitions.extend(demos[t]) for t in demos)
-        # demo_transitions = demo_results['transitions']
-        demo_successes = []#demo_results["successes"]
-
-        # append the demo transitions and operators changed iterations to the beginning of those transitions to eval
-        if 0 not in iterations_to_eval:
-            iterations_to_eval.tolist().insert(0, 0)
-            iterations_to_eval = np.array(iterations_to_eval)
-        iterations_to_eval = np.array(iterations_to_eval) + len(demo_transitions)
-        success_lists.extend(demo_successes)
-        transitions = demo_transitions + transitions
-
-    # Always evaluate the last one
-    last_idx = len(transitions) - 1
-    iterations_to_eval = iterations_to_eval.tolist()
-    if last_idx not in iterations_to_eval:
-        iterations_to_eval.append(last_idx)
-    
+def evaluate_demos(transitions_dict, seed):
     dataset = {} 
     rule_set = None
-    for i, t in enumerate(transitions):
-        dataset.setdefault(t[1].predicate, [])
-        dataset[t[1].predicate].append(t)
-        if i in iterations_to_eval:
-            print(f"Evaluating iteration {i}: {iterations_to_eval.index(i) + 1} out of {len(iterations_to_eval)} evals")
-            successes, rule_set = learn_and_test(dataset, seed, rule_set)
-            print(successes)
-            success_lists.append((i, successes))
+    successes, rule_set = learn_and_test(transitions_dict, seed, rule_set)
+    num_transitions = 0
+    for t in transitions_dict:
+        num_transitions += len(transitions_dict[t]) 
 
-    return success_lists
+    return num_transitions, successes
 
 # BAKING_REALISTIC_TEST_CASES_DESCRIPTIONS = {
 #     0: "Bake 2 souffles and put them on plates",
@@ -205,7 +167,7 @@ ALL_TASKS = set(range(22))
 PLOTS = {
     # ("Success Rate on Test Tasks", 'results/Bakingrealistic/bakingrealistic_succ_generalized.png'): GENERALIZATION_TASKS,
     # ("Success Rate on Training Tasks", 'results/Bakingrealistic/bakingrealistic_succ_training.png'): TRAIN_TASKS,
-    (f"Success Rate in {pc.domain}", f'results/{pc.domain}/{pc.domain.lower()}_succ.png'): ALL_TASKS,
+    (f"Success Rate in {pc.domain}" if pc.domain != "Easygripper" else "Success Rate in Gripper", f'results/{pc.domain}/{pc.domain.lower()}_succ.png'): ALL_TASKS,
     # ("Success Rate on Easy Training Tasks", f'results/{pc.domain}/{pc.domain.lower()}_succ_easy_training.png'): EASY_TRAIN_TASKS,
 
 
@@ -231,24 +193,18 @@ def get_plots(results_dict, results_filepaths_dict, append_demos_dict, old_resul
     succ_rates_std = {name: {} for name, _ in PLOTS}
     succ_rates_max_min = {name: {} for name, _ in PLOTS}
 
-    # DEMO_RESULTS_PATH = f'/home/catalan/GLIB-Baking-Fails-and-LLMs/results/{pc.domain}/LNDR/GLIB_G1/{pc.domain}_LNDR_GLIB_G1_demos_5.pkl'
-    # with open(DEMO_RESULTS_PATH, 'rb') as f:
-        # demo_results = pickle.load(f)
+    DEMOS_PATH = f'/home/catalan/GLIB-Baking-Fails-and-LLMs/demonstrations/{pc.domain.lower()}_demonstrations.pkl'
+    with open(DEMOS_PATH, 'rb') as f:
+        demos = pickle.load(f)
+    total_demos, demo_successes = evaluate_demos(demos, 1)
     for curve_name, results_list in results_dict.items():
         for i,results in enumerate(results_list):
-            if results['mode'] == 'needs_eval':
-                print(f"Evaluating for {curve_name}, {i}th result...")
-                filepath = results_filepaths_dict[curve_name][i]
-                seed = int(filepath[:-len('.pkl')].split('_')[-1])
-                success_lists = evaluate(results, seed)
-                results['mode'] = 'evaluated'
-                results['successes'] = success_lists
-                print("Dumping success lists from evaluated transitions...")
-                with open(filepath, 'wb') as f:
-                    pickle.dump(results, f)
-            # if append_demos_dict[curve_name]:
-                # successes = demo_results["successes"] + results['successes']
-                # results["successes"] = successes
+            assert results['mode'] == 'evaluated'
+            if append_demos_dict[curve_name]:
+                new_successes = [(total_demos - 1, demo_successes)]
+                for itr, succ in results['successes']:
+                    new_successes.append((itr + total_demos - 1, succ))
+                results["successes"] = new_successes
                 
 
     min_seeds = np.inf 
@@ -292,9 +248,9 @@ def get_plots(results_dict, results_filepaths_dict, append_demos_dict, old_resul
 
             for plot_name, _ in PLOTS:
                 # extend the line here.
-                if len(rates_result[plot_name]) < 2000:
-                    # print(len(rates_result[plot_name]), rates_result[plot_name][-1])
-                    rates_result[plot_name] = rates_result[plot_name] + (rates_result[plot_name][-1] * np.ones((2000 - len(rates_result[plot_name]),))).tolist()
+                if len(rates_result[plot_name]) < ac.num_train_iters[pc.domain]: #2000:
+                    # print(len(rates_result[plot_name]), rates_result[plot_name])
+                    rates_result[plot_name] = rates_result[plot_name] + (rates_result[plot_name][-1] * np.ones((ac.num_train_iters[pc.domain]- len(rates_result[plot_name]),))).tolist()
                 rates[plot_name].append(rates_result[plot_name])
 
 
@@ -303,6 +259,11 @@ def get_plots(results_dict, results_filepaths_dict, append_demos_dict, old_resul
             succ_rates_max_min[plot_name][curve_name] = tolerant_max_min(rates[plot_name])
 
     for curve_name, results_list in old_results_dict.items():
+        if len(results_list) == 0: 
+            print(f"No results in new format found for {curve_name}")
+            continue
+
+
         rates_across_seeds = []
         for results in results_list:
             rates_for_one_seed = []
@@ -318,6 +279,7 @@ def get_plots(results_dict, results_filepaths_dict, append_demos_dict, old_resul
             rates_across_seeds.append(rates_for_one_seed)
                 
         for plot_name, _ in PLOTS:
+            # print(rates_across_seeds)
             succ_rates[plot_name][curve_name], succ_rates_std[plot_name][curve_name] = tolerant_mean(rates_across_seeds)
             succ_rates_max_min[plot_name][curve_name] = tolerant_max_min(rates_across_seeds)
 
@@ -603,8 +565,7 @@ def old_plotting():
 
 def _main():
     # Load the demoagent and agent results
-    # base_path = 'results_openstack/results/Bakingrealistic'
-    base_path = f'results/{pc.domain}'
+    base_path = f'results_openstack/results/{pc.domain}'
     all_results = {}
     all_results_filepaths = {}
     old_result_format_results = {}
@@ -635,7 +596,7 @@ def _main():
 
             old_results_path = os.path.join(base_path, learning_name, curiosity_name, f'{pc.domain}_{learning_name}_{curiosity_name}_{seed}.pkl')
             if os.path.exists(old_results_path):
-                print("Loading from ", old_results_path)
+                print("Loading old from ", old_results_path)
                 with open(old_results_path, 'rb') as f:
                     results = pickle.load(f)
                     old_results_list.append(results)
@@ -650,7 +611,7 @@ def _main():
 
     # # Load the new method results
     new_method_curve_name = f"Our method"
-    append_demos[new_method_curve_name] = False
+    append_demos[new_method_curve_name] = True
     for seed in pc.seeds:
         results_path = os.path.join(f'results/{pc.domain}', 'LNDR', 'GLIB_L2', f'{pc.domain}_LNDR_GLIB_L2_student_{seed}.pkl')
 

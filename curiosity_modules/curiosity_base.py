@@ -76,6 +76,7 @@ class BaseCuriosityModule:
         # inject differents
         if self._domain_name.lower() == 'bakingrealistic':
             Different = structs.Predicate('different', 2)
+            NameLessThan = structs.Predicate('name-less-than', 2)
             for obj1 in objects:
                 for obj2 in objects:
                     if obj1 == obj2:
@@ -84,6 +85,13 @@ class BaseCuriosityModule:
                     if obj1.var_type == obj2.var_type:
                         diff_lit = Different(obj1, obj2)
                         initial_state.add(diff_lit)
+
+                        if (obj1._str.split(':')[1] == 'egg_hypothetical') and (obj1._str.split(':')[0] < obj2._str.split(':')[0]):
+                            name_lit = NameLessThan(obj1, obj2)
+                            initial_state.add(name_lit)
+                        elif (obj1._str.split(':')[1] == 'egg_hypothetical'):
+                            name_lit = NameLessThan(obj2, obj1)
+                            initial_state.add(name_lit)
         initial_state = frozenset(initial_state)
         problem_name = "{}_problem".format(prefix)
         domain_name = self._planning_module.domain_name

@@ -437,11 +437,12 @@ def create_induce_outcomes_operators(rule, covered_transitions, ndr_settings=Non
     return [add_operator, remove_operator]
 
 def get_all_possible_outcomes(rule, covered_transitions, ndr_settings=None):
-    """Create initial outcomes as all possible ones
-    """
-    # For default rule, the only possible outcomes are noise and nothing
+    """Create initial outcomes as all possible ones, ensuring no empty effect sets."""
+    # For a default rule (with no preconditions), we previously allowed an empty outcome (tuple()).
+    # Now we disallow empty effects sets, so we only include (NOISE_OUTCOME,) as the minimal outcome.
     if len(rule.preconditions) == 0:
-        all_possible_outcomes = { (NOISE_OUTCOME,), tuple() }
+        # Remove the empty tuple from the set of possible outcomes
+        all_possible_outcomes = { (NOISE_OUTCOME,) }
     else:
         all_possible_outcomes = { (NOISE_OUTCOME,) }
         for state, action, effects in covered_transitions:
@@ -449,7 +450,8 @@ def get_all_possible_outcomes(rule, covered_transitions, ndr_settings=None):
             assert sigma is not None
             sigma_inverse = invert_sigma(sigma)
             # If there is some object in the effects that does not appear in
-            # the rule, this outcome is noise
+            # the rule, this outcome is noise.
+            # Otherwise, we lift all effects and add them.
             lifted_effects = []
             include_effects = True
             for e in effects:
@@ -458,16 +460,52 @@ def get_all_possible_outcomes(rule, covered_transitions, ndr_settings=None):
                 try:
                     lifted_es = ground_literal_multi(e, sigma_inverse)
                 except (KeyError, TypeError):
+                    # If we can't properly ground due to missing vars,
+                    # treat as noise and don't include.
                     include_effects = False
                     break
-                # Don't allow repeated effects, for efficiency
+                # If repeated effects occur or something similar, skip
                 if len(lifted_es) > 1:
                     include_effects = False
                     break
                 lifted_effects.append(lifted_es[0])
-            if include_effects:
+            if include_effects and len(lifted_effects) > 0:
+                # Only add non-empty sets of lifted effects
                 all_possible_outcomes.add(tuple(sorted(lifted_effects)))
     return sorted(all_possible_outcomes)
+
+# def get_all_possible_outcomes(rule, covered_transitions, ndr_settings=None):
+#     """Create initial outcomes as all possible ones
+#     """
+#     # For default rule, the only possible outcomes are noise and nothing
+#     if len(rule.preconditions) == 0:
+#         all_possible_outcomes = { (NOISE_OUTCOME,), tuple() }
+#     else:
+#         all_possible_outcomes = { (NOISE_OUTCOME,) }
+#         for state, action, effects in covered_transitions:
+#             sigma = rule.find_substitutions(state, action)
+#             assert sigma is not None
+#             sigma_inverse = invert_sigma(sigma)
+#             # If there is some object in the effects that does not appear in
+#             # the rule, this outcome is noise
+#             lifted_effects = []
+#             include_effects = True
+#             for e in effects:
+#                 if not include_effects:
+#                     break
+#                 try:
+#                     lifted_es = ground_literal_multi(e, sigma_inverse)
+#                 except (KeyError, TypeError):
+#                     include_effects = False
+#                     break
+#                 # Don't allow repeated effects, for efficiency
+#                 if len(lifted_es) > 1:
+#                     include_effects = False
+#                     break
+#                 lifted_effects.append(lifted_es[0])
+#             if include_effects:
+#                 all_possible_outcomes.add(tuple(sorted(lifted_effects)))
+#     return sorted(all_possible_outcomes)
 
 def induce_outcomes(rule, covered_transitions, max_node_expansions=100, ndr_settings=None):
     """Induce outcomes for a rule

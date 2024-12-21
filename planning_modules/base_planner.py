@@ -61,6 +61,8 @@ class Planner:
         if self.domain_name.lower() == 'bakingrealistic':
             for t in self._types:
                 preds_pddl.append(f"\t\t(different ?arg0 - {t} ?arg1 - {t})")
+                if t == 'egg_hypothetical':
+                    preds_pddl.append(f"\t\t(name-less-than ?arg0 - {t} ?arg1 - {t})")
         else:
             preds_pddl.append("\t(Different ?arg0 ?arg1)")
         return """\t(:predicates\n{}\n\t)""".format("\n".join(preds_pddl))
@@ -80,7 +82,7 @@ class Planner:
         # all_params = set()
         precond_strs = []
         for term in preconds.literals:
-            if term.predicate.name in self._action_pred_names:
+            if term.predicate.name in self._action_pred_names and self.domain_name != 'Bakingrealistic':
                 continue
             params = set(map(str, term.variables))
 
@@ -162,20 +164,20 @@ class Planner:
             # which will be true when the original domain uses operators_as_actions
 
             if self.domain_name .lower()== 'bakingrealistic':
-                action_pred_names = [p.name for p in self._action_space.predicates]
+                # action_pred_names = [p.name for p in self._action_space.predicates]
                 initial_state = set()
                 for lit in problem_parser.initial_state:
                     # Remove ground action literals
-                    if lit.predicate.name in action_pred_names:
-                        continue
+                    # if lit.predicate.name in action_pred_names:
+                    #     continue
                     # Remove name-less-than predicates
-                    if lit.predicate.name == 'name-less-than':
-                        continue
+                    # if lit.predicate.name == 'name-less-than':
+                    #     continue
                     initial_state.add(lit)
                 init_state = State(initial_state, problem_parser.objects, None)
-                # act_lits = self._action_space.all_ground_literals(init_state, valid_only=False)
-                # problem_parser.initial_state = frozenset(act_lits | init_state.literals)
-                problem_parser.initial_state = frozenset(init_state.literals)                   
+                act_lits = self._action_space.all_ground_literals(init_state, valid_only=False)
+                problem_parser.initial_state = frozenset(act_lits | init_state.literals)
+                # problem_parser.initial_state = frozenset(init_state.literals)                   
 
                 # Different = Predicate('different', 2)
                 init_state = set(problem_parser.initial_state)

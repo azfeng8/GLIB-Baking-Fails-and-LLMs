@@ -3,6 +3,8 @@ from planning_modules.base_planner import Planner, PlannerTimeoutException, \
 
 from settings import AgentConfig as ac
 
+import logging
+import shutil
 from pddlgym.structs import ground_literal
 import sys
 import os
@@ -20,13 +22,21 @@ class FastDownwardPlanner(Planner):
             return actions.pop(0)
         return policy
     
-    def get_plan(self,  raw_problem_fname, use_learned_ops=False, use_cache=True, ops=None):
+    def get_plan(self,  raw_problem_fname, use_learned_ops=False, use_cache=True, ops=None, bakinglarge_file=False):
         if (not use_learned_ops and not ops) or (use_learned_ops and not self._learned_operators):
             raise NoPlanFoundException()
         ops = self._learned_operators if use_learned_ops else ops
-        domain_fname = self._create_domain_file(ops)
+        if self.domain_name == 'Bakingrealistic' and bakinglarge_file:
+            domain_fname = '/home/catalan/pddlgym/pddlgym/pddl/bakingrealistic.pddl'
+            fname = '/home/catalan/pddlgym/pddlgym/pddl/bakingrealistic0.pddl'
+            shutil.copyfile(domain_fname, fname)
+            domain_fname = fname
+        else:
+            domain_fname = self._create_domain_file(ops)
         problem_fname, objects = self._create_problem_file(raw_problem_fname)
         cmd_str1, cmd_str2 = self._get_cmd_str(domain_fname, problem_fname)
+        # logging.info(problem_fname)
+        # logging.info(domain_fname)
         start_time = time.time()
         output = subprocess.getoutput(cmd_str1)
         if "exit code: 31" in output:
