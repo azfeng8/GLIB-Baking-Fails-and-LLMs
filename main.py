@@ -175,6 +175,7 @@ class Runner:
                     problem_idx = (problem_idx + 1) % self.num_train_problems
                 else:
                     problem_idx = cycle.pop(0)
+                episode_done = False
                 self.train_env.fix_problem_index(problem_idx)
                 obs, _ = self.train_env.reset()
                 logging.info(f"***********************************New episode! Problem {problem_idx}:{obs.goal}***********************************")
@@ -191,7 +192,7 @@ class Runner:
                 obs, _ = self.train_env.reset()
                 logging.info(f"Resetting to prev subgoal, executing actions:\n{self.agent.action_seq}")
                 for action in self.agent.action_seq:
-                    obs, rew, episode_done, _ = self.train_env.step(action)
+                    obs, rew, _, _ = self.train_env.step(action)
 
             if not LOOPING:
                 logging.info("Getting action...")
@@ -202,7 +203,7 @@ class Runner:
             if action is None:
                 if self.agent.option == 0:
                     action = self.agent.next_action
-                    next_obs, rew, episode_done, _  =  self.train_env.step(action)
+                    next_obs, rew, _, _  =  self.train_env.step(action)
                     logging.info(f"Observing action {action}")
                     self.agent.observe(obs, action, next_obs, itr)
                     transitions.append(self.agent._operator_learning_module._transitions[action.predicate][-1])
@@ -303,7 +304,7 @@ class Runner:
 
             else:
                 logging.info(f"Taking action {action}")
-                next_obs, rew, episode_done, _ = self.train_env.step(action)
+                next_obs, rew, _, _ = self.train_env.step(action)
 
                 reset_env = self.agent.observe(obs, action, next_obs, itr)
 
@@ -311,6 +312,7 @@ class Runner:
                 learn_and_test()
 
                 if reset_env:
+                    logging.info("Resetting env")
                     obs, _ = self.train_env.reset()
 
                 if not self.AUTO_EVAL:
@@ -327,13 +329,13 @@ class Runner:
                     #                 obs_literals.add(lit)
                     #         state = State(frozenset(obs_literals), obs.objects, obs.goal)
                     #         self.agent._prompt_demos_or_subgoals(state)
-                prev_action = action
+                # prev_action = action
 
                 itr += 1
                 transitions.append(self.agent._operator_learning_module._transitions[action.predicate][-1])
 
-                if round(rew) == 1:
-                    logging.info(f"***********************************Reached goal! {obs.goal}***********************************")
+                # if round(rew) == 1:
+                #     logging.info(f"***********************************Reached goal! {obs.goal}***********************************")
         curiosity_avg_time = self.agent.curiosity_time/self.num_train_iters
 
         if not self.AUTO_EVAL:
@@ -376,6 +378,7 @@ class Runner:
         else:
             num_problems = len(self.test_env.problems)
 
+        #TODO: extend the planner timeout once it's necessary.
         successes = []
         problems = range(num_problems)
         for problem_idx in problems:

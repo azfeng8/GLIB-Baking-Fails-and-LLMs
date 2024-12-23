@@ -23,8 +23,6 @@ class FastDownwardPlanner(Planner):
         return policy
     
     def get_plan(self,  raw_problem_fname, use_learned_ops=False, use_cache=True, ops=None, bakinglarge_file=False):
-        if (not use_learned_ops and not ops) or (use_learned_ops and not self._learned_operators):
-            raise NoPlanFoundException()
         ops = self._learned_operators if use_learned_ops else ops
         if self.domain_name == 'Bakingrealistic' and bakinglarge_file:
             domain_fname = '/home/catalan/pddlgym/pddlgym/pddl/bakingrealistic.pddl'
@@ -112,12 +110,14 @@ class FastDownwardPlanner(Planner):
             matches = [o for o in objects if o.name == name]
             assert len(matches) == 1
             args.append(matches[0])
+
         assignments = dict(zip(operator.params, args))
 
         for cond in operator.preconds.literals:
             if cond.predicate in action_predicates:
                 ground_action = ground_literal(cond, assignments)
                 return ground_action, operator.name
+
 
         import ipdb; ipdb.set_trace()
         raise Exception("Unrecognized plan step: `{}`".format(str(plan_step)))

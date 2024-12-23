@@ -167,7 +167,9 @@ ALL_TASKS = set(range(22))
 PLOTS = {
     # ("Success Rate on Test Tasks", 'results/Bakingrealistic/bakingrealistic_succ_generalized.png'): GENERALIZATION_TASKS,
     # ("Success Rate on Training Tasks", 'results/Bakingrealistic/bakingrealistic_succ_training.png'): TRAIN_TASKS,
-    (f"Success Rate in {pc.domain}" if pc.domain != "Easygripper" else "Success Rate in Gripper", f'results/{pc.domain}/{pc.domain.lower()}_succ.png'): ALL_TASKS,
+    # (f"Success Rate in {pc.domain}" if pc.domain != "Easygripper" else "Success Rate in Gripper", f'results/{pc.domain}/{pc.domain.lower()}_succ.png'): ALL_TASKS,
+    # (f"Success Rate in Keys and Doors", f'results/{pc.domain}/{pc.domain.lower()}_succ.png'): ALL_TASKS,
+    (f"Success Rate in Baking-Large", f'results/{pc.domain}/{pc.domain.lower()}_succ.png'): ALL_TASKS,
     # ("Success Rate on Easy Training Tasks", f'results/{pc.domain}/{pc.domain.lower()}_succ_easy_training.png'): EASY_TRAIN_TASKS,
 
 
@@ -551,7 +553,10 @@ def old_plotting():
                         print(f"Missing seed {seed} for domain {domain_name} learner {learning_name} curiosity {curiosity_name}")
                         continue
                     with open(results_path, 'rb') as fh:
-                        all_results[curiosity_name].append(pickle.load(fh))
+                        if curiosity_name == 'oracle':
+                            all_results['GLIB-oracle'].append(pickle.load(fh))
+                        else:
+                            all_results[curiosity_name].append(pickle.load(fh))
 
 
                     llm_queries = None
@@ -573,10 +578,17 @@ def _main():
     append_demos = {}
     for agent, learning_name, curiosity_name in pc.agent_learner_explorer:
         if agent == 'demoagent':
-            curve_name = f"{curiosity_name} with demos"
+            if curiosity_name == 'oracle':
+                curve_name = f"GLIB-oracle with demos"
+            else:
+                curve_name = f"{curiosity_name} with demos"
             append_demos[curve_name] = True
         else:
-            curve_name = f'{curiosity_name}' 
+            if curiosity_name == 'oracle':
+                curve_name = f"GLIB-oracle"
+            else:
+                curve_name = f"{curiosity_name}"
+ 
             append_demos[curve_name] = False
 
         results_list = []
@@ -610,10 +622,11 @@ def _main():
     results_list = []
 
     # # Load the new method results
-    new_method_curve_name = f"Our method"
+    new_method_curve_name = "Teacher-GLIB"
     append_demos[new_method_curve_name] = True
     for seed in pc.seeds:
-        results_path = os.path.join(f'results/{pc.domain}', 'LNDR', 'GLIB_L2', f'{pc.domain}_LNDR_GLIB_L2_student_{seed}.pkl')
+        results_path = os.path.join(f'results/{pc.domain}', 'LNDR', 'GLIB_G1', f'{pc.domain}_LNDR_GLIB_G1_interactive_{seed}.pkl')
+        # results_path = os.path.join(f'results/{pc.domain}', 'LNDR', 'GLIB_L2', f'{pc.domain}_LNDR_GLIB_L2_student_{seed}.pkl')
 
         if os.path.exists(results_path):
             with open(results_path, 'rb') as f:

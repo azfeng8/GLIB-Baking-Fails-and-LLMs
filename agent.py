@@ -1107,7 +1107,7 @@ class StudentAgent(InteractiveAgentLifted):
                 for lit in op.preconds.literals + op.effects.literals:
                     for v in lit.variables:
                         params.add(v)
-                op.params = params
+                op.params = sorted(params, key=lambda param: param._str.split(':')[0])
             for op in self._ground_truth_operators_for_planning:
                 all_pass = False
                 while not all_pass:
@@ -1123,7 +1123,7 @@ class StudentAgent(InteractiveAgentLifted):
                 for lit in op.preconds.literals + op.effects.literals:
                     for v in lit.variables:
                         params.add(v)
-                op.params = params
+                op.params = sorted(params, key=lambda param: param._str.split(':')[0])
                 
 
     def observe(self, state, action, next_state, itr):
@@ -1330,6 +1330,7 @@ class StudentAgent(InteractiveAgentLifted):
                 else:
                     banks.append((deepcopy(learned_operator.preconds.literals) ,preconds_changes['weak']))
                     banks.append((strong_base_preconds,preconds_changes['strong']))
+                skip_to_next_op = False
                 for base_preconds, changes_bank in banks:
                     logging.info(f'Change bank length: {len(changes_bank)}')
                     logging.info(changes_bank)
@@ -1349,6 +1350,7 @@ class StudentAgent(InteractiveAgentLifted):
                                 else:
                                     goal.append(lit.negative)
 
+                            #TODO: BUG: only add the mark if the plan completes
                             mark = get_hashable_preconds_action(tuple(goal))
                             if (mark, state, learned_operator.pddl_str()) in self._visited_preconds_states_teacher_mode:
                                 logging.info(f"Skipping goal: {goal}")
@@ -1394,7 +1396,11 @@ class StudentAgent(InteractiveAgentLifted):
                                 ac.planner_timeout = 400
                                 # provide the grounded goal file according to the lifted goal and then plan to it.
                                 while True:
+                                    # if option is qq, then skip all goals for this operator.
                                     goal_file = input("Enter the grounded goal file: ").strip()
+                                    if goal_file == 'qq':
+                                        skip_to_next_op = True
+                                        break
                                     if goal_file == 'q': break
                                     try:
                                         with open(goal_file, 'r') as f:
@@ -1427,6 +1433,12 @@ class StudentAgent(InteractiveAgentLifted):
                                         input("Continue or Ctrl-C to quit:")
                                         continue
                                 ac.planner_timeout = timeout
+                            if skip_to_next_op:
+                                break
+                        if skip_to_next_op:
+                            break
+                    if skip_to_next_op:
+                        break
 
                 operator_names_tried.update(ops_covered)
                 ###
@@ -1492,7 +1504,7 @@ class StudentAgent(InteractiveAgentLifted):
         try:
             if self.domain_name == 'Bakingrealistic':
                 plan, _ = self._planning_module.get_plan(
-                    problem_fname, use_cache=False, use_learned_ops=False, bakinglarge_file=True)
+                    problem_fname, use_cache=False, use_learned_ops=False, bakinglarge_file=True, ops=self._ground_truth_operators_for_planning)
                 os.remove(problem_fname)
                 return plan
  
