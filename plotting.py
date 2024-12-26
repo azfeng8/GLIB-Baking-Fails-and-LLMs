@@ -167,9 +167,9 @@ ALL_TASKS = set(range(22))
 PLOTS = {
     # ("Success Rate on Test Tasks", 'results/Bakingrealistic/bakingrealistic_succ_generalized.png'): GENERALIZATION_TASKS,
     # ("Success Rate on Training Tasks", 'results/Bakingrealistic/bakingrealistic_succ_training.png'): TRAIN_TASKS,
-    # (f"Success Rate in {pc.domain}" if pc.domain != "Easygripper" else "Success Rate in Gripper", f'results/{pc.domain}/{pc.domain.lower()}_succ.png'): ALL_TASKS,
+    (f"Success Rate in {pc.domain}" if pc.domain != "Easygripper" else "Success Rate in Gripper", f'results/{pc.domain}/{pc.domain.lower()}_succ.png'): ALL_TASKS,
     # (f"Success Rate in Keys and Doors", f'results/{pc.domain}/{pc.domain.lower()}_succ.png'): ALL_TASKS,
-    (f"Success Rate in Baking-Large", f'results/{pc.domain}/{pc.domain.lower()}_succ.png'): ALL_TASKS,
+    # (f"Success Rate in Baking-Large", f'results/{pc.domain}/{pc.domain.lower()}_succ.png'): ALL_TASKS,
     # ("Success Rate on Easy Training Tasks", f'results/{pc.domain}/{pc.domain.lower()}_succ_easy_training.png'): EASY_TRAIN_TASKS,
 
 
