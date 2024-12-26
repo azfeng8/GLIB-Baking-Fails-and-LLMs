@@ -173,7 +173,7 @@ class AgentConfig:
         "Tsp": 501,
         "Rearrangement": 1001,
         "Glibrearrangement": 1501,
-        "Easygripper": 1501,
+        "Easygripper": 501,
         "Gripper": 3001,
         "Doors": 2501,
         "Glibdoors": 2501,
@@ -191,7 +191,7 @@ class AgentConfig:
     ## Constants for curiosity modules. ##
     max_sampling_tries = 20
     max_planning_tries = 20 
-    oracle_max_depth = 14
+    oracle_max_depth = 2#14
     oracle_max_neighbors = 50
 
     ## Constants for mutex detection. ##
