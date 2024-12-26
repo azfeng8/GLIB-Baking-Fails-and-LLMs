@@ -371,6 +371,8 @@ class Runner:
             20: "pour-powdery-ingredient-from-measuring-cup",
             21: "put-butter-in-container-from-measuring-cup",
         }
+        # extend the planner timeout when it's necessary in baking: evaluate in reverse order and accumulate results.
+        adjusted_timeout = 300
 
         num_successes = 0
         if self.domain_name in ec.num_test_problems:
@@ -378,10 +380,51 @@ class Runner:
         else:
             num_problems = len(self.test_env.problems)
 
-        #TODO: extend the planner timeout once it's necessary.
         successes = []
-        problems = range(num_problems)
+        success_map = {}
+        if self.domain_name == 'Bakingrealistic':
+            problems = range(num_problems)[::-1]
+        else:
+            problems = range(num_problems)
         for problem_idx in problems:
+            timeout = ac.planner_timeout
+            if self.domain_name == 'Bakingrealistic':
+                skip = False
+                if problem_idx == 0:
+                    if sum([success_map[i] for i in (3, 4)]) != 2:
+                        skip = True
+                    else:
+                        ac.planner_timeout = adjusted_timeout
+                elif problem_idx == 1:
+                    if sum([success_map[i] for i in (3,5)]) != 2:
+                        skip = True
+                    else:
+                        ac.planner_timeout = adjusted_timeout
+                elif problem_idx == 2:
+                    if sum([success_map[i] for i in (3,4,5)]) != 3:
+                        skip = True
+                    else:
+                        ac.planner_timeout = adjusted_timeout
+                elif problem_idx == 3:
+                    if sum([success_map[i] for i in (4,5)]) != 2:
+                        skip = True
+                    else:
+                        ac.planner_timeout = adjusted_timeout
+                elif problem_idx == 4:
+                    if sum([success_map[i] for i in (9,16)]) != 2:
+                        skip = True
+                    else:
+                        ac.planner_timeout = adjusted_timeout
+                elif problem_idx == 5:
+                    if sum([success_map[i] for i in (8, 16)]) != 2:
+                        skip = True
+                    else:
+                        ac.planner_timeout = adjusted_timeout
+                if skip:
+                    successes.append(0)
+                    success_map[problem_idx] = 0
+                    continue
+
             self.test_env.fix_problem_index(problem_idx)
             obs, debug_info = self.test_env.reset()
             try:
@@ -389,7 +432,9 @@ class Runner:
             except (NoPlanFoundException, PlannerTimeoutException):
                 # Automatic failure
                 successes.append(0)
-                if self.domain_name.lower() == 'bakingrealistic':
+                success_map[problem_idx] = 0
+
+                if self.domain_name == 'Bakingrealistic':
                     logging.info("\tTest case {}/{}, FAILED. {} successes so far. {}".format(
                     problem_idx+1, num_problems, num_successes, BAKING_REALISTIC_TEST_CASES_DESCRIPTIONS[problem_idx]))
                 else:
@@ -411,9 +456,11 @@ class Runner:
             if reward == 1.:
                 num_successes += 1
                 successes.append(1)
+                success_map[problem_idx] = 1
             else:
                 assert reward == 0.
                 successes.append(0)
+                success_map[problem_idx] = 0
 
             if self.domain_name.lower() == 'bakingrealistic':
                 result_str = "PASSED" if reward == 1. else "FAILED"
@@ -422,7 +469,11 @@ class Runner:
             else:
                 logging.info("\tTest case {} of {}, {} successes so far".format(
                 problem_idx+1, num_problems, num_successes))#, end="\r")
+            ac.planner_timeout = timeout
  
+        if self.domain_name == 'Bakingrealistic':
+            successes.reverse()
+
         return successes
 
 def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_path:str):
@@ -435,9 +486,7 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_
 
     train_env = gym.make("PDDLEnv{}-v0".format(domain_name))
     train_env.seed(seed)
-    # MAJOR HACK. Only used by oracle_curiosity.py and by the LLM-based
-    # learner, which uses the environment to access the predicates and
-    # action names.
+    # MAJOR HACK. Modules use the environment to access the predicates and action names.
     ac.train_env = train_env
     if gc.use_demos:
         agent = DemonstrationsAgent(domain_name, train_env.action_space,
@@ -476,8 +525,6 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_
 
     outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                           "results", domain_name, learning_name, curiosity_name)
-    plan_ops_outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                          "results", 'planning_ops', domain_name, learning_name, curiosity_name)
     
     os.makedirs(outdir, exist_ok=True)
     cache_file = os.path.join(outdir, "{}_{}_{}_{}_{}.pkl".format(
@@ -485,16 +532,6 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_
     with open(cache_file, 'wb') as f:
         pickle.dump(results, f)
         logging.info("Dumped results to {}".format(cache_file))
-
-    # if gc.dataset_logging:
-    #     if "GLIB" in curiosity_name:
-    #         path = os.path.join(f'results', 'GLIB', domain_name, learning_name, curiosity_name)
-    #         os.makedirs(path, exist_ok=True)
-    #         with open(os.path.join(path, f'{seed}_babbling_stats.pkl'), 'wb') as f:
-    #             pickle.dump(agent._curiosity_module.line_stats, f)
-    #         if "LLM" in curiosity_name:
-    #             with open(os.path.join(path, f'{seed}_llm_babbling_stats.pkl') ,'wb') as f:
-    #                 pickle.dump(agent._curiosity_module.llm_line_stats, f)
 
         
     logging.info("\n\n\nFinished single seed in {} seconds".format(time.time()-start))
@@ -526,15 +563,6 @@ def _main():
 
                 single_seed_results = _run_single_seed(
                     seed, domain_name, curiosity_name, ac.learning_name, llm_iterative_log_path)
-                #TODO: write updated plotting code
-                # for cur_name, results in single_seed_results.items():
-                #     all_results[cur_name].append(results)
-                # plot_results(domain_name, ac.learning_name, all_results)
-                # plot_results(domain_name, ac.learning_name, all_results, dist=True)
-
-        # plot_results(domain_name, ac.learning_name, all_results)
-        # plot_results(domain_name, ac.learning_name, all_results, dist=True)
-
     logging.info("\n\n\n\n\nFinished in {} seconds".format(time.time()-start))
 
 

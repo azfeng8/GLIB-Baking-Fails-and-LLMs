@@ -623,9 +623,12 @@ def _main():
 
     # # Load the new method results
     new_method_curve_name = "Teacher-GLIB"
-    append_demos[new_method_curve_name] = True
+    append_demos[new_method_curve_name] = False
+    #TODO: when plot student results, change this to True
+    # append_demos[new_method_curve_name] = True
     for seed in pc.seeds:
         results_path = os.path.join(f'results/{pc.domain}', 'LNDR', 'GLIB_G1', f'{pc.domain}_LNDR_GLIB_G1_interactive_{seed}.pkl')
+        #TODO: when plot student results, change this to GLIB_L2
         # results_path = os.path.join(f'results/{pc.domain}', 'LNDR', 'GLIB_L2', f'{pc.domain}_LNDR_GLIB_L2_student_{seed}.pkl')
 
         if os.path.exists(results_path):
