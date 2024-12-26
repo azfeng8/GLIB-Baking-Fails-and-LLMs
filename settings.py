@@ -191,7 +191,7 @@ class AgentConfig:
     ## Constants for curiosity modules. ##
     max_sampling_tries = 20
     max_planning_tries = 20 
-    oracle_max_depth = 14
+    oracle_max_depth = 2#14
     oracle_max_neighbors = 50
 
     ## Constants for mutex detection. ##
@@ -332,9 +332,9 @@ class LLMConfig:
 class PlottingConfig:
     """Plotting from cached results.
     """
-    domain = "Easygripper"
+    domain = "Blocks"
     seeds =  range(1,11)
     agent_learner_explorer = [
-        ('demoagent', "LNDR", "GLIB_L2"), 
+        ('demoagent', "LNDR", "GLIB_L2"), ("demoagent", "LNDR", "oracle"), 
                          ("agent", "LNDR", "oracle"),  ('agent', "LNDR", "GLIB_L2"), #("agent", "LNDR", "random")  ("demoagent", "LNDR", "GLIB_G1"),     ("agent", "LNDR", "GLIB_G1"),
                               ]
