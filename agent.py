@@ -1,3 +1,7 @@
+"""DONE: only evaluate when prompted to, until get 1 seed (non continuous) completed.
+DONE: Make the runs deterministic: sets into np.random.permutation over lists
+TODO: make restarts/stops read/write to the same results pkl: do this once get one start/stop done.
+"""
 import math
 import traceback 
 from planning_modules.base_planner import PlannerTimeoutException, \
@@ -1091,6 +1095,7 @@ class StudentAgent(InteractiveAgentLifted):
         self._action_in_plan_to_preconds = False       
         self._visited_preconds_states_teacher_mode = set()
         self._evaluated_before_exception = False
+        self.finished_preconds_plan = False
 
         if self.domain_name == 'Bakingrealistic':
             for op in self._ground_truth_operators:
@@ -1125,6 +1130,15 @@ class StudentAgent(InteractiveAgentLifted):
                     for v in lit.variables:
                         params.add(v)
                 op.params = sorted(params, key=lambda param: param._str.split(':')[0])
+            
+            # Read transitions file.
+        with open('/home/catalan/GLIB-Baking-Fails-and-LLMs/transitions.pkl', 'rb') as f:
+            self._operator_learning_module._transitions = pickle.load(f)
+        with open('/home/catalan/GLIB-Baking-Fails-and-LLMs/ndrs.pkl', 'rb') as f:
+            self._operator_learning_module._ndrs = pickle.load(f)
+
+        for action_pred in self._operator_learning_module._transitions:
+            self._operator_learning_module._fits_all_data[action_pred] = False
                 
 
     def observe(self, state, action, next_state, itr):
@@ -1189,9 +1203,9 @@ class StudentAgent(InteractiveAgentLifted):
         self._action_in_plan_to_preconds = False
         operator_names_tried = set()
         all_operator_names = {o.name for o in self.learned_operators}
-        self._skip_to_next_op = False
         while operator_names_tried != all_operator_names:
 
+            self._skip_to_next_op = False
             ### First step: operator matching
 
             OP = None
@@ -1212,26 +1226,39 @@ class StudentAgent(InteractiveAgentLifted):
                 if a == action_pred:
                     ops_to_consider.append(o)
             
-            #    Attempt to join as many operators as possible.
+            # Ask to join as many operators as possible.
             while True:
                     
                 logging.info(f"Ops to consider: {ops_to_consider}")
                 try:
                     if not (len(ops_to_consider) == 0 or 'use-stand-mixer' in OP.name):
                         file = input("File containing merged operator or q? ").strip()
-                        if file == 'q':
-                            break
-                        elif file == 'qq':
-                            # skip this operator
-                            self._skip_to_next_op = True
-                            break
-                        elif file == 'd':
+
+                        if file == 'd':
                             dump_intermediate_state(self)
                             logging.info("Dumped state")
-                        with open(file, 'r') as f:
-                            operator_str = ''.join(f.readlines())
-                        OP = self.operator_parser.parse_operators(operator_str)[0]
-                        logging.info(f"parsed user joined operator: {OP.pddl_str()}")
+
+                        while file not in ('q', 'qq') and not os.path.exists(file):
+                            file = input("File containing merged operator or q? ").strip()
+
+                            if file == 'qq':
+                                # skip this operator
+                                self._skip_to_next_op = True
+                                break
+                            elif file == 'd':
+                                dump_intermediate_state(self)
+                                logging.info("Dumped state")
+                            elif file == 'q':
+                                pass
+                            else:
+                                with open(file, 'r') as f:
+                                    operator_str = ''.join(f.readlines())
+                                
+                                OP = self.operator_parser.parse_operators(operator_str)[0]
+                                logging.info(f"parsed user joined operator: {OP.pddl_str()}")
+                                break
+                        if self._skip_to_next_op:
+                            break
 
                     logging.info(f"Looking for g.t. operator that matches operator.")
                     # Compare the joined learned operator effects to the ground truth operators effects.
@@ -1241,8 +1268,23 @@ class StudentAgent(InteractiveAgentLifted):
                         if effects_equal(op, OP):
                             ground_truth_operator = op
                             break
+                    if ground_truth_operator is None:
+                        name = input("g.t. operator name or 'q' to manually enter goal").strip()
+                        names = {o.name for o in self._ground_truth_operators}
+                        while name not in names and name != 'q':
+                            name = input("g.t. operator name or 'q' to manually enter goal").strip()                           
+                        if name == 'q':
+                            plan = self._prompt_for_grounded_goal_and_plan(state, OP)
+                            if plan not in ('q', 'qq'):
+                                return plan
+                            elif plan == 'qq':
+                                break
+                        ground_truth_operator = [o for o in self._ground_truth_operators if o.name == name][0]
+
+                    if self._skip_to_next_op:
+                        break
                     assert ground_truth_operator is not None, "No G.T. operator found. Unexpected."
-                    # logging.info(f"Matched with ground truth operator: {ground_truth_operator.pddl_str()}")
+                    logging.info(f"Matched with ground truth operator: {ground_truth_operator.pddl_str()}")
                     break
                 except Exception as e:
                     print(e)
@@ -1383,13 +1425,13 @@ class StudentAgent(InteractiveAgentLifted):
                         vars_ = sorted({ v for lit in body.literals for v in lit.variables })
                         goal = Exists(vars_, body)
                         logging.info(f"SAMPLED GOAL: {goal}\nACTION: {lifted_act}")
-                        # plan = self._get_plan(goal, state)
                         plan =  self._get_ground_truth_plan(goal, state)
                         if plan not in (None, -1):
                             logging.info(f"FOUND PLAN UNDER GT OPS: {plan}")
                             self._evaluated_before_exception = False
                             return self._execute_plan(plan, state)
                         elif plan == -1:
+                            # no plan found.
                             # mark this goal as visited
                             self._visited_preconds_states_teacher_mode.add((mark, learned_operator.pddl_str()))
                             continue
@@ -1417,12 +1459,15 @@ class StudentAgent(InteractiveAgentLifted):
 [12] Restart cycle.
 """
         try:
-            option = int(input(option_str))
+            option = int(input(option_str).strip())
         except:
             option = None
-        while option is None and option not in [5,9,11,12]:
+        while option is None or (option not in [9,11,12]):
             try:
-                option = int(input(option_str))
+                if option == 5:
+                    logging.info("Dumping state.")
+                    dump_intermediate_state(self)
+                option = int(input(option_str).strip())
             except:
                 option = None           
         self.option = option
@@ -1442,6 +1487,7 @@ class StudentAgent(InteractiveAgentLifted):
                 break
             elif goal_file == 'd':
                 dump_intermediate_state(self)
+                logging.info("Dumped state")
             try:
                 with open(goal_file, 'r') as f:
                     lines = f.readlines()
@@ -1463,7 +1509,7 @@ class StudentAgent(InteractiveAgentLifted):
                 goal = LiteralConjunction(g)
                 self._current_goal_action_operator = (g, ground_act, operator.pddl_str())
                 plan = self._get_ground_truth_plan(goal, state)
-                assert plan is not None
+                assert plan not in (None, -1)
                 logging.info(f"FOUND PLAN: {plan}")
                 ac.planner_timeout = timeout
                 return self._execute_plan(plan, state)

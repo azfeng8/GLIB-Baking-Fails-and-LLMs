@@ -48,9 +48,9 @@ class Runner:
         self.curiosity_name = curiosity_name
         self.num_train_iters = ac.num_train_iters[domain_name]
 
-        if isinstance(agent, CreateDemonstrationsAgent):
+        if isinstance(agent, CreateDemonstrationsAgent) or isinstance(agent, StudentAgent):
             self.AUTO_EVAL = False
-        elif isinstance(agent, Agent) or isinstance(agent, DemonstrationsAgent) or isinstance(agent, StudentAgent):
+        elif isinstance(agent, Agent) or isinstance(agent, DemonstrationsAgent):# or isinstance(agent, StudentAgent):
             self.AUTO_EVAL = True
         else:
             raise Exception("Not supported agent type")
@@ -179,7 +179,7 @@ class Runner:
                 self.train_env.fix_problem_index(problem_idx)
                 obs, _ = self.train_env.reset()
                 logging.info(f"***********************************New episode! Problem {problem_idx}:{obs.goal}***********************************")
-                self.agent.reset_episode(obs, '' if self.AUTO_EVAL or precond_targeting_only else subgoals_paths[problem_idx])
+                self.agent.reset_episode(obs, '')# if self.AUTO_EVAL or precond_targeting_only else subgoals_paths[problem_idx])
                 if itr == 0 and isinstance(self.agent, DemonstrationsAgent):
                     self.agent.learn(0)
                     logging.info("Learned operators:")
@@ -196,7 +196,7 @@ class Runner:
 
             if not LOOPING:
                 logging.info("Getting action...")
-                action = self.agent.get_action(obs, problem_idx, precond_targeting_only if not self.AUTO_EVAL else False)
+                action = self.agent.get_action(obs, problem_idx, False)
             else:
                 action = None
 
