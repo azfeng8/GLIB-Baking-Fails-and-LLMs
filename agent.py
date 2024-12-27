@@ -1293,7 +1293,7 @@ class StudentAgent(InteractiveAgentLifted):
                     continue
 
             if self._skip_to_next_op:
-                break
+                continue
             
             ### Second step: goal selection.
 
