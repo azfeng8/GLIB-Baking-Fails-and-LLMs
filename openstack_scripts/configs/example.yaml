@@ -27,12 +27,12 @@ EXPERIMENT_SETS:
     ENVS:
       bakingrealistic:
         NAME: "Bakingrealistic"
-      gripper:
-        NAME: "Easygripper"
-      blocks:
-        NAME: "Blocks"
-      doors:
-        NAME: "Glibdoors"
+    #   gripper:
+    #     NAME: "Easygripper"
+    #   blocks:
+    #     NAME: "Blocks"
+    #   doors:
+    #     NAME: "Glibdoors"
     ARGS: []
     FLAGS: {"use_demos": "store_true"}
     START_SEED: 1
