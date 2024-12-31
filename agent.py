@@ -1132,13 +1132,13 @@ class StudentAgent(InteractiveAgentLifted):
                 op.params = sorted(params, key=lambda param: param._str.split(':')[0])
             
             # Read transitions file.
-        with open('/home/catalan/GLIB-Baking-Fails-and-LLMs/transitions.pkl', 'rb') as f:
-            self._operator_learning_module._transitions = pickle.load(f)
-        with open('/home/catalan/GLIB-Baking-Fails-and-LLMs/ndrs.pkl', 'rb') as f:
-            self._operator_learning_module._ndrs = pickle.load(f)
+        # with open('/home/catalan/GLIB-Baking-Fails-and-LLMs/transitions.pkl', 'rb') as f:
+        #     self._operator_learning_module._transitions = pickle.load(f)
+        # with open('/home/catalan/GLIB-Baking-Fails-and-LLMs/ndrs.pkl', 'rb') as f:
+        #     self._operator_learning_module._ndrs = pickle.load(f)
 
-        for action_pred in self._operator_learning_module._transitions:
-            self._operator_learning_module._fits_all_data[action_pred] = False
+        # for action_pred in self._operator_learning_module._transitions:
+        #     self._operator_learning_module._fits_all_data[action_pred] = False
                 
 
     def observe(self, state, action, next_state, itr):
@@ -1609,6 +1609,604 @@ class StudentAgent(InteractiveAgentLifted):
             if '?' in v._str:
                 return True
 
+class StudentAgentSubgoals(StudentAgent):
+    """
+    An agent similar to StudentAgent, but instead of supplying a single grounded
+    goal file, we supply a "goal-action file" with multiple subgoals (one per line).
+    The last line contains a final grounded action to execute after achieving
+    all subgoals in order.
+
+    Behavior:
+        1. On planner timeout or user request, load the subgoals + action from a file.
+        2. For each subgoal (in order), attempt to plan and execute the plan.
+           - If the plan fails mid-execution, reset plan variables and do any
+             needed logic from StudentAgent.
+        3. After all subgoals are achieved, execute the final grounded action
+           on the last line of the file.
+        4. If that fails, similarly reset as above.
+
+    This class overrides get_action() to implement the above logic.
+    """
+    def __init__(self, domain_name, action_space, observation_space,
+                 curiosity_module_name, operator_learning_name,
+                 planning_module_name, log_llm_path: Optional[str]):
+        super().__init__(domain_name, action_space, observation_space,
+                         curiosity_module_name, operator_learning_name,
+                         planning_module_name, log_llm_path)
+        self.name = 'student_subgoals'
+
+        # List of subgoals to achieve in order, each subgoal is a LiteralConjunction
+        self.subgoals = []
+        # Which subgoal index we are currently trying to achieve, or -np.inf as the null index
+        self.next_subgoal_idx = -np.inf
+        # Plan to the current subgoal
+        self.plan_to_next_subgoal = None
+        # Executed actions since the last subgoal was achieved
+        self.actions_since_last_subgoal = []
+        # The final action to execute once all subgoals are done
+        self._final_action = None
+    
+    def reset_episode(self, state, _):
+        """Reset the episode and load subgoals from subgoals_file if provided."""
+        # First do the StudentAgent's reset logic (which calls parent's reset too)
+        super().reset_episode(state, _)
+
+        # Clear our subgoal info
+        self.subgoals = []
+        self.next_subgoal_idx = -np.inf
+        self.plan_to_next_subgoal = None
+        self.actions_since_last_subgoal = []
+        self._final_action = None
+
+
+    def _load_subgoals(self, state, subgoals_file):
+        """
+        Read each line from the file, parse it into a list of grounded Literals.
+        - All but the last line are subgoals (to be treated as conjunctive goals).
+        - The last line is the final grounded action to execute after all subgoals.
+        """
+        with open(subgoals_file, "r") as f:
+            lines = [ln.strip() for ln in f.readlines()]
+            lines = [ln for ln in lines if ln]  # remove empty lines
+
+        # If there's only 1 line, that would mean no subgoals, only a final action.
+        if len(lines) == 0:
+            logging.info("No subgoals loaded: file is empty!")
+            return
+
+        # The final line is a single action (e.g., "(some_action objA objB)")
+        # All preceding lines are subgoals (one subgoal per line).
+        # Each subgoal line might be something like: 
+        #   "(on objA objB), (clean objB), (not (broken objB))"
+        # We parse each line into a list of pddlgym.Literal or Not(...) objects.
+        last_line = lines[-1]
+        subgoal_lines = lines[:-1]
+
+        # Parse each subgoal line
+        for subg_line in subgoal_lines:
+            if not subg_line:
+                continue
+            # e.g. subg_line = "(lit1 obj1 obj2), (not (lit2 obj1 obj3))"
+            subgoal_lits = []
+            for literal_str in subg_line.split(","):
+                literal_str = literal_str.strip()
+                # remove parentheses, handle "not(...)"
+                # This is basically the same logic as in InteractiveAgentGrounded._load_subgoals
+                if literal_str.startswith("(") and literal_str.endswith(")"):
+                    literal_str = literal_str[1:-1]
+                if literal_str.startswith("not "):
+                    # "not (stuff ...)"
+                    # remove 'not ', remove leading/trailing parentheses
+                    inside = literal_str[len("not "):].strip()
+                    if inside.startswith("(") and inside.endswith(")"):
+                        inside = inside[1:-1].strip()
+                    items = inside.split()
+                    pred = Not(self._get_obs_predicate(items[0], items[1:], state.objects))
+                else:
+                    # parse the positive literal
+                    items = literal_str.split()
+                    pred = self._get_obs_predicate(items[0], items[1:], state.objects)
+                subgoal_lits.append(pred)
+            # Now combine them in a LiteralConjunction
+            conj = LiteralConjunction(subgoal_lits)
+            self.subgoals.append(conj)
+
+        # Parse the final line as a single grounded action
+        # e.g. (some_grounded_action objA objB)
+        # We'll store it as a pddlgym Literal so that we can just execute it later.
+        final_action_str = last_line
+        if final_action_str.startswith("(") and final_action_str.endswith(")"):
+            final_action_str = final_action_str[1:-1]
+        items = final_action_str.split()
+        pred_name = items[0]
+        objects_ = items[1:]
+        # find the matching action predicate
+        act_pred = [p for p in self.action_space.predicates if p.name == pred_name]
+        if len(act_pred) == 0:
+            raise ValueError(f"Could not find action predicate {pred_name} in action_space.")
+        act_pred = act_pred[0]
+
+        # Convert each object name to the actual typed object
+        typed_objs = []
+        for obj_name in objects_:
+            matched_obj = None
+            for o in state.objects:
+                # e.g. "sugar:Ingredient"
+                o_str, _ = o._str.split(":")
+                if o_str == obj_name:
+                    matched_obj = o
+                    break
+            if matched_obj is None:
+                raise ValueError(f"Could not find object {obj_name} in the state!")
+            typed_objs.append(matched_obj)
+        self._final_action = act_pred(*typed_objs)
+
+        self.next_subgoal_idx = 0
+        logging.info(f"Loaded subgoals from {subgoals_file}: {self.subgoals}")
+        logging.info(f"Final action: {self._final_action}")
+
+    def get_action(self, state, _problem_idx, precond_targeting_only: bool):
+        """
+        Overridden get_action:
+          2. If we've achieved all subgoals, attempt the final action.
+             - If it fails, handle it similarly to plan-fail logic.
+          3. Otherwise, plan to the next subgoal (like InteractiveAgentGrounded).
+             - If the plan is not None, pop the next action.
+             - If the plan fails or times out, reset plan and do whatever
+               prompting you want (or just do nothing if you're fully automated).
+        """
+        # 1) If we already finished all subgoals, attempt final action
+        if self.next_subgoal_idx >= len(self.subgoals) and self._final_action is not None:
+
+            self.finished_preconds_plan = True
+            self.plan_to_next_subgoal = None
+            self.next_subgoal_idx = None
+
+            logging.info("All subgoals achieved. Executing final action.")
+            # We don't plan for a single action; we just do it directly
+            # (assuming the final action is guaranteed to be grounded).
+            action = self._final_action
+            self._final_action = None
+            return action
+
+        # 3) Otherwise, we are working on the next subgoal
+        # If we already have a plan in progress, continue it
+        if self.plan_to_next_subgoal is not None and len(self.plan_to_next_subgoal) > 0:
+            # Pop the next action
+            action = self.plan_to_next_subgoal.pop(0)
+            return action
+        elif  self.next_subgoal_idx != -np.inf and self.next_subgoal_idx < len(self.subgoals):
+            # Attempt to plan to the next subgoal
+            subgoal = self.subgoals[self.next_subgoal_idx]
+            logging.info(f"Planning to subgoal {self.next_subgoal_idx}: {subgoal}")
+
+            problem_fname = self._curiosity_module._create_problem_pddl(
+                state, subgoal, prefix='glib_subgoal'
+            )
+            plan = None
+            try:
+                plan, _ = self._planning_module.get_plan(
+                    problem_fname,
+                    use_cache=False,
+                    use_learned_ops=True
+                )
+            except NoPlanFoundException:
+                logging.info("No plan found to subgoal.")
+            except PlannerTimeoutException:
+                logging.info("Planner timed out for subgoal.")
+            finally:
+                if os.path.exists(problem_fname):
+                    os.remove(problem_fname)
+
+            if plan:
+                logging.info(f"Found plan to subgoal {self.next_subgoal_idx}: {plan}")
+                self.plan_to_next_subgoal = plan
+
+                self._current_goal_action_operator = (tuple(self.subgoals), self._final_action, chosen_op.pddl_str())
+
+                # Execute the first step
+                action = self.plan_to_next_subgoal.pop(0)
+                self.actions_since_last_subgoal.append(action)
+                return action
+            else:
+                # Plan not found or timed out, you can do manual logic here
+                # or just return None. Possibly reset plan, do user prompting, etc.
+                logging.info("Plan to subgoal failed/timed out. Resetting plan.")
+                self.plan_to_next_subgoal = None
+                return None
+        else:
+            # 4) choose an operator and try informative goals: if planner times out or too many informative goals in the change bank, then prompt user for subgoals list, like in StudentAgent.
+            logging.info("=== Step 4) operator-based 'informative goals' approach (StudentAgent style) ===")
+
+            # Keep track of which operator names have already been tried
+            operator_names_tried = set()
+            all_operator_names = {op.name for op in self.learned_operators}
+
+            # We will attempt to create a small "change bank" of goals for each operator
+            # by flipping or negating some preconditions, etc.
+            # This logic is extremely domain / application dependent, but here's a template.
+            while operator_names_tried != all_operator_names:
+
+                self._skip_to_next_op = False
+                # 4a) pick an untried operator
+                chosen_op = None
+                for op in self._rand_state.permutation(sorted(self.learned_operators, key=lambda o: o.name)):
+                    if op.name not in operator_names_tried:
+                        chosen_op = op
+                        break
+                action_pred = [l.predicate for l in chosen_op.preconds.literals if l.predicate in self.action_space.predicates][0]
+
+                ops_to_consider = []
+                for o in self.learned_operators:
+                    if o.name == chosen_op.name: continue
+                    a = [l.predicate for l in o.preconds.literals if l.predicate in self.action_space.predicates][0]           
+
+                    if a == action_pred:
+                        ops_to_consider.append(o)
+    
+                # Ask to join as many operators as possible.
+                while True:
+                        
+                    logging.info(f"Ops to consider: {ops_to_consider}")
+                    try:
+                        if not (len(ops_to_consider) == 0 or 'use-stand-mixer' in chosen_op.name):
+                            file = input("File containing merged operator or q? ").strip()
+
+                            if file == 'd':
+                                dump_intermediate_state(self)
+                                logging.info("Dumped state")
+
+                            while file not in ('q', 'qq') and not os.path.exists(file):
+                                file = input("File containing merged operator or q? ").strip()
+
+                                if file == 'qq':
+                                    # skip this operator
+                                    self._skip_to_next_op = True
+                                    break
+                                elif file == 'd':
+                                    dump_intermediate_state(self)
+                                    logging.info("Dumped state")
+                                elif file == 'q':
+                                    pass
+                                else:
+                                    with open(file, 'r') as f:
+                                        operator_str = ''.join(f.readlines())
+                                    
+                                    chosen_op = self.operator_parser.parse_operators(operator_str)[0]
+                                    logging.info(f"parsed user joined operator: {chosen_op.pddl_str()}")
+                                    break
+                            if self._skip_to_next_op:
+                                break
+                        logging.info(f"Looking for g.t. operator that matches operator:\n{chosen_op.pddl_str()}")
+                        # Compare the joined learned operator effects to the ground truth operators effects.
+                        ground_truth_operator = None
+                        for op in self._ground_truth_operators:
+                            if effects_equal(op, chosen_op):
+                                ground_truth_operator = op
+                                break
+                        if ground_truth_operator is None:
+                            name = input("g.t. operator name or 'q' to manually enter goal").strip()
+                            names = {o.name for o in self._ground_truth_operators}
+                            while name not in names and name != 'q':
+                                name = input("g.t. operator name or 'q' to manually enter goal").strip()                           
+                            if name == 'q':
+                                plan = self._prompt_for_grounded_goal_and_plan(state, chosen_op)
+                                if plan not in ('q', 'qq'):
+                                    return plan
+                                elif plan == 'qq':
+                                    break
+                            ground_truth_operator = [o for o in self._ground_truth_operators if o.name == name][0]
+
+                        if self._skip_to_next_op:
+                            break
+                        assert ground_truth_operator is not None, "No G.T. operator found. Unexpected."
+                        logging.info(f"Matched with ground truth operator: {ground_truth_operator.pddl_str()}")
+                        break
+                    except Exception as e:
+                        print(e)
+                        traceback.print_exc() 
+                        input("Continue or Ctrl-C to quit:")
+                        continue
+
+                if self._skip_to_next_op:
+                    continue
+ 
+
+                logging.info(f"[Operator selection] Trying operator: {chosen_op.name}")
+
+                preconds_changes = {'weak': [], 'strong': []}
+                relation = None
+                intersection_preconds = []
+
+                # rename the params in g.t. op starting from ?x0: create a copy of this operator.
+                ground_truth_operator = deepcopy(ground_truth_operator)
+                param_mapping = {}
+                max_effects_param_i = -1
+                param_i = 0
+                for lit in ground_truth_operator.effects.literals:
+                    for v in lit.variables:
+                        if v not in param_mapping:
+                            param_mapping[v] = TypedEntity(f'?x{param_i}', Type(v._str.split(':')[1]))
+                            max_effects_param_i = max(param_i, max_effects_param_i)
+                            param_i += 1
+                for lit in ground_truth_operator.preconds.literals:
+                    for v in lit.variables:
+                        if v not in param_mapping:
+                            param_mapping[v] = TypedEntity(f'?x{param_i}', Type(v._str.split(':')[1]))
+                            param_i += 1
+                for lit in ground_truth_operator.preconds.literals:
+                    lit.set_variables([param_mapping[v] for v in lit.variables])
+                for lit in ground_truth_operator.effects.literals:
+                    lit.set_variables([param_mapping[v] for v in lit.variables])
+                ground_truth_operator.params = set(param_mapping.values())
+                        
+ 
+                # match the params in the learned op using the effects and search over the remaining parameters in the preconditions to maximize the number of lits that match in the preconds
+                learned_operator = deepcopy(chosen_op)
+                learned_operator = reparameterize_learned_operator_by_matching_effects(learned_operator, ground_truth_operator)
+
+                # 4b) Build one or more "informative goals" from chosen_op's preconds
+                # given that parameterization, identify the weak/strong literals
+                    
+                # Get the intersection and strong lits
+                lit_i = 0
+                for lit in learned_operator.preconds.literals:
+                    if lit in ground_truth_operator.preconds.literals:
+                        intersection_preconds.append(lit)
+                    else:
+                        preconds_changes['strong'].append((f'strong{lit_i}', lit)) 
+                        relation = 'strong'
+                    lit_i += 1
+
+                lit_i = 0
+
+                for lit in ground_truth_operator.preconds.literals:
+                    if lit not in learned_operator.preconds.literals:
+                        if relation == 'strong':
+                            relation = 'mixed'
+                        elif relation is None:
+                            relation = 'weak'
+
+                        preconds_changes['weak'].append((f'weak{lit_i}', lit))
+                        lit_i += 1
+                
+                logging.info(f'gt. operator: {ground_truth_operator.pddl_str()}')
+                logging.info(f'learned operator: {learned_operator.pddl_str()}')
+                banks = []
+                strong_base_preconds = deepcopy(ground_truth_operator.preconds.literals)
+                # Add the action predicate
+                if len([lit for lit in strong_base_preconds if lit.predicate in self.action_space.predicates]) == 0:
+                    action_pred = [act_pred for act_pred in self.action_space.predicates if act_pred.name == learned_operator.name.rstrip('0123456789')][0]
+                    strong_base_preconds.append(action_pred(*sorted(op.params, key=lambda param: param._str.split(':')[0])))
+
+                if relation == 'weak':
+                    base_preconds = deepcopy(learned_operator.preconds.literals)
+                    banks.append((base_preconds, preconds_changes['weak']))
+                elif relation == 'strong':
+                    banks.append((strong_base_preconds, preconds_changes['strong']))
+                else:
+                    banks.append((deepcopy(learned_operator.preconds.literals) ,preconds_changes['weak']))
+                    banks.append((strong_base_preconds,preconds_changes['strong']))
+
+                for base_preconds, changes_bank in banks:
+                    logging.info(f'Change bank length: {len(changes_bank)}')
+                    logging.info(changes_bank)
+                    # if change bank is too long (> 4), then skip straight to requesting the grounded goal / dump transitions / skip this operator.
+                    if len(changes_bank) > 4:
+                        plan = self._prompt_for_grounded_goal_and_plan(state, learned_operator)
+                        if plan not in ('q', 'qq'):
+                            return plan
+                        elif plan == 'qq':
+                            break
+
+                    for n in range(1, min(len(changes_bank), self.MAX_LIT_CHANGES) + 1)[::-1]:
+                        for changes in itertools.combinations(changes_bank, n):
+                            goal = [l for l in base_preconds]
+                            for change_type, lit in changes:
+                                # change the lit in the goal
+                                for i in range(len(goal)):
+                                    goal_lit = goal[i]
+                                    if goal_lit.negative == lit or goal_lit.positive == lit:
+                                        goal.pop(i)
+                                        break
+
+                                if lit.is_negative:
+                                    goal.append(lit.positive)
+                                else:
+                                    goal.append(lit.negative)
+
+                            # only add to visited if the plan completes
+                            mark = get_hashable_preconds_action(tuple(sorted(goal)))
+                            if (mark, learned_operator.pddl_str()) in self._visited_preconds_states_teacher_mode:
+                                logging.info(f"Skipping goal: {goal}")
+                                continue
+
+                            goal_no_action = [l for l in goal if goal if l.predicate not in self.action_space.predicates]
+                            vars_ = sorted({ v for lit in goal_no_action for v in lit.variables })
+                            # add differents
+                            if self.domain_name == 'Bakingrealistic':
+                                Different = Predicate('different', 2)
+                                for param1 in vars_:
+                                    param1_type = param1._str[param1._str.find(':'):]
+                                    for param2 in vars_:
+                                        if param1._str >= param2._str:
+                                            continue
+                                        param2_type = param2._str[param2._str.find(':'):]
+
+                                        if param1_type == param2_type:
+                                            goal_no_action.append(Different(param1, param2))
+
+
+                            lifted_act = [l for l in base_preconds if l.predicate in self.action_space.predicates][0]
+                            self._current_goal_action_operator = (goal_no_action, lifted_act, learned_operator.pddl_str())
+                            body = LiteralConjunction(goal_no_action)
+                            vars_ = sorted({ v for lit in body.literals for v in lit.variables })
+                            goal = Exists(vars_, body)
+                            logging.info(f"SAMPLED GOAL: {goal}\nACTION: {lifted_act}")
+                            plan =  self._get_ground_truth_plan(goal, state)
+                            if plan not in (None, -1):
+                                logging.info(f"FOUND PLAN UNDER GT OPS: {plan}")
+                                self._evaluated_before_exception = False
+                                return self._execute_plan(plan, state)
+                            elif plan == -1:
+                                # no plan found.
+                                # mark this goal as visited
+                                self._visited_preconds_states_teacher_mode.add((mark, learned_operator.pddl_str()))
+                                continue
+                            else:
+                                # planner timed out.
+                                plan = self._prompt_for_grounded_goal_and_plan(state, learned_operator)
+                                if plan not in ('q', 'qq'):
+                                    return plan
+                            if self._skip_to_next_op:
+                                break
+                        if self._skip_to_next_op:
+                            break
+                    if self._skip_to_next_op:
+                        break
+ 
+                # If we exhaust all candidate goals for chosen_op and none yield a plan,
+                # we move on to the next operator. That’s the “while operator_names_tried != ...” loop.
+
+                # Mark this operator as tried
+                operator_names_tried.add(chosen_op.name)
+
+            # 4d) If we exit this loop, it means we've tried all operators and failed 
+            # to produce any plan. We can now do exactly what StudentAgent does: 
+            # prompt for new subgoals, or simply return None, or something else.
+            option_str = \
+    """Please pick an option:
+    *** Utils ***
+    [5] Dump the transitions and operators.
+    [9] Evaluate operators.
+    [11] End experiment.
+    [12] Restart cycle.
+    """
+            try:
+                option = int(input(option_str).strip())
+            except:
+                option = None
+            while option is None or (option not in [9,11,12]):
+                try:
+                    if option == 5:
+                        logging.info("Dumping state.")
+                        dump_intermediate_state(self)
+                    option = int(input(option_str).strip())
+                except:
+                    option = None           
+            self.option = option
+            return None
+
+    def _prompt_for_grounded_goal_and_plan(self, state, operator):
+        timeout = ac.planner_timeout 
+        ac.planner_timeout = 400
+        # provide the grounded goal file according to the lifted goal and then plan to it.
+        while True:
+            # if option is qq, then skip all goals for this operator.
+            goal_file = input("Enter the subgoal file: ").strip()
+            if goal_file == 'qq':
+                self._skip_to_next_op = True
+                break                       
+            elif goal_file == 'q':
+                break
+            elif goal_file == 'd':
+                dump_intermediate_state(self)
+                logging.info("Dumped state")
+            try:
+                self._load_subgoals(state, goal_file)
+                plan = self._get_ground_truth_plan(self.subgoals[self.next_subgoal_idx], state)
+                assert plan not in (None, -1)
+                logging.info(f"FOUND PLAN: {plan}")
+                while plan == []:
+                    self.next_subgoal_idx += 1
+                    if self.next_subgoal_idx > len(self.subgoals):
+                        raise Exception("All subgoals are already achieved in the current state.")
+                    plan = self._get_ground_truth_plan(self.subgoals[self.next_subgoal_idx], state)
+                self.plan_to_next_subgoal = plan
+                self._current_goal_action_operator = (tuple(self.subgoals), self._final_action, operator.pddl_str())
+                ac.planner_timeout = timeout
+                return self._execute_plan(plan, state)
+            except Exception as e:
+                print(e)
+                traceback.print_exc() 
+                input("Continue or Ctrl-C to quit:")
+                continue
+        ac.planner_timeout = timeout
+        if goal_file == 'qq' or goal_file == 'q':
+            return goal_file
+
+    def _execute_plan(self, plan, state):
+        assert not (len(self.plan_to_next_subgoal) == 0 and self.next_subgoal_idx < len(self.subgoals)), "unexpected"
+
+        self.plan_to_next_subgoal = plan
+
+        goals, act, operator_str = self._current_goal_action_operator
+        if len(self.plan_to_next_subgoal) == 0 and self.next_subgoal_idx == len(self.subgoals):
+            logging.info(f"Executing grounded action: {ground_act}")
+            self.finished_preconds_plan = True
+            self.plan_to_next_subgoal = None
+ 
+            action =  self._final_action
+            self._final_action = None
+            return action
+
+        elif len(self.plan_to_next_subgoal) == 0:
+            # Sampled lifted goal
+            ground_act = self._curiosity_module._sample_action_from_goal(goals, act,state, self._rand_state)
+            mark = get_hashable_preconds_action(tuple(sorted(goals)))
+            self._visited_preconds_states_teacher_mode.add((mark, operator_str))
+            self.plan_to_next_subgoal = None
+            self.finished_preconds_plan = True
+            logging.info(f"Executing grounded action: {ground_act}")
+            return ground_act
+
+        return self.plan_to_next_subgoal.pop(0)
+ 
+    def observe(self, state, action, next_state, itr):
+        """
+        Overridden observe to handle:
+            - If the plan fails (no effects), reset plan variables.
+            - If subgoal is achieved, increment subgoal index, etc.
+
+        Otherwise, reuse the parent's logic from StudentAgent.
+        
+        - From ChatGPT. Looks correct.
+        """
+        # Check if the action had no effects => plan might be failing
+        effects = self._compute_effects(state, next_state)
+        if len(effects) == 0:
+            logging.info("Plan execution failed mid-subgoal: resetting subgoal plan.")
+            self.plan_to_next_subgoal = None
+
+        # Check if we have achieved the current subgoal
+        # (only if we are in the middle of planning to subgoals)
+        if self.next_subgoal_idx < len(self.subgoals):
+            subgoal = self.subgoals[self.next_subgoal_idx]
+            # For negative-literal subgoals, check if the positive version
+            # is in next_state. If so, it's not satisfied.
+            all_satisfied = True
+            for lit in subgoal.literals:
+                if lit.is_negative:
+                    # e.g. lit = Not(...)
+                    if lit.positive in next_state.literals:
+                        all_satisfied = False
+                        break
+                else:
+                    if lit not in next_state.literals:
+                        all_satisfied = False
+                        break
+
+            if all_satisfied:
+                logging.info(f"Subgoal {self.next_subgoal_idx} achieved!")
+                # Move on
+                self.plan_to_next_subgoal = None
+                self.next_subgoal_idx += 1
+
+        # After executed the action and achieved all subgoals
+        elif self.next_subgoal_idx == len(self.subgoals) and self._final_action is None:
+            self.subgoals = []
+            self.next_subgoal_idx = -np.inf
+            return True
 
 def get_hashable_preconds_action(preconds):
     # Sort preconditions by alphabetical order of its string representation.

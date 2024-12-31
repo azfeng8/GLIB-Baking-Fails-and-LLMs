@@ -4,7 +4,7 @@ from flags import parse_flags
 
 import matplotlib
 matplotlib.use("Agg")
-from agent import Agent, InteractiveAgentGrounded, InteractiveAgentLifted, DemonstrationsAgent, CreateDemonstrationsAgent, dump_intermediate_state, StudentAgent
+from agent import Agent, InteractiveAgentGrounded, InteractiveAgentLifted, DemonstrationsAgent, CreateDemonstrationsAgent, dump_intermediate_state, StudentAgent, StudentAgentSubgoals
 from planning_modules.base_planner import PlannerTimeoutException, \
     NoPlanFoundException
 from plotting import plot_results
@@ -499,7 +499,7 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_
                     planning_module_name=ac.planner_name[domain_name])
 
     elif gc.use_student:
-        agent = StudentAgent(domain_name, train_env.action_space,
+        agent = StudentAgentSubgoals(domain_name, train_env.action_space,
                     train_env.observation_space, curiosity_name, learning_name, log_llm_path=log_llmi_path,
                     planning_module_name=ac.planner_name[domain_name])
 
