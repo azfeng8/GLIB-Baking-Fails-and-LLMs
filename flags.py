@@ -44,6 +44,18 @@ def parse_flags() -> None:
     ac.init_ops_method = args.init_ops_method
     ac.local_minima_method = args.local_minima_method
     ac.auto_target_preconds = args.auto_target_preconds
+    
+    def gen(file):
+        if file is None:
+            lines = []
+        else:
+            with open(file, 'r') as f:
+                lines = f.readlines()
+        for line in lines:
+            if not line.strip(): continue
+            yield line
+        
+    ac.input_generator = gen(args.inputs_file)
 
     ec.domain_name = args.domains
 
@@ -84,3 +96,4 @@ def parse_agent_config(parser:argparse.ArgumentParser):
     parser.add_argument('--init_ops_method', required=False, default='skill-conditioned', choices=['goal-conditioned', 'skill-conditioned', 'combined-todo-goal', 'skill-conditioned-two-stage', 'combined-all'])
     parser.add_argument('--local_minima_method', required=False, default='delete-operator', choices=['precond-relax', 'delete-operator'])
     parser.add_argument("--auto_target_preconds", action='store_true', default=False, help="Try untried operator preconditions whenever possible.")
+    parser.add_argument('--inputs_file', required=False, type=str, help="File to inputs for StudentAgentSubgoals")

@@ -188,6 +188,10 @@ class Planner:
         return self._problem_files[raw_problem_fname]
 
 
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument('--file', type=str)
+args = parser.parse_args()
 env = pddlgym.make("PDDLEnvBakingrealisticTest-v0")
 p = Planner(env)
 p._create_domain_file()
@@ -195,5 +199,6 @@ for idx in range(len(env.problems)):
     env.fix_problem_index(idx)
     _, debug_info = env.reset()
     print(debug_info)
-    p._create_problem_file(debug_info['problem_file'])
+    # p._create_problem_file(debug_info['problem_file'])
+    p._create_problem_file(args.file)
 

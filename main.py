@@ -4,7 +4,7 @@ from flags import parse_flags
 
 import matplotlib
 matplotlib.use("Agg")
-from agent import Agent, InteractiveAgentGrounded, InteractiveAgentLifted, DemonstrationsAgent, CreateDemonstrationsAgent, dump_intermediate_state, StudentAgent, StudentAgentSubgoals
+from agent import Agent, InteractiveAgentGrounded, InteractiveAgentLifted, DemonstrationsAgent, CreateDemonstrationsAgent, dump_intermediate_state, StudentAgent, StudentAgentSubgoals, get_input_cached
 from planning_modules.base_planner import PlannerTimeoutException, \
     NoPlanFoundException
 from plotting import plot_results
@@ -133,33 +133,33 @@ class Runner:
             if isinstance(self.agent, StudentAgent) and len(cycle) == 0 and episode_done:
                 subgoals_paths = {i: '' for i in range(len(self.train_env.problems))}
                 if isinstance(self.agent, CreateDemonstrationsAgent):
-                    if input("Cycle finished. Dump transitions and exit? y or anything ") == 'y':
+                    if get_input_cached("Cycle finished. Dump transitions and exit? y or anything ") == 'y':
                         with open(f'demonstrations/{self.domain_name.lower()}_demonstrations.pkl', 'wb') as f:
                             pickle.dump(self.agent._operator_learning_module._transitions, f)
                         SOLVED = True
                         continue
  
                 num_probs = len(self.train_env.problems)
-                uip = input(f"By default, all {num_probs} train problems are in the cycle. Press 'n' to enter manually the episodes, or anything else to accept.")
+                uip = get_input_cached(f"By default, all {num_probs} train problems are in the cycle. Press 'n' to enter manually the episodes, or anything else to accept.").strip()
                 if uip == 'n':
-                    episodes_uip = input("Enter the episode indices, split by whitespace.")  
+                    episodes_uip = get_input_cached("Enter the episode indices, split by whitespace.").strip()
                     logging.info("Episode indices:")
                     logging.info(episodes_uip)
                     valid = True
-                    accept_uip =  input("Press y to accept")
+                    accept_uip =  get_input_cached("Press y to accept").strip()
                     if not all(i < len(self.train_env.problems) for i in [int(j) for j in episodes_uip.split()]):
                         logging.info("Invalid episodes. Try again.")
                         valid = False
                     while accept_uip != 'y' or not valid:
-                        episodes_uip = input("Enter the episode indices, split by whitespace.")  
+                        episodes_uip = get_input_cached("Enter the episode indices, split by whitespace.").strip()
                         if not all(i < len(self.train_env.problems) for i in [int(j) for j in episodes_uip.split()]):
                             logging.info("Invalid episodes. Try again.")
                             valid = False
                         else:
                             valid = True
-                        logging.info("Episode indices:")
+                        logging.info("Episode indices:").strip()
                         logging.info(episodes_uip)
-                        accept_uip =  input("Press y to accept")
+                        accept_uip =  get_input_cached("Press y to accept").strip()
                     cycle = [int(i) for i in episodes_uip.split()]
                 else:
                     cycle = list(range(num_probs))
@@ -279,13 +279,13 @@ class Runner:
                         SOLVED = True
                         continue
                     if sum(successes_list[:3]) > 0:
-                        if input("Solved one of the tasks of interest. End? y or anything").strip() == 'y':
+                        if get_input_cached("Solved one of the tasks of interest. End? y or anything").strip() == 'y':
                             SOLVED = True
                             continue
                 elif self.agent.option == 10:
-                    episode_uip = input(f"Select the episode to do precond targeting. Give an index between 0 and {len(self.train_env.problems) -1}.")
+                    episode_uip = get_input_cached(f"Select the episode to do precond targeting. Give an index between 0 and {len(self.train_env.problems) -1}.")
                     while int(episode_uip) not in range(len(self.train_env.problems)):
-                        episode_uip = input(f"Select the episode to do precond targeting. Give an index between 0 and {len(self.train_env.problems) - 1}.")
+                        episode_uip = get_input_cached(f"Select the episode to do precond targeting. Give an index between 0 and {len(self.train_env.problems) - 1}.")
                     self.train_env.fix_problem_index(int(episode_uip))
                     obs, _ = self.train_env.reset()
                     precond_targeting_only = True

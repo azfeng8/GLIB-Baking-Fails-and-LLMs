@@ -1,7 +1,9 @@
 """DONE: only evaluate when prompted to, until get 1 seed (non continuous) completed.
 DONE: Make the runs deterministic: sets into np.random.permutation over lists
+TODO: read user inputs from a file, reading from it in a global generator until inputs run out, then continue with original user prompting.
 TODO: make restarts/stops read/write to the same results pkl: do this once get one start/stop done.
 """
+from pprint import pprint
 import math
 import traceback 
 from planning_modules.base_planner import PlannerTimeoutException, \
@@ -1080,12 +1082,13 @@ class StudentAgent(InteractiveAgentLifted):
         self._ops_executed = set()
         self._mode = "teacher_subgoals"
         self.plan = None
-        self._ground_truth_operators = {deepcopy(op) for op in ac.train_env.domain.operators.values()}
         if self.domain_name == 'Bakingrealistic':
-            domain_parser = PDDLDomainParser('/home/catalan/pddlgym/pddlgym/pddl/bakingrealistic.pddl')
+            domain_parser = PDDLDomainParser( '/home/catalan/GLIB-Baking-Fails-and-LLMs/realistic-baking/dom-parse-gt-operators.pddl')
             self._ground_truth_operators_for_planning = {deepcopy(domain_parser.operators[o]) for o in domain_parser.operators}
+            self._ground_truth_operators = deepcopy(self._ground_truth_operators_for_planning)
         else:
             self._ground_truth_operators_for_planning = self._ground_truth_operators
+            self._ground_truth_operators = {deepcopy(op) for op in ac.train_env.domain.operators.values()}
         obj_types = set()
         for p in (self.action_space.predicates + self.obs_space.predicates):
             for t in p.var_types:
@@ -1563,12 +1566,17 @@ class StudentAgent(InteractiveAgentLifted):
                 plan, _ = self._planning_module.get_plan(
                     problem_fname, use_cache=False, use_learned_ops=False, bakinglarge_file=True, ops=self._ground_truth_operators_for_planning)
                 os.remove(problem_fname)
+                for step in plan:
+                    if 'use-stand-mixer' in step.predicate.name:
+                        corrected_plan = self._parse_corrected_plan_with_mixing(plan, state)
+                        return corrected_plan
                 return plan
  
             else:
                 plan, _ = self._planning_module.get_plan(
                     problem_fname, use_cache=False, use_learned_ops=False, ops=self._ground_truth_operators_for_planning)
                 os.remove(problem_fname)
+
                 return plan
         except NoPlanFoundException:
             logging.info(f"No plan found.")
@@ -1582,6 +1590,57 @@ class StudentAgent(InteractiveAgentLifted):
             os.remove(problem_fname)
 
             return None
+
+    def _parse_corrected_plan_with_mixing(self, plan, state):
+        logging.info("Planner found this plan:")
+        for step in plan:
+            logging.info(f'{step.pddl_str()}')
+        while True:
+            try:
+                file = get_input_cached("Enter the corrected plan file: ") 
+                # parse corrected plan.
+                with open(file, 'r') as f:
+                    lines = f.readlines()
+                corrected_plan = []
+                for line in lines:
+                    line = line.strip()
+                    if not line: continue
+                    if line.startswith("(") and line.endswith(")"):
+                        line = line[1:-1]
+                    items = line.split()
+                    pred_name = items[0]
+                    objects_ = items[1:]
+                    # find the matching action predicate
+                    act_pred = [p for p in self.action_space.predicates if p.name == pred_name]
+                    if len(act_pred) == 0:
+                        raise ValueError(f"Could not find action predicate {pred_name} in action_space.")
+                    act_pred = act_pred[0]
+
+                    # Convert each object name to the actual typed object
+                    typed_objs = []
+                    for obj_name in objects_:
+                        matched_obj = None
+                        for o in state.objects:
+                            # e.g. "sugar:Ingredient"
+                            o_str, _ = o._str.split(":")
+                            if o_str == obj_name:
+                                matched_obj = o
+                                break
+                        if matched_obj is None:
+                            raise ValueError(f"Could not find object {obj_name} in the state!")
+                        typed_objs.append(matched_obj)
+                    corrected_plan.append(act_pred(*typed_objs))
+
+                logging.info(f"Parsed corrected plan from: {file}: {corrected_plan}")
+                return corrected_plan
+            except Exception as e:
+                print(e)
+                traceback.print_exc() 
+                input("Continue or Ctrl-C to quit:")
+                continue
+
+
+                
 
 
     def _execute_plan(self, plan, state):
@@ -1682,6 +1741,7 @@ class StudentAgentSubgoals(StudentAgent):
         last_line = lines[-1]
         subgoal_lines = lines[:-1]
 
+        self.subgoals = []
         # Parse each subgoal line
         for subg_line in subgoal_lines:
             if not subg_line:
@@ -1760,7 +1820,7 @@ class StudentAgentSubgoals(StudentAgent):
 
             self.finished_preconds_plan = True
             self.plan_to_next_subgoal = None
-            self.next_subgoal_idx = None
+            self.next_subgoal_idx = -np.inf
 
             logging.info("All subgoals achieved. Executing final action.")
             # We don't plan for a single action; we just do it directly
@@ -1788,7 +1848,9 @@ class StudentAgentSubgoals(StudentAgent):
                 plan, _ = self._planning_module.get_plan(
                     problem_fname,
                     use_cache=False,
-                    use_learned_ops=True
+                    ops=self._ground_truth_operators_for_planning,
+                    bakinglarge_file=True,
+                    use_learned_ops=False
                 )
             except NoPlanFoundException:
                 logging.info("No plan found to subgoal.")
@@ -1798,21 +1860,24 @@ class StudentAgentSubgoals(StudentAgent):
                 if os.path.exists(problem_fname):
                     os.remove(problem_fname)
 
-            if plan:
+            if plan is not None:
                 logging.info(f"Found plan to subgoal {self.next_subgoal_idx}: {plan}")
-                self.plan_to_next_subgoal = plan
-
-                self._current_goal_action_operator = (tuple(self.subgoals), self._final_action, chosen_op.pddl_str())
-
-                # Execute the first step
-                action = self.plan_to_next_subgoal.pop(0)
-                self.actions_since_last_subgoal.append(action)
-                return action
+                # if plan is empty, try next subgoal
+                while plan == []:
+                    self.next_subgoal_idx += 1
+                    if self.next_subgoal_idx >= len(self.subgoals):
+                        break
+                    plan = self._get_ground_truth_plan(self.subgoals[self.next_subgoal_idx], state)
+                    logging.info(f"Subgoal already achieved. FOUND PLAN to next subgoal: {plan}")
+                return self._execute_plan(plan, state)
             else:
                 # Plan not found or timed out, you can do manual logic here
                 # or just return None. Possibly reset plan, do user prompting, etc.
                 logging.info("Plan to subgoal failed/timed out. Resetting plan.")
                 self.plan_to_next_subgoal = None
+                self.subgoals = []
+                self.next_subgoal_idx = -np.inf
+                self._current_goal_action_operator = None
                 return None
         else:
             # 4) choose an operator and try informative goals: if planner times out or too many informative goals in the change bank, then prompt user for subgoals list, like in StudentAgent.
@@ -1850,14 +1915,14 @@ class StudentAgentSubgoals(StudentAgent):
                     logging.info(f"Ops to consider: {ops_to_consider}")
                     try:
                         if not (len(ops_to_consider) == 0 or 'use-stand-mixer' in chosen_op.name):
-                            file = input("File containing merged operator or q? ").strip()
+                            file = get_input_cached("File containing merged operator or q? ").strip()
 
                             if file == 'd':
                                 dump_intermediate_state(self)
                                 logging.info("Dumped state")
 
                             while file not in ('q', 'qq') and not os.path.exists(file):
-                                file = input("File containing merged operator or q? ").strip()
+                                file = get_input_cached("File containing merged operator or q? ").strip()
 
                                 if file == 'qq':
                                     # skip this operator
@@ -1885,11 +1950,12 @@ class StudentAgentSubgoals(StudentAgent):
                                 ground_truth_operator = op
                                 break
                         if ground_truth_operator is None:
-                            name = input("g.t. operator name or 'q' to manually enter goal").strip()
+                            name = get_input_cached("g.t. operator name or 'q' to manually enter goal").strip()
                             names = {o.name for o in self._ground_truth_operators}
                             while name not in names and name != 'q':
-                                name = input("g.t. operator name or 'q' to manually enter goal").strip()                           
+                                name = get_input_cached("g.t. operator name or 'q' to manually enter goal").strip()                           
                             if name == 'q':
+                                # 'qq' skips this operator, while 'q' retries combining and matching operators
                                 plan = self._prompt_for_grounded_goal_and_plan(state, chosen_op)
                                 if plan not in ('q', 'qq'):
                                     return plan
@@ -2083,7 +2149,7 @@ class StudentAgentSubgoals(StudentAgent):
     [12] Restart cycle.
     """
             try:
-                option = int(input(option_str).strip())
+                option = int(get_input_cached(option_str).strip())
             except:
                 option = None
             while option is None or (option not in [9,11,12]):
@@ -2091,7 +2157,7 @@ class StudentAgentSubgoals(StudentAgent):
                     if option == 5:
                         logging.info("Dumping state.")
                         dump_intermediate_state(self)
-                    option = int(input(option_str).strip())
+                    option = int(get_input_cached(option_str).strip())
                 except:
                     option = None           
             self.option = option
@@ -2103,7 +2169,7 @@ class StudentAgentSubgoals(StudentAgent):
         # provide the grounded goal file according to the lifted goal and then plan to it.
         while True:
             # if option is qq, then skip all goals for this operator.
-            goal_file = input("Enter the subgoal file: ").strip()
+            goal_file = get_input_cached("Enter the subgoal file: ").strip()
             if goal_file == 'qq':
                 self._skip_to_next_op = True
                 break                       
@@ -2114,14 +2180,16 @@ class StudentAgentSubgoals(StudentAgent):
                 logging.info("Dumped state")
             try:
                 self._load_subgoals(state, goal_file)
+                logging.info(f"Loaded subgoals: {goal_file}")
                 plan = self._get_ground_truth_plan(self.subgoals[self.next_subgoal_idx], state)
-                assert plan not in (None, -1)
+                assert plan not in (None, -1), f"No plan found or timed out"
                 logging.info(f"FOUND PLAN: {plan}")
                 while plan == []:
                     self.next_subgoal_idx += 1
-                    if self.next_subgoal_idx > len(self.subgoals):
-                        raise Exception("All subgoals are already achieved in the current state.")
+                    if self.next_subgoal_idx >= len(self.subgoals):
+                        break
                     plan = self._get_ground_truth_plan(self.subgoals[self.next_subgoal_idx], state)
+                    logging.info(f"Subgoal already achieved. FOUND PLAN to next subgoal: {plan}")
                 self.plan_to_next_subgoal = plan
                 self._current_goal_action_operator = (tuple(self.subgoals), self._final_action, operator.pddl_str())
                 ac.planner_timeout = timeout
@@ -2136,17 +2204,16 @@ class StudentAgentSubgoals(StudentAgent):
             return goal_file
 
     def _execute_plan(self, plan, state):
-        assert not (len(self.plan_to_next_subgoal) == 0 and self.next_subgoal_idx < len(self.subgoals)), "unexpected"
 
         self.plan_to_next_subgoal = plan
 
         goals, act, operator_str = self._current_goal_action_operator
-        if len(self.plan_to_next_subgoal) == 0 and self.next_subgoal_idx == len(self.subgoals):
-            logging.info(f"Executing grounded action: {ground_act}")
+        if len(self.plan_to_next_subgoal) == 0 and self.next_subgoal_idx >= len(self.subgoals):
             self.finished_preconds_plan = True
             self.plan_to_next_subgoal = None
  
             action =  self._final_action
+            logging.info(f"Executing grounded action: {action}")
             self._final_action = None
             return action
 
@@ -2172,15 +2239,35 @@ class StudentAgentSubgoals(StudentAgent):
         
         - From ChatGPT. Looks correct.
         """
+        if self.domain_name.lower() == 'bakingrealistic':
+            obs_literals = set()
+            next_obs_literals = set()
+            for lit in state.literals:
+                if lit.predicate.name not in ('different', 'name-less-than'):
+                    obs_literals.add(lit)
+            for lit in next_state.literals:
+                if lit.predicate.name not in ('different', 'name-less-than'):
+                    next_obs_literals.add(lit)
+            state = State(frozenset(obs_literals), state.objects, state.goal)
+            next_state = State(frozenset(next_obs_literals), next_state.objects, next_state.goal)
+ 
         # Check if the action had no effects => plan might be failing
         effects = self._compute_effects(state, next_state)
+        logging.info(f"EFFECTS: \n{effects}")
+        self._operator_learning_module.observe(state, action, effects, start_episode=self.episode_start, itr=itr)
+        self._curiosity_module.observe(state, action, effects)
+
         if len(effects) == 0:
-            logging.info("Plan execution failed mid-subgoal: resetting subgoal plan.")
+            logging.info("Plan execution failed mid-subgoal: resetting subgoal plan and subgoals.")
             self.plan_to_next_subgoal = None
+            self.subgoals = []
+            self.next_subgoal_idx = -np.inf
+            self._current_goal_action_operator = None
+            return True
 
         # Check if we have achieved the current subgoal
         # (only if we are in the middle of planning to subgoals)
-        if self.next_subgoal_idx < len(self.subgoals):
+        if self.next_subgoal_idx != -np.inf and self.next_subgoal_idx < len(self.subgoals):
             subgoal = self.subgoals[self.next_subgoal_idx]
             # For negative-literal subgoals, check if the positive version
             # is in next_state. If so, it's not satisfied.
@@ -2533,3 +2620,12 @@ def reparameterize_learned_operator_by_matching_effects(learned_operator, gt_ope
             lit.set_variables([param_mapping[v] for v in lit.variables])
     learned_operator.params = set(param_mapping.values())
     return learned_operator
+
+def get_input_cached(prompt):
+    try:
+        inp = next(ac.input_generator)
+        logging.info(prompt)
+        logging.info(f"Using cached input: {inp}")
+        return inp
+    except StopIteration:
+        return input(prompt)

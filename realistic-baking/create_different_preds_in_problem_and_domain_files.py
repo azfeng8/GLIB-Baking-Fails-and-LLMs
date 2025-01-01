@@ -1,7 +1,7 @@
 import pddlgym
 import gym
 from pddlgym.structs import Predicate, Exists, State
-from pddlgym.parser import PDDLProblemParser
+from pddlgym.parser import PDDLProblemParser,PDDLDomainParser
 from settings import AgentConfig as ac
 
 import random
@@ -10,7 +10,7 @@ import os
 
 
 class Planner:
-    def __init__(self, env):
+    def __init__(self, env, file=None):
         self.domain_name = 'bakingrealistic'
         self._action_space = env.action_space
         self._observation_space = env.observation_space
@@ -19,6 +19,10 @@ class Planner:
         self._types = {str(t) : t for p in self._predicates.values() for t in p.var_types}
         self._problem_files = {}
         self.operators = set(env.domain.operators.values())
+
+        if file is not None:
+            parser = PDDLDomainParser(file)
+            self.operators = set(parser.operators.values())
 
     @abc.abstractmethod
     def get_policy(self, raw_problem_fname, use_learned_ops=False):
@@ -193,14 +197,19 @@ class Planner:
 #DONE: use lowercase letter d "different" for the name of the predicate, so that when running GLIB, writing Different's won't conflict.
 #DONE: add Different predicate declarations for each object type
 #DONE: add Different's within all objects of each type for each operator's precondition
-
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument('--file', type=str)
+args = parser.parse_args()
 env = pddlgym.make("PDDLEnvBakingrealisticTest-v0")
-p = Planner(env)
+p = Planner(env, file=args.file)
 p._create_domain_file()
 #TODO: add Different's to the end of problem files, after a comment "; declare each pair of objects of the same type to be different"
-for idx in range(len(env.problems)):
-    env.fix_problem_index(idx)
-    _, debug_info = env.reset()
-    print(debug_info)
-    p._create_problem_file(debug_info['problem_file'])
+# for idx in range(len(env.problems)):
+#     env.fix_problem_index(idx)
+#     _, debug_info = env.reset()
+#     print(debug_info)
+#     # p._create_problem_file(debug_info['problem_file'])
+#     p._create_problem_file(args.file)
+
 
