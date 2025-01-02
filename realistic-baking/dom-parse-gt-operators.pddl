@@ -193,6 +193,7 @@
 		:effect (and
 			(mixture-is-airy ?x1)
 			(not (is-whipped-egg-whites ?x4))
+			(not (is-raw-egg-whites ?x4))
 			(not (is-egg ?x4))
 			(mixture-has-folded-raw-egg-whites ?x1)
 			(not (egg-in-container ?x3 ?x4)))
@@ -373,24 +374,22 @@
 			(powder-ingredient-in-container ?x1 ?x0))
 	)
 	
-
 	(:action use-stand-mixer-in-bowl-with-mixture-set1-baking-powder-butter-cups-of-flour-sugar-whole-raw-egg
-		:parameters (?x0 - mixture_hypothetical ?x1 - butter_hypothetical ?x2 - egg_hypothetical ?x3 - container ?x4 - powder_ingredient_hypothetical ?x5 - powder_ingredient_hypothetical ?x6 - butter_hypothetical ?x7 - powder_ingredient_hypothetical ?x8 - electric_stand_mixer)
-		:precondition (and (use-stand-mixer ?x8 ?x3 ?x0)
-			(is-stand-mixer ?x8)
+		:parameters (?x0 - mixture_hypothetical ?x1 - butter_hypothetical ?x2 - egg_hypothetical ?x3 - container ?x4 - powder_ingredient_hypothetical ?x5 - powder_ingredient_hypothetical ?x6 - powder_ingredient_hypothetical ?x7 - electric_stand_mixer)
+		:precondition (and (use-stand-mixer ?x7 ?x3 ?x0)
+			(is-stand-mixer ?x7)
 			(is-bowl ?x3)
-			(is-butter ?x6)
 			(mixture-is-hypothetical ?x0)
 			(butter-in-container ?x3 ?x1)
 			(egg-in-container ?x3 ?x2)
 			(is-baking-powder ?x5)
 			(is-butter ?x1)
 			(is-cups-of-flour ?x4)
-			(is-sugar ?x7)
+			(is-sugar ?x6)
 			(is-whole-raw-egg ?x2)
 			(powder-ingredient-in-container ?x3 ?x5)
 			(powder-ingredient-in-container ?x3 ?x4)
-			(powder-ingredient-in-container ?x3 ?x7))
+			(powder-ingredient-in-container ?x3 ?x6))
 		:effect (and
 			(mixture-in-container ?x3 ?x0)
 			(is-mixture ?x0)
@@ -407,13 +406,13 @@
 			(not (is-baking-powder ?x5))
 			(not (is-butter ?x1))
 			(not (is-cups-of-flour ?x4))
-			(not (is-sugar ?x7))
+			(not (is-sugar ?x6))
 			(not (is-whole-raw-egg ?x2))
 			(not (powder-ingredient-in-container ?x3 ?x5))
 			(not (powder-ingredient-in-container ?x3 ?x4))
-			(not (powder-ingredient-in-container ?x3 ?x7)))
+			(not (powder-ingredient-in-container ?x3 ?x6)))
 	)
-	
+
 
 	(:action use-stand-mixer-in-bowl-with-mixture-set1-butter-raw-egg-yolk-sugar-tablespoons-of-flour
 		:parameters (?x0 - mixture_hypothetical ?x1 - powder_ingredient_hypothetical ?x2 - electric_stand_mixer ?x3 - butter_hypothetical ?x4 - egg_hypothetical ?x5 - container ?x6 - powder_ingredient_hypothetical)

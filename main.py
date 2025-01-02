@@ -122,7 +122,6 @@ class Runner:
 
         itr = 0
         # Flag if stuck in a loop, so should go straight to prompting.
-        LOOPING = False
         # Flag if experiment should end.
         SOLVED = False
         while itr < self.num_train_iters and not SOLVED:
@@ -130,8 +129,7 @@ class Runner:
 
             # ask user to input which episodes to do in the next cycle
             # if not self.AUTO_EVAL and len(cycle) == 0 and episode_done:
-            if isinstance(self.agent, StudentAgent) and len(cycle) == 0 and episode_done:
-                subgoals_paths = {i: '' for i in range(len(self.train_env.problems))}
+            if (isinstance(self.agent, StudentAgent) or isinstance(self.agent, CreateDemonstrationsAgent)) and len(cycle) == 0 and episode_done:
                 if isinstance(self.agent, CreateDemonstrationsAgent):
                     if get_input_cached("Cycle finished. Dump transitions and exit? y or anything ") == 'y':
                         with open(f'demonstrations/{self.domain_name.lower()}_demonstrations.pkl', 'wb') as f:
@@ -165,8 +163,6 @@ class Runner:
                     cycle = list(range(num_probs))
                 logging.info(f"Episodes: " + ','.join([str(s) for s in cycle]))
 
-                precond_targeting_only = False
-
                 episode_done = True
 
             if episode_done:
@@ -179,7 +175,7 @@ class Runner:
                 self.train_env.fix_problem_index(problem_idx)
                 obs, _ = self.train_env.reset()
                 logging.info(f"***********************************New episode! Problem {problem_idx}:{obs.goal}***********************************")
-                self.agent.reset_episode(obs, '')# if self.AUTO_EVAL or precond_targeting_only else subgoals_paths[problem_idx])
+                self.agent.reset_episode(obs, '')
                 if itr == 0 and isinstance(self.agent, DemonstrationsAgent):
                     self.agent.learn(0)
                     logging.info("Learned operators:")
@@ -194,83 +190,11 @@ class Runner:
                 for action in self.agent.action_seq:
                     obs, rew, _, _ = self.train_env.step(action)
 
-            if not LOOPING:
-                logging.info("Getting action...")
-                action = self.agent.get_action(obs, problem_idx, False)
-            else:
-                action = None
+            logging.info("Getting action...")
+            action = self.agent.get_action(obs, problem_idx, False)
 
             if action is None:
-                if self.agent.option == 0:
-                    action = self.agent.next_action
-                    next_obs, rew, _, _  =  self.train_env.step(action)
-                    logging.info(f"Observing action {action}")
-                    self.agent.observe(obs, action, next_obs, itr)
-                    transitions.append(self.agent._operator_learning_module._transitions[action.predicate][-1])
-                    learn_and_test()
-                    itr += 1
-                    obs, _ = self.train_env.reset()
-                    logging.info(f"Resetting to prev subgoal, executing actions:\n{self.agent.action_seq}")
-                    for action in self.agent.action_seq:
-                        next_obs, rew, episode_done, _ = self.train_env.step(action)
-                        obs = next_obs
-                    prev_action = action
-                elif self.agent.option == 2:
-                    obs, _ = self.train_env.reset()
-                    logging.info(f"Resetting to start, and executing actions:\n{self.agent.action_seq_reset}. Then resetting to prev subgoal")
-                    for i, action in enumerate(self.agent.action_seq_reset):
-                        next_obs, rew, episode_done, _ = self.train_env.step(action)
-                        logging.info(f"Observing action {action}")
-                        self.agent.observe(obs, action, next_obs, itr)
-                        learn_and_test()
-                        transitions.append(self.agent._operator_learning_module._transitions[action.predicate][-1])
-                        itr += 1
-                        obs = next_obs                   
-                    obs, _ = self.train_env.reset()
-                    for action in self.agent.action_seq:
-                        next_obs, rew, episode_done, _ = self.train_env.step(action)
-                    prev_action = action
-                elif self.agent.option == 3:
-                    action = self.agent.next_action
-                    logging.info(f"Observing action {action}")
-                    next_obs, rew, episode_done, _ = self.train_env.step(action)
-                    self.agent.observe(obs, action, next_obs, itr)
-                    learn_and_test()
-                    transitions.append(self.agent._operator_learning_module._transitions[action.predicate][-1])
-                    itr += 1
-                    obs, _ = self.train_env.reset()
-                    for action in self.agent.action_seq:
-                        next_obs, rew, episode_done, _ = self.train_env.step(action)
-                    prev_action = action
-                elif self.agent.option == 4:
-                    for action in self.agent.action_seq_reset:
-                        next_obs, rew, episode_done, _ = self.train_env.step(action) 
-                        self.agent.observe(obs, action, next_obs, itr)
-                        learn_and_test()
-                        transitions.append(self.agent._operator_learning_module._transitions[action.predicate][-1])
-                        obs = next_obs
-                        itr += 1
-                        prev_action = action
-                elif self.agent.option == 6:
-                    logging.info("Executing demos...")
-                    for action in self.agent.action_seq_reset:
-                        next_obs, rew, episode_done, _ = self.train_env.step(action) 
-                        logging.info(f"Executed {action}!")
-                        self.agent.observe(obs, action, next_obs, itr)
-                        learn_and_test()
-                        transitions.append(self.agent._operator_learning_module._transitions[action.predicate][-1])
-                        obs = next_obs
-                        itr += 1                   
-                    logging.info(f"Resetting to start of episode, and executing actions to last achieved subgoal: {self.agent.action_seq}")
-                    obs, _ = self.train_env.reset()
-                    for action in self.agent.action_seq:
-                        next_obs, rew, episode_done, _ = self.train_env.step(action)
-                        obs = next_obs
-                    prev_action = action
-                elif self.agent.option == 8:
-                    logging.info(f"Resetting to start of episode")
-                    obs, _ = self.train_env.reset()
-                elif self.agent.option == 9:
+                if self.agent.option == 9:
                     successes_list = self._evaluate_operators(use_learned_ops=True)
                     test_solve_rate = sum(successes_list) / len(successes_list)
                     logging.info(f"Result: {test_solve_rate} solve rate")
@@ -282,16 +206,6 @@ class Runner:
                         if get_input_cached("Solved one of the tasks of interest. End? y or anything").strip() == 'y':
                             SOLVED = True
                             continue
-                elif self.agent.option == 10:
-                    episode_uip = get_input_cached(f"Select the episode to do precond targeting. Give an index between 0 and {len(self.train_env.problems) -1}.")
-                    while int(episode_uip) not in range(len(self.train_env.problems)):
-                        episode_uip = get_input_cached(f"Select the episode to do precond targeting. Give an index between 0 and {len(self.train_env.problems) - 1}.")
-                    self.train_env.fix_problem_index(int(episode_uip))
-                    obs, _ = self.train_env.reset()
-                    precond_targeting_only = True
-                    episode_done = False
-                    self.agent.option = None
-                    continue
                 elif self.agent.option == 11:
                     # End experiment.
                     SOLVED = True
@@ -300,7 +214,6 @@ class Runner:
                     episode_done = True 
                 # Clear the option.
                 self.agent.option = None
-                LOOPING = False
 
             else:
                 logging.info(f"Taking action {action}")
@@ -315,26 +228,11 @@ class Runner:
                     logging.info("Resetting env")
                     obs, _ = self.train_env.reset()
 
-                if not self.AUTO_EVAL:
-                    LOOPING = False
-                    # if prev_action == action:
-                    #     if isinstance(self.agent, InteractiveAgentGrounded) and input("Dump program state? y/n") == 'y':
-                    #         logging.info("Dumping state...")
-                    #         dump_intermediate_state(self.agent)
-                    #     # if isinstance(self.agent, InteractiveAgentGrounded) and input("Stuck in a loop, and reprompt for next task? y or anything") == 'y':
-                    #         LOOPING = True
-                    #         obs_literals = set()
-                    #         for lit in obs.literals:
-                    #             if lit.predicate.name not in ('different', 'name-less-than'):
-                    #                 obs_literals.add(lit)
-                    #         state = State(frozenset(obs_literals), obs.objects, obs.goal)
-                    #         self.agent._prompt_demos_or_subgoals(state)
-                # prev_action = action
-
                 itr += 1
                 transitions.append(self.agent._operator_learning_module._transitions[action.predicate][-1])
 
-                # if round(rew) == 1:
+                if round(rew) == 1 and isinstance(self.agent, CreateDemonstrationsAgent):
+                    episode_done = True
                 #     logging.info(f"***********************************Reached goal! {obs.goal}***********************************")
         curiosity_avg_time = self.agent.curiosity_time/self.num_train_iters
 
@@ -482,7 +380,7 @@ def _run_single_seed(seed, domain_name, curiosity_name, learning_name, log_llmi_
     ac.seed = seed
     ec.seed = seed
     np.random.seed(seed)
-    ac.planner_timeout = 60 if "oracle" in curiosity_name else 20
+    ac.planner_timeout = 60 if "oracle" in curiosity_name else 10
 
     train_env = gym.make("PDDLEnv{}-v0".format(domain_name))
     train_env.seed(seed)

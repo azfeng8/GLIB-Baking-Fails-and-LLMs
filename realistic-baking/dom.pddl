@@ -83,6 +83,7 @@
 		(different ?arg0 - mixture_hypothetical ?arg1 - mixture_hypothetical)
 		(different ?arg0 - spatula ?arg1 - spatula)
 	)
+  ; (:actions set-oven-with-cake-bake-time-and-press-start separate-raw-yolk-from-egg-whites pour-powdery-ingredient-from-measuring-cup pour-powdery-ingredient-from-container transfer-butter-from-pan-or-bowl beat-egg-whites preheat-oven-with-cake-settings put-butter-in-container-from-measuring-cup move-baked-good-in-container-to-different-container put-pan-in-oven crack-egg-and-put-in-container pour-mixture-only set-oven-with-souffle-bake-time-and-press-start preheat-oven-with-souffle-settings fold-stiff-egg-whites-into-mixture use-stand-mixer transfer-egg-from-pan-or-bowl remove-pan-from-oven)
 
 	(:action bake-cake
 		:parameters (?x0 - mixture_hypothetical ?x1 - dessert_hypothetical ?x2 - oven ?x3 - container)
@@ -172,6 +173,7 @@
 	(:action fold-egg-whites-into-mixture
 		:parameters (?x0 - spatula ?x1 - mixture_hypothetical ?x2 - container ?x3 - container ?x4 - egg_hypothetical)
 		:precondition (and (mixture-in-container ?x2 ?x1)
+
 			(is-spatula ?x0)
 			(egg-in-container ?x3 ?x4)
 			(is-whipped-egg-whites ?x4)
@@ -182,6 +184,7 @@
 			(not (container-in-an-oven ?x2))
 			(different ?x2 ?x3))
 		:effect (and
+				(not (is-raw-egg-whites ?x4))
 			(mixture-is-airy ?x1)
 			(not (is-whipped-egg-whites ?x4))
 			(not (is-egg ?x4))
@@ -346,25 +349,23 @@
 	)
 
 	(:action use-stand-mixer-in-bowl-with-mixture-set1-baking-powder-butter-cups-of-flour-sugar-whole-raw-egg
-		:parameters (?x0 - mixture_hypothetical ?x1 - butter_hypothetical ?x2 - egg_hypothetical ?x3 - container ?x4 - powder_ingredient_hypothetical ?x5 - powder_ingredient_hypothetical ?x6 - butter_hypothetical ?x7 - powder_ingredient_hypothetical ?x8 - electric_stand_mixer)
-		:precondition (and (is-stand-mixer ?x8)
+		:parameters (?x0 - mixture_hypothetical ?x1 - butter_hypothetical ?x2 - egg_hypothetical ?x3 - container ?x4 - powder_ingredient_hypothetical ?x5 - powder_ingredient_hypothetical ?x6 - powder_ingredient_hypothetical ?x7 - electric_stand_mixer)
+		:precondition (and (is-stand-mixer ?x7)
 			(is-bowl ?x3)
-			(is-butter ?x6)
 			(mixture-is-hypothetical ?x0)
 			(butter-in-container ?x3 ?x1)
 			(egg-in-container ?x3 ?x2)
 			(is-baking-powder ?x5)
 			(is-butter ?x1)
 			(is-cups-of-flour ?x4)
-			(is-sugar ?x7)
+			(is-sugar ?x6)
 			(is-whole-raw-egg ?x2)
 			(powder-ingredient-in-container ?x3 ?x5)
 			(powder-ingredient-in-container ?x3 ?x4)
-			(powder-ingredient-in-container ?x3 ?x7)
-			(different ?x1 ?x6)
+			(powder-ingredient-in-container ?x3 ?x6)
 			(different ?x4 ?x5)
-			(different ?x4 ?x7)
-			(different ?x5 ?x7))
+			(different ?x4 ?x6)
+			(different ?x5 ?x6))
 		:effect (and
 			(mixture-in-container ?x3 ?x0)
 			(is-mixture ?x0)
@@ -381,13 +382,13 @@
 			(not (is-baking-powder ?x5))
 			(not (is-butter ?x1))
 			(not (is-cups-of-flour ?x4))
-			(not (is-sugar ?x7))
+			(not (is-sugar ?x6))
 			(not (is-whole-raw-egg ?x2))
 			(not (powder-ingredient-in-container ?x3 ?x5))
 			(not (powder-ingredient-in-container ?x3 ?x4))
-			(not (powder-ingredient-in-container ?x3 ?x7)))
+			(not (powder-ingredient-in-container ?x3 ?x6)))
 	)
-
+	
 	(:action use-stand-mixer-in-bowl-with-mixture-set1-butter-raw-egg-yolk-sugar-tablespoons-of-flour
 		:parameters (?x0 - mixture_hypothetical ?x1 - powder_ingredient_hypothetical ?x2 - electric_stand_mixer ?x3 - butter_hypothetical ?x4 - egg_hypothetical ?x5 - container ?x6 - powder_ingredient_hypothetical)
 		:precondition (and (is-stand-mixer ?x2)

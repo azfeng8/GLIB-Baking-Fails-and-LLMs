@@ -1,7 +1,6 @@
 """DONE: only evaluate when prompted to, until get 1 seed (non continuous) completed.
 DONE: Make the runs deterministic: sets into np.random.permutation over lists
-TODO: read user inputs from a file, reading from it in a global generator until inputs run out, then continue with original user prompting.
-TODO: make restarts/stops read/write to the same results pkl: do this once get one start/stop done.
+TODO: recollect baking demos (only need to replace the fold-* transition) b/c found a bug in the domain.
 """
 from pprint import pprint
 import math
@@ -1013,17 +1012,8 @@ class CreateDemonstrationsAgent(Agent):
             self.prev_episode_idx = problem_idx
             self._action_in_plan = False
             return action
+        raise Exception("Done with demos. Should have terminated when prompted.")
             
-
-        self.prev_episode_idx = problem_idx
-
-        in_plan, op_name, action = self._curiosity_module.get_action(state)
-
-        if in_plan:
-            self._action_in_plan = op_name
-        else:
-            self._action_in_plan = False
-        return action
 
     def _parse_action_from_string(self, action_string, objects_frozenset):
         """Given action string (pred obj-0 obj-1...), parse the pddlgym action.
@@ -1566,10 +1556,6 @@ class StudentAgent(InteractiveAgentLifted):
                 plan, _ = self._planning_module.get_plan(
                     problem_fname, use_cache=False, use_learned_ops=False, bakinglarge_file=True, ops=self._ground_truth_operators_for_planning)
                 os.remove(problem_fname)
-                for step in plan:
-                    if 'use-stand-mixer' in step.predicate.name:
-                        corrected_plan = self._parse_corrected_plan_with_mixing(plan, state)
-                        return corrected_plan
                 return plan
  
             else:
@@ -1597,7 +1583,7 @@ class StudentAgent(InteractiveAgentLifted):
             logging.info(f'{step.pddl_str()}')
         while True:
             try:
-                file = get_input_cached("Enter the corrected plan file: ") 
+                file = get_input_cached("Enter the corrected plan file: ").strip()
                 # parse corrected plan.
                 with open(file, 'r') as f:
                     lines = f.readlines()
@@ -1861,23 +1847,27 @@ class StudentAgentSubgoals(StudentAgent):
                     os.remove(problem_fname)
 
             if plan is not None:
-                logging.info(f"Found plan to subgoal {self.next_subgoal_idx}: {plan}")
+                logging.info(f"Found plan to subgoal {self.subgoals[self.next_subgoal_idx]}: {plan}")
                 # if plan is empty, try next subgoal
                 while plan == []:
                     self.next_subgoal_idx += 1
                     if self.next_subgoal_idx >= len(self.subgoals):
                         break
                     plan = self._get_ground_truth_plan(self.subgoals[self.next_subgoal_idx], state)
-                    logging.info(f"Subgoal already achieved. FOUND PLAN to next subgoal: {plan}")
+                    logging.info(f"Subgoal already achieved. FOUND PLAN to next subgoal {self.subgoals[self.next_subgoal_idx]}: {plan}")
                 return self._execute_plan(plan, state)
             else:
                 # Plan not found or timed out, you can do manual logic here
                 # or just return None. Possibly reset plan, do user prompting, etc.
                 logging.info("Plan to subgoal failed/timed out. Resetting plan.")
+                logging.info(f"State:")
+                for lit in sorted(state.literals):
+                    logging.info(lit.pddl_str())
                 self.plan_to_next_subgoal = None
                 self.subgoals = []
                 self.next_subgoal_idx = -np.inf
                 self._current_goal_action_operator = None
+                self.option = 5 # Set to an option that does nothing
                 return None
         else:
             # 4) choose an operator and try informative goals: if planner times out or too many informative goals in the change bank, then prompt user for subgoals list, like in StudentAgent.
@@ -2202,6 +2192,41 @@ class StudentAgentSubgoals(StudentAgent):
         ac.planner_timeout = timeout
         if goal_file == 'qq' or goal_file == 'q':
             return goal_file
+
+    def _get_ground_truth_plan(self, goal, state):
+        problem_fname = self._curiosity_module._create_problem_pddl(
+            state, goal, prefix='glibl_preconds')
+        # Get a plan
+        try:
+            if self.domain_name == 'Bakingrealistic':
+                plan, _ = self._planning_module.get_plan(
+                    problem_fname, use_cache=False, use_learned_ops=False, bakinglarge_file=True, ops=self._ground_truth_operators_for_planning)
+                os.remove(problem_fname)
+                for step in plan:
+                    if 'use-stand-mixer' in step.predicate.name:
+                        corrected_plan = self._parse_corrected_plan_with_mixing(plan, state)
+                        return corrected_plan
+                return plan
+ 
+            else:
+                plan, _ = self._planning_module.get_plan(
+                    problem_fname, use_cache=False, use_learned_ops=False, ops=self._ground_truth_operators_for_planning)
+                os.remove(problem_fname)
+
+                return plan
+        except NoPlanFoundException:
+            logging.info(f"No plan found.")
+
+            os.remove(problem_fname)
+
+            return -1
+        except PlannerTimeoutException:
+            logging.info(f"PLANNER TIMED OUT")
+
+            os.remove(problem_fname)
+
+            return None
+
 
     def _execute_plan(self, plan, state):
 
