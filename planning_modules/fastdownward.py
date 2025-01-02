@@ -34,8 +34,8 @@ class FastDownwardPlanner(Planner):
             domain_fname = self._create_domain_file(ops)
         problem_fname, objects = self._create_problem_file(raw_problem_fname)
         cmd_str1, cmd_str2 = self._get_cmd_str(domain_fname, problem_fname)
-        logging.info(problem_fname)
-        logging.info(domain_fname)
+        # logging.info(problem_fname)
+        # logging.info(domain_fname)
         start_time = time.time()
         output = subprocess.getoutput(cmd_str1)
         if "exit code: 31" in output:
@@ -44,15 +44,15 @@ class FastDownwardPlanner(Planner):
         output = subprocess.getoutput(cmd_str2)
         end_time = time.time()
         if end_time - start_time > 0.9*ac.planner_timeout:
-            # self.delete_cached_plan_files(domain_fname, problem_fname, use_cache=True)
+            self.delete_cached_plan_files(domain_fname, problem_fname, use_cache=True)
             raise PlannerTimeoutException()
         try:
             plan = self._output_to_plan(output)
         except Exception as e:
-            # self.delete_cached_plan_files(domain_fname, problem_fname, use_cache=True)
+            self.delete_cached_plan_files(domain_fname, problem_fname, use_cache=True)
             raise e 
         actions, operator_names = self._plan_to_actions(plan, objects, domain_fname, use_learned_ops=use_learned_ops, ops=ops)
-        # self.delete_cached_plan_files(domain_fname, problem_fname, use_cache=True)
+        self.delete_cached_plan_files(domain_fname, problem_fname, use_cache=True)
         return actions, operator_names
 
     def _get_cmd_str(self, domain_fname, problem_fname):

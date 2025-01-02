@@ -1,0 +1,3 @@
+(is-in-shell egg-0)
+(container-in-an-oven pan-0)
+(crack-egg-and-put-in-container egg-0 pan-0)

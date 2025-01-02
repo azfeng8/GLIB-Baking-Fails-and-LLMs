@@ -1,0 +1,3 @@
+(pan-is-full pan-0), (dessert-is-hypothetical dessert-0)
+(container-in-an-oven pan-0)
+(move-baked-good-in-container-to-different-container pan-0 plate-0 dessert-0)

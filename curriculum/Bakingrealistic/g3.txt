@@ -1,0 +1,2 @@
+(is-in-shell egg-0), (egg-is-hypothetical egg-1)
+(separate-raw-yolk-from-egg-whites egg-0 egg-1 bowl-0 bowl-1)

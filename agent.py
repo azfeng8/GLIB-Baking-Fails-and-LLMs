@@ -1859,16 +1859,14 @@ class StudentAgentSubgoals(StudentAgent):
             else:
                 # Plan not found or timed out, you can do manual logic here
                 # or just return None. Possibly reset plan, do user prompting, etc.
-                logging.info("Plan to subgoal failed/timed out. Resetting plan.")
                 logging.info(f"State:")
                 for lit in sorted(state.literals):
                     logging.info(lit.pddl_str())
-                self.plan_to_next_subgoal = None
-                self.subgoals = []
-                self.next_subgoal_idx = -np.inf
-                self._current_goal_action_operator = None
-                self.option = 5 # Set to an option that does nothing
-                return None
+                raise Exception("Plan to subgoal failed/timed out. Probably a bug in domain or subgoals file.")
+                # self.plan_to_next_subgoal = None
+                # self.subgoals = []
+                # self.next_subgoal_idx = -np.inf
+                # self._current_goal_action_operator = None
         else:
             # 4) choose an operator and try informative goals: if planner times out or too many informative goals in the change bank, then prompt user for subgoals list, like in StudentAgent.
             logging.info("=== Step 4) operator-based 'informative goals' approach (StudentAgent style) ===")
@@ -1888,6 +1886,7 @@ class StudentAgentSubgoals(StudentAgent):
                 for op in self._rand_state.permutation(sorted(self.learned_operators, key=lambda o: o.name)):
                     if op.name not in operator_names_tried:
                         chosen_op = op
+                        logging.info(f"Chosen operator: {chosen_op.pddl_str()}")
                         break
                 action_pred = [l.predicate for l in chosen_op.preconds.literals if l.predicate in self.action_space.predicates][0]
 

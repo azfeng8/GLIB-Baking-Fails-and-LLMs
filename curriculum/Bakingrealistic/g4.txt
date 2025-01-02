@@ -1,0 +1,3 @@
+(not (egg-in-container pan-0 egg-0)), (is-whole-raw-egg egg-0)
+(container-in-an-oven pan-0)
+(transfer-egg-from-pan-or-bowl pan-0 bowl-0 egg-0)
