@@ -954,7 +954,7 @@ class DemonstrationsAgent(Agent):
         self.name = 'demoagent'   
 
         # Load the demos
-        demos_path = f'/home/catalan/GLIB-Baking-Fails-and-LLMs/demonstrations/{self.domain_name.lower()}_demonstrations.pkl'
+        demos_path = f'/home/ubuntu/GLIB-Baking-Fails-and-LLMs/demonstrations/{self.domain_name.lower()}_demonstrations.pkl'
         with open(demos_path, 'rb') as f:
             transitions = pickle.load(f)
         self._operator_learning_module._transitions = transitions
