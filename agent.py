@@ -959,8 +959,8 @@ class DemonstrationsAgent(Agent):
         self.name = 'demoagent'   
 
         # Load the demos
-        demos_path = f'/home/ubuntu/GLIB-Baking-Fails-and-LLMs/demonstrations/{self.domain_name.lower()}_demonstrations.pkl'
-        # demos_path = f'/home/catalan/GLIB-Baking-Fails-and-LLMs/demonstrations/{self.domain_name.lower()}_demonstrations.pkl'
+        # demos_path = f'/home/ubuntu/GLIB-Baking-Fails-and-LLMs/demonstrations/{self.domain_name.lower()}_demonstrations.pkl'
+        demos_path = f'/home/catalan/GLIB-Baking-Fails-and-LLMs/demonstrations/{self.domain_name.lower()}_demonstrations.pkl'
         with open(demos_path, 'rb') as f:
             transitions = pickle.load(f)
         self._operator_learning_module._transitions = transitions
@@ -1231,6 +1231,7 @@ class StudentAgent(InteractiveAgentLifted):
                             dump_intermediate_state(self)
                             logging.info("Dumped state")
 
+
                         while file not in ('q', 'qq') and not os.path.exists(file):
                             file = input("File containing merged operator or q? ").strip()
 
@@ -1253,6 +1254,8 @@ class StudentAgent(InteractiveAgentLifted):
                         if self._skip_to_next_op:
                             break
 
+                    if self._skip_to_next_op:
+                        break
                     logging.info(f"Looking for g.t. operator that matches operator.")
                     # Compare the joined learned operator effects to the ground truth operators effects.
                     ground_truth_operator = None
@@ -1814,6 +1817,9 @@ class StudentAgentSubgoals(StudentAgent):
             action = self._final_action
             self._final_action = None
             return action
+        elif self.plan_to_next_subgoal is not None and len(self.plan_to_next_subgoal) == 0 and self.next_subgoal_idx == -np.inf:
+            # Ground the action and return it
+            return self._execute_plan(self.plan_to_next_subgoal, state)
 
         # 3) Otherwise, we are working on the next subgoal
         # If we already have a plan in progress, continue it
@@ -1909,6 +1915,8 @@ class StudentAgentSubgoals(StudentAgent):
                             if file == 'd':
                                 dump_intermediate_state(self)
                                 logging.info("Dumped state")
+                            elif file == 'qq':
+                                self._skip_to_next_op = True
 
                             while file not in ('q', 'qq') and not os.path.exists(file):
                                 file = get_input_cached("File containing merged operator or q? ").strip()
@@ -2237,13 +2245,50 @@ class StudentAgentSubgoals(StudentAgent):
             self.plan_to_next_subgoal = None
  
             action =  self._final_action
-            logging.info(f"Executing grounded action: {action}")
+            logging.info(f"Executing final action: {action}")
             self._final_action = None
+            self.next_subgoal_idx = -np.inf
             return action
 
         elif len(self.plan_to_next_subgoal) == 0:
             # Sampled lifted goal
             ground_act = self._curiosity_module._sample_action_from_goal(goals, act,state, self._rand_state)
+            if ground_act is None:
+                ground_act_str = get_input_cached("Grounding failed. Enter the grounded action or Ctrl-C to end: ").strip()
+                while True:
+                    try:
+                        line = ground_act_str
+                        if line.startswith("(") and line.endswith(")"):
+                                line = line[1:-1]
+                        items = line.split()
+                        pred_name = items[0]
+                        objects_ = items[1:]
+                        # find the matching action predicate
+                        act_pred = [p for p in self.action_space.predicates if p.name == pred_name]
+                        if len(act_pred) == 0:
+                            raise ValueError(f"Could not find action predicate {pred_name} in action_space.")
+                        act_pred = act_pred[0]
+
+                        # Convert each object name to the actual typed object
+                        typed_objs = []
+                        for obj_name in objects_:
+                            matched_obj = None
+                            for o in state.objects:
+                                # e.g. "sugar:Ingredient"
+                                o_str, _ = o._str.split(":")
+                                if o_str == obj_name:
+                                    matched_obj = o
+                                    break
+                            if matched_obj is None:
+                                raise ValueError(f"Could not find object {obj_name} in the state!")
+                            typed_objs.append(matched_obj)
+                        ground_act = act_pred(*typed_objs)
+                        break
+                    except Exception as e:
+                        print(e)
+                        traceback.print_exc() 
+                        input("Continue or Ctrl-C to quit:")
+                        continue
             mark = get_hashable_preconds_action(tuple(sorted(goals)))
             self._visited_preconds_states_teacher_mode.add((mark, operator_str))
             self.plan_to_next_subgoal = None

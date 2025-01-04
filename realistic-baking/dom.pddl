@@ -151,6 +151,7 @@
 		:parameters (?x0 - electric_stand_mixer ?x1 - container ?x2 - egg_hypothetical)
 		:precondition (and (egg-in-container ?x1 ?x2)
 			(is-stand-mixer ?x0)
+			(not (container-in-an-oven ?x1))
 			(is-raw-egg-whites ?x2)
 			(is-egg ?x2)
 			(not (egg-is-hypothetical ?x2)))

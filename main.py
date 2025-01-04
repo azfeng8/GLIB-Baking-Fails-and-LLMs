@@ -48,9 +48,9 @@ class Runner:
         self.curiosity_name = curiosity_name
         self.num_train_iters = ac.num_train_iters[domain_name]
 
-        if isinstance(agent, CreateDemonstrationsAgent) or isinstance(agent, StudentAgent):
+        if isinstance(agent, CreateDemonstrationsAgent):# or isinstance(agent, StudentAgent):
             self.AUTO_EVAL = False
-        elif isinstance(agent, Agent) or isinstance(agent, DemonstrationsAgent):# or isinstance(agent, StudentAgent):
+        elif isinstance(agent, Agent) or isinstance(agent, DemonstrationsAgent) or isinstance(agent, StudentAgent):
             self.AUTO_EVAL = True
         else:
             raise Exception("Not supported agent type")

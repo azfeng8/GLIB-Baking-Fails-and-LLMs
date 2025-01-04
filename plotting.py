@@ -1,6 +1,7 @@
 import pddlgym
 import gym
 import glob
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -18,6 +19,10 @@ from planning_modules.base_planner import Planner, PlannerTimeoutException, \
     NoPlanFoundException
 from agent import Agent
 
+font = {'family' : 'normal',
+        'size'   : 14}
+
+matplotlib.rc('font', **font)
 
 def learn_and_test(dataset, seed, init_rule_sets=None):
     """evaluates the dataset on Bakingrealistic and returns the successes list."""
@@ -121,7 +126,6 @@ def learn_and_test(dataset, seed, init_rule_sets=None):
     return successes, rule_set
 
 def evaluate_demos(transitions_dict, seed):
-    dataset = {} 
     rule_set = None
     successes, rule_set = learn_and_test(transitions_dict, seed, rule_set)
     num_transitions = 0
@@ -167,8 +171,8 @@ ALL_TASKS = set(range(22))
 PLOTS = {
     # ("Success Rate on Test Tasks", 'results/Bakingrealistic/bakingrealistic_succ_generalized.png'): GENERALIZATION_TASKS,
     # ("Success Rate on Training Tasks", 'results/Bakingrealistic/bakingrealistic_succ_training.png'): TRAIN_TASKS,
-    (f"Success Rate in {pc.domain}" if pc.domain != "Easygripper" else "Success Rate in Gripper", f'results/{pc.domain}/{pc.domain.lower()}_succ.png'): ALL_TASKS,
-    # (f"Success Rate in Keys and Doors", f'results/{pc.domain}/{pc.domain.lower()}_succ.png'): ALL_TASKS,
+    (f"{pc.domain}" if pc.domain != "Easygripper" else "Success Rate in Gripper", f'results/{pc.domain}/{pc.domain.lower()}_succ.png'): ALL_TASKS,
+    # (f"Keys and Doors", f'results/{pc.domain}/{pc.domain.lower()}_succ.png'): ALL_TASKS,
     # (f"Success Rate in Baking-Large", f'results/{pc.domain}/{pc.domain.lower()}_succ.png'): ALL_TASKS,
     # ("Success Rate on Easy Training Tasks", f'results/{pc.domain}/{pc.domain.lower()}_succ_easy_training.png'): EASY_TRAIN_TASKS,
 
@@ -199,6 +203,7 @@ def get_plots(results_dict, results_filepaths_dict, append_demos_dict, old_resul
     with open(DEMOS_PATH, 'rb') as f:
         demos = pickle.load(f)
     total_demos, demo_successes = evaluate_demos(demos, 1)
+    print(f"SAAAAAAAAAAAAAAAA: {demo_successes}")
     for curve_name, results_list in results_dict.items():
         for i,results in enumerate(results_list):
             assert results['mode'] == 'evaluated'
@@ -579,9 +584,9 @@ def _main():
     for agent, learning_name, curiosity_name in pc.agent_learner_explorer:
         if agent == 'demoagent':
             if curiosity_name == 'oracle':
-                curve_name = f"GLIB-oracle with demos"
+                curve_name = f"GLIB-oracle-demos"
             else:
-                curve_name = f"{curiosity_name} with demos"
+                curve_name = f"{curiosity_name}-demos"
             append_demos[curve_name] = True
         else:
             if curiosity_name == 'oracle':
@@ -623,13 +628,13 @@ def _main():
 
     # # Load the new method results
     new_method_curve_name = "Teacher-GLIB"
-    append_demos[new_method_curve_name] = False
+    # append_demos[new_method_curve_name] = False
     #TODO: when plot student results, change this to True
-    # append_demos[new_method_curve_name] = True
+    append_demos[new_method_curve_name] = True
     for seed in pc.seeds:
-        results_path = os.path.join(f'results/{pc.domain}', 'LNDR', 'GLIB_G1', f'{pc.domain}_LNDR_GLIB_G1_interactive_{seed}.pkl')
+        # results_path = os.path.join(f'results/{pc.domain}', 'LNDR', 'GLIB_G1', f'{pc.domain}_LNDR_GLIB_G1_interactive_{seed}.pkl')
         #TODO: when plot student results, change this to GLIB_L2
-        # results_path = os.path.join(f'results/{pc.domain}', 'LNDR', 'GLIB_L2', f'{pc.domain}_LNDR_GLIB_L2_student_{seed}.pkl')
+        results_path = os.path.join(f'results/{pc.domain}', 'LNDR', 'GLIB_L2', f'{pc.domain}_LNDR_GLIB_L2_student_{seed}.pkl')
 
         if os.path.exists(results_path):
             with open(results_path, 'rb') as f:

@@ -156,6 +156,7 @@
 	(:action beat-egg-whites
 		:parameters (?x0 - electric_stand_mixer ?x1 - container ?x2 - egg_hypothetical)
 		:precondition (and (egg-in-container ?x1 ?x2)
+			(not (container-in-an-oven ?x1))
 			(beat-egg-whites ?x0 ?x1 ?x2)
 			(is-raw-egg-whites ?x2)
 			(is-egg ?x2)
