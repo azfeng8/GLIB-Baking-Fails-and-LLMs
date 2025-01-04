@@ -173,7 +173,7 @@ class AgentConfig:
         "Tsp": 501,
         "Rearrangement": 1001,
         "Glibrearrangement": 1501,
-        "Easygripper": 1501,
+        "Easygripper": 301,
         "Gripper": 3001,
         "Doors": 2501,
         "Glibdoors": 2501,
@@ -191,7 +191,7 @@ class AgentConfig:
     ## Constants for curiosity modules. ##
     max_sampling_tries = 20
     max_planning_tries = 20 
-    oracle_max_depth = 2
+    oracle_max_depth = 2#14
     oracle_max_neighbors = 50
 
     ## Constants for mutex detection. ##
@@ -332,35 +332,9 @@ class LLMConfig:
 class PlottingConfig:
     """Plotting from cached results.
     """
-    domain = "Bakingrealistic"
+    domain = "Blocks"
     seeds =  range(1,11)
     agent_learner_explorer = [
-        ("demoagent", "LNDR", "GLIB_G1"), ('demoagent', "LNDR", "GLIB_L2"), 
-                         ("agent", "LNDR", "oracle"),      ("agent", "LNDR", "GLIB_G1"), ('agent', "LNDR", "GLIB_L2"), #("agent", "LNDR", "random")
+        ('demoagent', "LNDR", "GLIB_L2"),("demoagent", "LNDR", "oracle"), 
+                         ("agent", "LNDR", "oracle"),  ('agent', "LNDR", "GLIB_L2"),
                               ]
-
-    # num_experiment_sets = 10 
-
-    # # One string per plot
-    # domains = []
-    # for _ in range(num_experiment_sets):
-    #     for domain in ["Minecraft", "Baking", "Travel", "Blocks", "Glibdoors", "Easygripper"]:
-    #         domains.append(domain)
-    #         domains.append(domain)
-    
-    # # One list of ranges per plot
-    # seeds = []
-    # # for i in range(570, 670, 10):
-    # # for i in range(790, 850, 10):
-    # for i in range(1000, 1030, 10):
-    # # for i in range(690, 790, 10):
-    #     for _ in range(8):
-    #         seeds.append([range(i, i+10), range(100, 110)])
-    #     for _ in range(4):
-    #         seeds.append([(range(i, i+10)), range(110, 120)])
-    
-    # # One list of (learning_name, curiosity_name) per plot
-    # methods = []
-    # for _ in range(6 * num_experiment_sets):
-    #     methods.append([("LLMWarmStart+LNDR", "GLIB_G1"), ("LNDR", "GLIB_G1")])
-    #     methods.append([("LLMWarmStart+LNDR", "GLIB_L2"), ("LNDR", "GLIB_L2")])
