@@ -168,6 +168,7 @@ class Runner:
 
                 episode_done = True
             elif (not isinstance(self.agent, StudentAgent)) and len(cycle) == 0:
+                num_probs = len(self.train_env.problems)
                 cycle = list(np.random.permutation(range(num_probs)))
 
             if episode_done or ((not isinstance(self.agent, StudentAgent)) and itr % ac.max_train_episode_length[self.domain_name] == 0):
