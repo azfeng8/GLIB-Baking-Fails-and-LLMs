@@ -11,7 +11,7 @@ EXPERIMENT_SETS:
       #   NAME: "GLIB_G1"
       #   FLAGS:
       #     learning_name: LNDR
-      oracle:
+      oracle_demos:
         NAME: "oracle"
         FLAGS:
           learning_name: LNDR

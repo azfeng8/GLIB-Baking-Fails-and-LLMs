@@ -129,7 +129,6 @@ class Runner:
             logging.info("Iteration {} of {}".format(itr, self.num_train_iters))
 
             # ask user to input which episodes to do in the next cycle
-            # if not self.AUTO_EVAL and len(cycle) == 0 and episode_done:
             if isinstance(self.agent, StudentAgent) and len(cycle) == 0 and episode_done:
                 subgoals_paths = {i: '' for i in range(len(self.train_env.problems))}
                 if isinstance(self.agent, CreateDemonstrationsAgent):
@@ -162,12 +161,14 @@ class Runner:
                         accept_uip =  input("Press y to accept")
                     cycle = [int(i) for i in episodes_uip.split()]
                 else:
-                    cycle = list(range(num_probs))
+                    cycle = list(np.random.permutation(range(num_probs)))
                 logging.info(f"Episodes: " + ','.join([str(s) for s in cycle]))
 
                 precond_targeting_only = False
 
                 episode_done = True
+            elif (not isinstance(self.agent, StudentAgent)) and len(cycle) == 0:
+                cycle = list(np.random.permutation(range(num_probs)))
 
             if episode_done or ((not isinstance(self.agent, StudentAgent)) and itr % ac.max_train_episode_length[self.domain_name] == 0):
                 if self.AUTO_EVAL and not isinstance(self.agent, StudentAgent):
