@@ -332,7 +332,7 @@ class LLMConfig:
 class PlottingConfig:
     """Plotting from cached results.
     """
-    domain = "Blocks"
+    domain = "Bakingrealistic"
     seeds =  range(1,11)
     agent_learner_explorer = [
         ('demoagent', "LNDR", "GLIB_L2"),("demoagent", "LNDR", "oracle"), 

@@ -169,8 +169,7 @@ class Runner:
 
                 episode_done = True
 
-            if episode_done:
-                # if self.AUTO_EVAL:
+            if episode_done or ((not isinstance(self.agent, StudentAgent)) and itr % ac.max_train_episode_length[self.domain_name] == 0):
                 if self.AUTO_EVAL and not isinstance(self.agent, StudentAgent):
                     problem_idx = (problem_idx + 1) % self.num_train_problems
                 else:
