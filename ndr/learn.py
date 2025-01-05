@@ -16,7 +16,7 @@ import logging
 from pprint import pprint
 
 MIXER_ALPHA = 0  # Weight on rule set size penalty
-ALPHA = 0 # Weight on rule set size penalty
+ALPHA = 0.5 # Weight on rule set size penalty
 P_MIN = 1e-11 # Probability for an individual noisy outcome
 VERBOSE = False
 DEBUG = False
