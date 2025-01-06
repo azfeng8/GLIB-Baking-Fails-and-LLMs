@@ -179,14 +179,14 @@ class Runner:
                 self.train_env.fix_problem_index(problem_idx)
                 obs, _ = self.train_env.reset()
                 logging.info(f"***********************************New episode! Problem {problem_idx}:{obs.goal}***********************************")
-                self.agent.reset_episode(obs, '' if self.AUTO_EVAL or precond_targeting_only else subgoals_paths[problem_idx])
+                self.agent.reset_episode(obs, '')
                 if itr == 0 and isinstance(self.agent, DemonstrationsAgent):
                     self.agent.learn(0)
                     logging.info("Learned operators:")
                     for op in sorted(self.agent.learned_operators, key=lambda x: x.name):
                         logging.info(op.pddl_str())
 
-            if (not self.AUTO_EVAL) and self.agent.finished_preconds_plan:
+            if isinstance(self.agent, StudentAgent) and self.agent.finished_preconds_plan:
                 # Reset to previous subgoal
                 self.agent.finished_preconds_plan = False
                 obs, _ = self.train_env.reset()
@@ -196,7 +196,7 @@ class Runner:
 
             if not LOOPING:
                 logging.info("Getting action...")
-                action = self.agent.get_action(obs, problem_idx, precond_targeting_only if not self.AUTO_EVAL else False)
+                action = self.agent.get_action(obs, problem_idx, False)
             else:
                 action = None
 

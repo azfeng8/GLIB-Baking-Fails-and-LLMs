@@ -89,6 +89,7 @@ class OracleCuriosityModule(BaseCuriosityModule):
                     self.goaldirecteds.append(0)
                     self.fallbacks.append(0)
                 logging.info(f"Oracle: found interesting action (2): {action}")
+                self._is_goal_state_action(state, action, print=True)
                 return action, True
 
         # All learned operators are perfect for the current state. So let's do
@@ -109,12 +110,16 @@ class OracleCuriosityModule(BaseCuriosityModule):
         logging.info("Oracle: Taking a random action")
         return self._action_space.sample(state), False
 
-    def _is_goal_state_action(self, state, action):
+    def _is_goal_state_action(self, state, action, print=False):
         """A state-action is a goal if the predicted next state is different
            from the ground truth."""
         # Calculate predicted next state under learned operators.
         predicted_next_state = self._get_predicted_next_state(state, action)
         actual_next_state = self._predict_ground_truth(state, action)
+        if print:
+            diff_minus = (predicted_next_state.literals - actual_next_state.literals) 
+            diff_plus = (actual_next_state.literals - predicted_next_state.literals)
+            logging.info(f"predicted state - actual_next_state: {diff_minus}\nactual - predicted: {diff_plus}")
         return predicted_next_state != actual_next_state
 
     def _predict_ground_truth(self, state, action):

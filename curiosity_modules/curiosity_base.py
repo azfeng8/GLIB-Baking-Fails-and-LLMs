@@ -1,6 +1,7 @@
 """Base class for a curiosity module.
 """
 
+import logging
 import time
 import copy
 import itertools
