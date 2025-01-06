@@ -48,13 +48,13 @@ class Runner:
         self.curiosity_name = curiosity_name
         self.num_train_iters = ac.num_train_iters[domain_name]
 
-        self.AUTO_EVAL = False
-        # if isinstance(agent, CreateDemonstrationsAgent):
-        #     self.AUTO_EVAL = False
-        # elif isinstance(agent, Agent) or isinstance(agent, DemonstrationsAgent) or isinstance(agent, StudentAgent):
-        #     self.AUTO_EVAL = True
-        # else:
-        #     raise Exception("Not supported agent type")
+        # self.AUTO_EVAL = False
+        if isinstance(agent, CreateDemonstrationsAgent):
+            self.AUTO_EVAL = False
+        elif isinstance(agent, Agent) or isinstance(agent, DemonstrationsAgent) or isinstance(agent, StudentAgent):
+            self.AUTO_EVAL = True
+        else:
+            raise Exception("Not supported agent type")
 
     def run(self):
         """Run primitive operator learning loop.
