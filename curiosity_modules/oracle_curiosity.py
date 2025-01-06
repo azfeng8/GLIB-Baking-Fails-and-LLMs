@@ -114,15 +114,15 @@ class OracleCuriosityModule(BaseCuriosityModule):
         """A state-action is a goal if the predicted next state is different
            from the ground truth."""
         # Calculate predicted next state under learned operators.
-        predicted_next_state = self._get_predicted_next_state(state, action)
-        actual_next_state = self._predict_ground_truth(state, action)
-        if print:
-            diff_minus = (predicted_next_state.literals - actual_next_state.literals) 
-            diff_plus = (actual_next_state.literals - predicted_next_state.literals)
-            logging.info(f"predicted state - actual_next_state: {diff_minus}\nactual - predicted: {diff_plus}")
+        predicted_next_state = self._get_predicted_next_state(state, action, print=print)
+        actual_next_state = self._predict_ground_truth(state, action, print=print)
+        # if print:
+        #     diff_minus = (predicted_next_state.literals - actual_next_state.literals) 
+        #     diff_plus = (actual_next_state.literals - predicted_next_state.literals)
+            # logging.info(f"predicted state - actual_next_state: {diff_minus}\nactual - predicted: {diff_plus}")
         return predicted_next_state != actual_next_state
 
-    def _predict_ground_truth(self, state, action):
+    def _predict_ground_truth(self, state, action, print=False):
         # Save current operators.
         old_ops = set()
         for op in self._learned_operators:
@@ -138,7 +138,7 @@ class OracleCuriosityModule(BaseCuriosityModule):
                 action_predicate = [p for p in ac.train_env.domain.actions if p.name == op.name][0]
                 op.preconds.literals.append(action_predicate(*op.params))
         # Calculate actual next state under ground truth operators.
-        actual_next_state = self._get_predicted_next_state_ops(state, action, mode="max")
+        actual_next_state = self._get_predicted_next_state_ops(state, action, mode="max", print=print)
         # Restore current operators.
         self._learned_operators.clear()
         for op in old_ops:

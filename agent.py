@@ -89,7 +89,7 @@ class Agent:
     def get_action(self, state, _problem_idx, _precond_targeting_only):
         """Get an exploratory action to collect more training data.
            Not used for testing. Planner is used for testing."""
-        if self.domain_name.lower() == 'bakingrealistic':
+        if self.domain_name.lower() == 'bakingrealistic' and 'oracle' not in self.curiosity_module_name:
             obs_literals = set()
             for lit in state.literals:
                 if lit.predicate.name not in ('different', 'name-less-than'):
@@ -954,7 +954,8 @@ class DemonstrationsAgent(Agent):
         self.name = 'demoagent'   
 
         # Load the demos
-        demos_path = f'/home/ubuntu/GLIB-Baking-Fails-and-LLMs/demonstrations/{self.domain_name.lower()}_demonstrations.pkl'
+        # demos_path = f'/home/ubuntu/GLIB-Baking-Fails-and-LLMs/demonstrations/{self.domain_name.lower()}_demonstrations.pkl'
+        demos_path = f'/home/catalan/GLIB-Baking-Fails-and-LLMs/demonstrations/{self.domain_name.lower()}_demonstrations.pkl'
         with open(demos_path, 'rb') as f:
             transitions = pickle.load(f)
         self._operator_learning_module._transitions = transitions

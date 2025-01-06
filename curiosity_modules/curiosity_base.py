@@ -101,7 +101,7 @@ class BaseCuriosityModule:
 
         return fname
 
-    def _get_predicted_next_state(self, state, action):
+    def _get_predicted_next_state(self, state, action, print=False):
         """Get the next state resulting from the given state and action,
         under the current self._planning_operators. Returns None if either
         there is no learned operator for this action, or the preconditions
@@ -121,6 +121,7 @@ class BaseCuriosityModule:
                 if act_pred.name != action.predicate.name:
                     continue
                 prediction = ndrs.predict_max(state, action)
+                if print: logging.info(f"Predicted learned effects: {prediction}")
                 return self._execute_effects(state, prediction)
         else:
             raise NotImplementedError()
@@ -146,12 +147,16 @@ class BaseCuriosityModule:
         # No operator learned yet
         return None
 
-    def _get_predicted_next_state_ops(self, state, action, mode="max"):
+    def _get_predicted_next_state_ops(self, state, action, mode="max", print=False):
         """WARNING: Only use this method when self._planning_operators is
         GROUND TRUTH OPS!!!
         """
+        # if print: 
+        #     logging.info("State:")
+        #     for lit in state.literals:
+        #         logging.info(lit.pddl_str())
         for op in self._learned_operators:
-            assignments = self._preconds_satisfied(state, action, op.preconds.literals)
+            assignments = self._preconds_satisfied(state, action, op.preconds.literals, print=print)
             if assignments is not None:
                 ground_effects = []
                 for l in op.effects.literals:
@@ -175,13 +180,17 @@ class BaseCuriosityModule:
                                 chosen_effect, assignments))
                     else:
                         ground_effects.append(structs.ground_literal(l, assignments))
+                if print: logging.info(f"Predicted ground truth effects: {ground_effects}")
                 return self._execute_effects(state, ground_effects)
+        if print: logging.info(f"Predicted ground truth effects: no change")
         return state  # no change
 
     @staticmethod
-    def _preconds_satisfied(state, action, literals):
+    def _preconds_satisfied(state, action, literals, print=False):
         """Helper method for _get_predicted_next_state.
         """
+        if print and action.predicate in [l.predicate for l in literals]:
+            logging.info(f"Preconds to check: {literals}")
         kb = state.literals | {action}
         assignments = find_satisfying_assignments(kb, literals)
         # NOTE: unlike in the actual environment, here num_found could be
