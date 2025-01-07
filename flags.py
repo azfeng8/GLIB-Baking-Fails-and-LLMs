@@ -44,6 +44,9 @@ def parse_flags() -> None:
     ac.init_ops_method = args.init_ops_method
     ac.local_minima_method = args.local_minima_method
     ac.auto_target_preconds = args.auto_target_preconds
+    ac.oracle_max_depth = args.oracle_max_depth
+    ac.alpha = args.alpha
+    ac.p_min = args.p_min
     
     def gen(file):
         if file is None:
@@ -97,3 +100,7 @@ def parse_agent_config(parser:argparse.ArgumentParser):
     parser.add_argument('--local_minima_method', required=False, default='delete-operator', choices=['precond-relax', 'delete-operator'])
     parser.add_argument("--auto_target_preconds", action='store_true', default=False, help="Try untried operator preconditions whenever possible.")
     parser.add_argument('--inputs_file', required=False, type=str, help="File to inputs for StudentAgentSubgoals")
+    parser.add_argument("--oracle_max_depth", type=int, default=2)
+    parser.add_argument('--oracle_max_neighbors', type=int, default=50)
+    parser.add_argument("--alpha", type=float, default=.5)
+    parser.add_arguemtn("--p_min", type=float, default=1e-11)

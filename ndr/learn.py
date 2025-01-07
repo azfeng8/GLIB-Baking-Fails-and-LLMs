@@ -1,5 +1,6 @@
 """Main file for NDR learning
 """
+from settings import AgentConfig as ac
 from ndr.ndrs import NDR, NDRSet, NOISE_OUTCOME, MultipleOutcomesPossible
 from pddlgym.structs import Not, Anti, ground_literal
 from collections import defaultdict
@@ -188,7 +189,7 @@ def get_pen(rule):
         pen += len(effect)
     return pen
 
-def get_transition_likelihood(transition, rule, p_min=P_MIN, ndr_settings=None):
+def get_transition_likelihood(transition, rule, p_min=ac.p_min, ndr_settings=None):
     """Calculate the likelihood of a transition for a rule that covers it
     """
     try:
@@ -228,7 +229,7 @@ def get_transition_likelihood(transition, rule, p_min=P_MIN, ndr_settings=None):
                         transition_likelihood += prob
     return transition_likelihood
 
-def score_action_rule_set(action_rule_set, transitions_for_action, p_min=P_MIN, alpha=ALPHA,
+def score_action_rule_set(action_rule_set, transitions_for_action, p_min=ac.p_min, alpha=ac.alpha,
                           ndr_settings=None):
     """Score a full rule set for an action
 
@@ -246,7 +247,7 @@ def score_action_rule_set(action_rule_set, transitions_for_action, p_min=P_MIN, 
         if rule._action.predicate.name == 'use-stand-mixer':
             alpha = MIXER_ALPHA
         else:
-            alpha = ALPHA
+            alpha = ac.alpha
         score += - alpha * pen
 
     # Calculate transition likelihoods per example and accumulate score
@@ -264,7 +265,7 @@ def score_action_rule_set(action_rule_set, transitions_for_action, p_min=P_MIN, 
 
     return score
 
-def score_rule(rule, transitions_for_rule, p_min=P_MIN, alpha=ALPHA, compute_penalty=True,
+def score_rule(rule, transitions_for_rule, p_min=ac.p_min, alpha=ac.alpha, compute_penalty=True,
                ndr_settings=None):
     """Score a single rule on examples that it covers
 
@@ -277,7 +278,7 @@ def score_rule(rule, transitions_for_rule, p_min=P_MIN, alpha=ALPHA, compute_pen
     if rule._action.predicate.name == 'use-stand-mixer':
         alpha = MIXER_ALPHA
     else:
-        alpha = ALPHA
+        alpha = ac.alpha
     # Calculate penalty for number of literals
     score = 0
     if compute_penalty:
