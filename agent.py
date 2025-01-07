@@ -1869,10 +1869,6 @@ class StudentAgentSubgoals(StudentAgent):
                 for lit in sorted(state.literals):
                     logging.info(lit.pddl_str())
                 raise Exception("Plan to subgoal failed/timed out. Probably a bug in domain or subgoals file.")
-                # self.plan_to_next_subgoal = None
-                # self.subgoals = []
-                # self.next_subgoal_idx = -np.inf
-                # self._current_goal_action_operator = None
         else:
             # 4) choose an operator and try informative goals: if planner times out or too many informative goals in the change bank, then prompt user for subgoals list, like in StudentAgent.
             logging.info("=== Step 4) operator-based 'informative goals' approach (StudentAgent style) ===")

@@ -5,7 +5,7 @@ from ndr.learn import print_rule_set
 from copy import deepcopy
 from settings import AgentConfig as ac
 
-with open('bakingrealistic_demonstrations.pkl', 'rb') as f:
+with open('demonstrations/bakingrealistic_demonstrations.pkl', 'rb') as f:
     transitions = pickle.load(f)
 
 max_ee_transitions = ac.max_zpk_explain_examples_transitions['Bakingrealistic']
