@@ -11,17 +11,7 @@ Instructions for running:
 * From the repo, create an environment variable "FD_PATH" pointing to the `fast-downward.py` file in that Github repo.
 * Follow the steps under the 'Setup OpenAI key' section below.
 * Back in the GLIB directory, you can now run `python main.py`.
-# Steps to run LLM methods
 
-## Setup OpenAI key
-
-Set OPENAI_API_KEY as an environment variable with the API key.
-
-Put in ~/.bashrc:
-
-```
-export OPENAI_API_KEY="INSERT API KEY"
-```
 
 Run `python main.py ...`.
 
@@ -51,5 +41,10 @@ number of seeds to run.
 ### Example Command:
 
 ```
-python main.py --domains Baking  --curiosity_methods LLM+GLIB_G1  --learning_name LLMIterative+ZPK  --start_seed 40 --num_seeds 1
+python main.py --domains Bakinglarge  --curiosity_methods LLM+GLIB_G1  --learning_name LLMIterative+ZPK  --start_seed 40 --num_seeds 1
 ```
+
+
+### Notes
+
+Methods take a while to run on Baking-Large for a modern laptop. Leave it for 10 minutes before thinking it's hanging.

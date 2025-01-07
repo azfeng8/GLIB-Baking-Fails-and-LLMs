@@ -15,16 +15,20 @@ from pddlgym.structs import LiteralConjunction
 from pddlgym.parser import Operator
 from pddlgym.structs import Predicate, Exists, State
 from settings import AgentConfig as ac
+from settings import EnvConfig as ec
 from planning_modules.base_planner import Planner, PlannerTimeoutException, \
     NoPlanFoundException
 from agent import Agent
+import logging
+from flags import parse_flags
 
 font = { 'size'   : 14}
 
 matplotlib.rc('font', **font)
 
-def learn_and_test(dataset, seed, init_rule_sets=None):
-    """evaluates the dataset on Bakingrealistic and returns the successes list."""
+def learn_and_test(dataset, seed, domain_name, init_rule_sets=None):
+    """evaluates the dataset on Bakinglarge and returns the successes list."""
+
     MAX_EE_TRANSITIONS = ac.max_zpk_explain_examples_transitions[pc.domain]
 
     def get_batch_probs():
@@ -55,17 +59,6 @@ def learn_and_test(dataset, seed, init_rule_sets=None):
         name_suffix = 0
         ndrset = rule_set[act_pred]
         for ndr in ndrset.ndrs:
-            # op_name = "{}{}".format(ndr.action.predicate.name, name_suffix)
-            # probs, effs = ndr.effect_probs, ndr.effects
-            # max_idx = np.argmax(probs)
-            # max_effects = LiteralConjunction(sorted(effs[max_idx]))
-            # preconds = LiteralConjunction(sorted(ndr.preconditions) + [ndr.action])
-            # params = set()
-            # for lit in preconds.literals + max_effects.literals:
-            #     for v in lit.variables:
-            #         params.add(v)
-            # params= sorted(params)
-            # operator = Operator(op_name, params, preconds, max_effects)
             operator = ndr.determinize(name_suffix=name_suffix)
             ops.append(operator)
             if len(operator.effects.literals) == 0 or NOISE_OUTCOME in operator.effects.literals:
@@ -81,12 +74,11 @@ def learn_and_test(dataset, seed, init_rule_sets=None):
     ac.seed = seed 
     ac.train_env = pddlgym.make(f"PDDLEnv{pc.domain}-v0")
     agent = Agent(domain_name, test_env.action_space,
-                    test_env.observation_space, "GLIB_G1", "LNDR", log_llm_path='',
+                    test_env.observation_space, "GLIB_G1", "LNDR",
                     planning_module_name=ac.planner_name[domain_name])
             
     for o in ops:
         agent._planning_module._learned_operators.add(o)
-        agent._planning_module._planning_operators.add(o)
 
         
     successes = []
@@ -116,68 +108,23 @@ def learn_and_test(dataset, seed, init_rule_sets=None):
         # Reward is 1 iff goal is reached
         if reward == 1.:
             successes.append(1)
-            print(f"Problem {i}: PASS")
+            logging.info(f"Problem {i}: PASS")
         else:
             assert reward == 0.
             successes.append(0)
-            print(f"Problem {i}: FAIL")
+            logging.info(f"Problem {i}: FAIL")
 
     return successes, rule_set
 
-def evaluate_demos(transitions_dict, seed):
+def evaluate_demos(transitions_dict, seed, domain_name):
     rule_set = None
-    successes, rule_set = learn_and_test(transitions_dict, seed, rule_set)
+    successes, rule_set = learn_and_test(transitions_dict, seed, domain_name, rule_set)
     num_transitions = 0
     for t in transitions_dict:
         num_transitions += len(transitions_dict[t]) 
 
     return num_transitions, successes
 
-# BAKING_REALISTIC_TEST_CASES_DESCRIPTIONS = {
-#     0: "Bake 2 souffles and put them on plates",
-#     1: "Bake 2 cakes and put them on plates",
-#     2: "Bake souffle and cake, without damaging pans, putting them on plates.",
-#     3: "move-baked-good-in-container-to-different-container",
-#     4: "set-oven-with-souffle-bake-time-and-press-start",
-#     5: "set-oven-with-cake-bake-time-and-press-start",
-#     6: "fold-stiff-egg-whites-into-mixture",
-#     7: "pour-mixture-only",
-#     8: "use-stand-mixer for cake",
-#     9: "use-stand-mixer for souffle",
-#     10:"beat-egg-whites",
-#     11:"separate-egg-whites",
-#     12: "transfer-butter-from-pan-or-bowl",
-#     13: "transfer-egg-from-pan-or-bowl",
-#     14: "pour-powdery-ingredient-from-container",
-#     15: "remove-pan-from-oven",
-#     16: "put-pan-in-oven",
-#     17: "crack-egg",
-#     18: "preheat-souffle",
-#     19: "preheat-cake",
-#     20: "pour-powdery-ingredient-from-measuring-cup",
-#     21: "put-butter-in-container-from-measuring-cup",
-# }
-
-LEN_1_PLANS = set([21, 20, 19, 18, 17, 15, 14, 13, 12, 7])
-DESSERT_TASKS = set([0,1,2,3,4,5])
-BAKE_2_DESSERTS_TASKS = set([0,1,2])
-MIXING_AND_HARDER_TASKS = set([0,1,2,3,4,5,6,8,9])
-GENERALIZATION_TASKS = set([0,1])
-TRAIN_TASKS = set(range(3,22))
-EASY_TRAIN_TASKS = set(range(10, 22))
-ALL_TASKS = set(range(22))
-
-PLOTS = {
-    # ("Success Rate on Test Tasks", 'results/Bakingrealistic/bakingrealistic_succ_generalized.png'): GENERALIZATION_TASKS,
-    # ("Success Rate on Training Tasks", 'results/Bakingrealistic/bakingrealistic_succ_training.png'): TRAIN_TASKS,
-    # (f"{pc.domain}" if pc.domain != "Easygripper" else "Gripper", f'results/{pc.domain}/{pc.domain.lower()}_succ.png'): ALL_TASKS,
-    # (f"Keys and Doors", f'results/{pc.domain}/{pc.domain.lower()}_succ.png'): ALL_TASKS,
-    (f"Baking-Large", f'results/{pc.domain}/{pc.domain.lower()}_succ.png'): ALL_TASKS,
-    # ("Success Rate on Easy Training Tasks", f'results/{pc.domain}/{pc.domain.lower()}_succ_easy_training.png'): EASY_TRAIN_TASKS,
-
-
-    # ("Success Rate on All Tasks (Train and Test)", 'results/Bakingrealistic/bakingrealistic_succ_demos.png'): ALL_TASKS,
-}
 
 def get_plots(results_dict, results_filepaths_dict, append_demos_dict, old_results_dict, old_results_filepaths_dict, domain_name):
     """Generates 4 plots:
@@ -194,15 +141,27 @@ def get_plots(results_dict, results_filepaths_dict, append_demos_dict, old_resul
         results_filepaths_dict: Dict from name of plot line to list of results PKL paths, in the same order as in results_dict.
         append_demos_dict: Dict from name of plot line to a boolean if that plot line should have demos appended.
     """
-    succ_rates = {name: {} for name, _ in PLOTS}
-    succ_rates_std = {name: {} for name, _ in PLOTS}
-    succ_rates_max_min = {name: {} for name, _ in PLOTS}
+    # Change PDDLGym domain names to domain name
+    if domain_name == 'Glibdoors':
+        plot_name = 'Keys and Doors'
+    elif domain_name == 'Easygripper':
+        plot_name = "Gripper"
+    elif domain_name == "Bakinglarge":
+        plot_name = "Baking-Large"
+    else:
+        plot_name = domain_name
+    plot_path = f'results/{domain_name}/{domain_name.lower()}.png'
+    os.makedirs(os.path.basename(plot_path), exist_ok=True)
 
-    DEMOS_PATH = f'/home/catalan/GLIB-Baking-Fails-and-LLMs/demonstrations/{pc.domain.lower()}_demonstrations.pkl'
+    succ_rates = {plot_name: {}}
+    succ_rates_std = {plot_name: {}}
+    succ_rates_max_min = {plot_name: {}}
+
+    DEMOS_PATH = f'demonstrations/{pc.domain.lower()}_demonstrations.pkl'
     with open(DEMOS_PATH, 'rb') as f:
         demos = pickle.load(f)
-    total_demos, demo_successes = evaluate_demos(demos, 1)
-    print(f"Demos successes: {demo_successes}")
+    total_demos, demo_successes = evaluate_demos(demos, 1, domain_name)
+    logging.info(f"Demos successes: {demo_successes}")
     for curve_name, results_list in results_dict.items():
         for i,results in enumerate(results_list):
             assert results['mode'] == 'evaluated'
@@ -217,10 +176,10 @@ def get_plots(results_dict, results_filepaths_dict, append_demos_dict, old_resul
     max_seeds = 0
     for curve_name, results_list in results_dict.items():
         if len(results_list) == 0: 
-            print(f"No results in new format found for {curve_name}")
+            logging.info(f"No results in new format found for {curve_name}")
             continue
 
-        rates = {name: [] for name, _ in PLOTS}
+        rates = {plot_name: []}
 
         min_seeds = min(min_seeds, len(results_list))
         max_seeds = max(max_seeds, len(results_list))
@@ -228,45 +187,40 @@ def get_plots(results_dict, results_filepaths_dict, append_demos_dict, old_resul
         for results in results_list:
 
             # Construct these to contain the success rates arrays, one success rate per iteration
-            rates_result = {name: [] for name, _ in PLOTS}
+            rates_result = {plot_name: []}
 
             success_lists = results["successes"]
 
             # Assumption: The last item in the success list is from the maximum training iteration.
             i = 0
-            prev_rate = {name: 0 for name, _ in PLOTS}
+            prev_rate = {plot_name: 0}
             for itr, success_list in success_lists:
                 successes = {}
-                for plot_name, plot_path in PLOTS:
-                    successes[plot_name] = [succ for task_index, succ in enumerate(success_list) if task_index in PLOTS[(plot_name, plot_path)]]
+                successes[plot_name] = success_list
 
                 while i < itr:
-                    for plot_name, _ in PLOTS:
-                        rates_result[plot_name].append(prev_rate[plot_name])
+                    rates_result[plot_name].append(prev_rate[plot_name])
                     i += 1
 
-                for plot_name, _ in PLOTS:
-                    rate = sum(successes[plot_name]) / len(successes[plot_name])
-                    rates_result[plot_name].append(rate)
-                    prev_rate[plot_name] = rate
+                rate = sum(successes[plot_name]) / len(successes[plot_name])
+                rates_result[plot_name].append(rate)
+                prev_rate[plot_name] = rate
  
 
 
-            for plot_name, _ in PLOTS:
-                # extend the line here.
-                if len(rates_result[plot_name]) < ac.num_train_iters[pc.domain]:
-                    # print(len(rates_result[plot_name]), rates_result[plot_name])
-                    rates_result[plot_name] = rates_result[plot_name] + (rates_result[plot_name][-1] * np.ones((ac.num_train_iters[pc.domain]- len(rates_result[plot_name]),))).tolist()
-                rates[plot_name].append(rates_result[plot_name])
+            # extend the line here.
+            if len(rates_result[plot_name]) < ac.num_train_iters[pc.domain]:
+                # print(len(rates_result[plot_name]), rates_result[plot_name])
+                rates_result[plot_name] = rates_result[plot_name] + (rates_result[plot_name][-1] * np.ones((ac.num_train_iters[pc.domain]- len(rates_result[plot_name]),))).tolist()
+            rates[plot_name].append(rates_result[plot_name])
 
 
-        for plot_name, _ in PLOTS:
-            succ_rates[plot_name][curve_name], succ_rates_std[plot_name][curve_name], = tolerant_mean(rates[plot_name])
-            succ_rates_max_min[plot_name][curve_name] = tolerant_max_min(rates[plot_name])
+        succ_rates[plot_name][curve_name], succ_rates_std[plot_name][curve_name], = tolerant_mean(rates[plot_name])
+        succ_rates_max_min[plot_name][curve_name] = tolerant_max_min(rates[plot_name])
 
     for curve_name, results_list in old_results_dict.items():
         if len(results_list) == 0: 
-            print(f"No results in new format found for {curve_name}")
+            logging.info(f"No results in new format found for {curve_name}")
             continue
 
 
@@ -284,15 +238,11 @@ def get_plots(results_dict, results_filepaths_dict, append_demos_dict, old_resul
                 prev_succ_rate = succ_rate
             rates_across_seeds.append(rates_for_one_seed)
                 
-        for plot_name, _ in PLOTS:
-            # print(rates_across_seeds)
-            succ_rates[plot_name][curve_name], succ_rates_std[plot_name][curve_name] = tolerant_mean(rates_across_seeds)
-            succ_rates_max_min[plot_name][curve_name] = tolerant_max_min(rates_across_seeds)
+        # print(rates_across_seeds)
+        succ_rates[plot_name][curve_name], succ_rates_std[plot_name][curve_name] = tolerant_mean(rates_across_seeds)
+        succ_rates_max_min[plot_name][curve_name] = tolerant_max_min(rates_across_seeds)
 
-    for plot_name, plot_path in PLOTS:
-        plot_succ(plot_name, succ_rates[plot_name], succ_rates_std[plot_name], succ_rates_max_min[plot_name], plot_path, domain_name)
-    
-
+    plot_succ(plot_name, succ_rates[plot_name], succ_rates_std[plot_name], succ_rates_max_min[plot_name], plot_path, domain_name)
  
 
 def tolerant_mean(arrs):
@@ -347,230 +297,7 @@ def plot_succ(title, succ_rate_dict, succ_rate_std_dict, succ_rate_max_min_dict,
     plt.tight_layout()
     plt.savefig(out_path, dpi=300)
     plt.close()
-    print(f"Wrote out to {out_path}")
-
-def smooth_curve(x, y):
-    halfwidth = int(np.ceil(len(x) / 50))  # Halfwidth of our smoothing convolution
-    k = halfwidth
-    xsmoo = x
-    ysmoo = np.convolve(y, np.ones(2 * k + 1), mode='same') / np.convolve(np.ones_like(y), np.ones(2 * k + 1),
-        mode='same')
-    return xsmoo, ysmoo
-
-def plot_results(domain_name, learning_name, all_results, outdir="results",
-                 smooth=False, dist=False, llm_queries=None):
-    """Results are lists of single-run result lists, across different
-    random seeds.
-    """
-    outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), outdir)
-    outfile = os.path.join(outdir, "{}_{}_{}.png".format(
-        domain_name, learning_name, "dist" if dist else "succ"))
-    plt.figure()
-    if dist:
-        ylabel = "Test Set Average Variational Distance"
-    else:
-        ylabel = "Test Set Success Rate"
-    plt.ylabel(ylabel)
-
-    for curiosity_module in sorted(all_results):
-        results = np.array(all_results[curiosity_module])
-        if len(results) == 0:
-            continue
-        label = curiosity_module
-        xs = results[0, :, 0]
-        if dist:
-            ys = results[:, :, 2]
-        else:
-            ys = results[:, :, 1]
-        results_mean = np.mean(ys, axis=0)
-        # results_std = np.std(ys, axis=0)
-        if smooth:
-            xs, results_mean = smooth_curve(xs, results_mean)
-            # _, results_std = smooth_curve(xs, results_std)
-        plt.plot(xs, results_mean, label=label.replace("_", " "))
-        # plt.fill_between(xs, results_mean+results_std,
-        #                  results_mean-results_std, alpha=0.2)
-    if llm_queries is not None:
-        llm_ys = []
-        llm_xs = []
-        for iter, num_accept in llm_queries:
-            if num_accept > 0:
-                llm_ys.append(results_mean[iter])
-                llm_xs.append(iter)
-        plt.scatter(llm_xs, llm_ys, c='#2ca02c')
-
-    min_seeds = min(len(x) for x in all_results.values())
-    max_seeds = max(len(x) for x in all_results.values())
-    if min_seeds == max_seeds:
-        title = "{} Domain, {} Learner ({} seeds)".format(
-            domain_name, learning_name, min_seeds)
-    else:
-        title = "{} Domain, {} Learner ({} to {} seeds)".format(
-            domain_name, learning_name, min_seeds, max_seeds)
-    if smooth:
-        title += " [smoothed]"
-    plt.title(title)
-
-    plt.ylim((-0.1, 1.1))
-    plt.legend(loc="lower right")
-    plt.tight_layout()
-    plt.savefig(outfile, dpi=300)
-    plt.close()
-    print("Wrote out to {}".format(outfile))
-
-from settings import PlottingConfig as pc
-def _old_main(results_path):
-    """Plot the results in results/, specified by settings."""
-    figures = []
-    for domain, methods, seeds in zip(pc.domains, pc.methods, pc.seeds):
-        lines = []
-        for m,s in zip(methods, seeds):
-            learning_name, curiosity_name = m
-            lines.append(PlotLine(curiosity_name, learning_name, s))
-        save_dir = f'plots/{domain}'
-        os.makedirs(save_dir, exist_ok=True)
-        figures.append(Figure(domain, lines, save_dir))
-    missing_seeds = set()
-    for figure in figures:
-        ms = figure.run(results_path)
-        missing_seeds |= ms
-    print(f"Missing seeds:\n\t" + "\n\t".join(sorted(missing_seeds)))
-    
-import dataclasses
-
-@dataclasses.dataclass
-class PlotLine:
-    def __init__(self, curiosity_method, learning_method, seeds):
-        self.curiosity_method = curiosity_method
-        self.learning_method = learning_method
-        self.seeds = seeds
-        
-class Figure:
-    def __init__(self, domain, plotlines:list[PlotLine], save_dir):
-        self.domain = domain
-        self.plotlines = plotlines
-        self.save_dir = save_dir
-
-    def run(self, results_path):
-        domain = self.domain
-        missing_seeds = set()
-        outdir = os.path.join(os.path.dirname(os.path.realpath(__file__)), results_path)
-        domain_path = os.path.join(results_path, domain)
-        min_seeds = np.inf
-        max_seeds = 0
-        plt.figure()
-        number_of_colors = len(self.plotlines)
-        ax = plt.gca()
-        colors = [next(ax._get_lines.prop_cycler)['color'] for _ in range(number_of_colors)]
-        color_idx = 0
-        for plotline in self.plotlines:
-            learner = plotline.learning_method
-            if learner == 'LLMWarmStart+LNDR':
-                name = f'{domain}_seeds{plotline.seeds[0]}-{plotline.seeds[-1]}_{plotline.curiosity_method}_succ.png'
-            explorer = plotline.curiosity_method
-            seeds = plotline.seeds
-            seeds_path = os.path.join(domain_path, learner, explorer)
-            results = []
-            min_length = np.inf
-            for seed in seeds:
-                pkl_fname = os.path.join(seeds_path, f'{domain}_{learner}_{explorer}_{str(seed)}.pkl')
-                if not os.path.exists(pkl_fname):
-                    missing_seeds.add(f"\t{domain}\t{learner}\t{explorer} Seed {seed}")
-                    continue
-                with open(pkl_fname, "rb") as f:
-                    saved_results = pickle.load(f)
-                    if len(saved_results) < min_length:
-                        min_length = len(saved_results)
-                results.append(saved_results)
-            min_seeds = min(min_seeds, len(results))
-            max_seeds = max(max_seeds, len(results))
-            if len(results) == 0:
-                for seed in seeds:
-                    missing_seeds.add(f"\t{domain}\t{learner}\t{explorer} Seed {seed}")
-                return missing_seeds
-            for i,r in enumerate(results):
-                results[i] = r[:min_length]
-            results = np.array(results)
-            label = f"{learner}, {explorer}"
-            xs = results[0,:,0]
-            ys = results[:, :, 1]
-            results_mean = np.mean(ys, axis=0)
-            std = np.std(ys, axis=0)
-            std_top = results_mean + std
-            std_bot = results_mean - std
-            plt.plot(xs, results_mean, label=label.replace("_", " "), color=colors[color_idx])
-            plt.fill_between(xs, std_bot, std_top, alpha=0.3, color=colors[color_idx])
-            color_idx += 1
-
-        if min_seeds == max_seeds:
-            title = f"{domain} Domain ({min_seeds} seeds)"
-        else:
-            title = f"{domain} Domain, ({min_seeds} to {max_seeds} seeds)"
-        
-        plt.ylabel("Success rate on test problems")
-        plt.title(title)
-        plt.ylim((-0.1, 1.1))
-        plt.legend(loc="lower right")
-        plt.tight_layout()
-        plt.xlabel("Iterations")
-
-        outfile = os.path.join(self.save_dir, name)
-        plt.savefig(outfile, dpi=300)
-        print("Wrote out to {}".format(outfile))
-        plt.close()
-        return missing_seeds
-
-def old_plotting():
-    import argparse
-    import shutil
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-i", '--individual_plots', action='store_true')
-    parser.add_argument("-p", "--planning_results", action='store_true')
-    args = parser.parse_args()
-
-    if args.planning_results:
-        path = 'results/planning_ops'
-    else:
-        path = 'results_openstack/results'
-    llm_path = 'results/llm_iterative_log'
-
-    if not args.individual_plots:
-        _old_main(path)
-    else:
-    ### Make individual plots
-        for domain_name in pc.domains:
-            for learning_name, curiosity_name in pc.learner_explorer:
-                outdir = f"individual_plots/{domain_name}/{learning_name}/{curiosity_name}"
-                succ_out = f"{outdir}/succ"
-                dist_out = f"{outdir}/dist"
-                if os.path.exists(succ_out):
-                    shutil.rmtree(succ_out)
-                if os.path.exists(dist_out):
-                    shutil.rmtree(dist_out)
-                os.makedirs(succ_out, exist_ok=True)
-                os.makedirs(dist_out, exist_ok=True)
-
-                for seed in pc.seeds[0]:
-                    all_results = defaultdict(list)
-                    results_path = os.path.join(f"{path}/{domain_name}/{learning_name}/{curiosity_name}",f'{domain_name}_{learning_name}_{curiosity_name}_{seed}.pkl')
-                    if not os.path.exists(results_path):
-                        print(f"Missing seed {seed} for domain {domain_name} learner {learning_name} curiosity {curiosity_name}")
-                        continue
-                    with open(results_path, 'rb') as fh:
-                        if curiosity_name == 'oracle':
-                            all_results['GLIB-oracle'].append(pickle.load(fh))
-                        else:
-                            all_results[curiosity_name].append(pickle.load(fh))
-
-
-                    llm_queries = None
-                    if learning_name == 'LLM+LNDR' or learning_name == "LLMIterative+LNDR" or learning_name == "LLMIterative+ZPK":
-                        p = os.path.join(llm_path, domain_name, curiosity_name, str(seed), 'experiment0', 'llm_ops_accepted.pkl') 
-                        if os.path.exists(p):
-                            with open(p, 'rb') as f:
-                                llm_queries = pickle.load(f)
-                    plot_results(f"{domain_name}{seed}", learning_name, all_results, outdir=succ_out, dist=False, llm_queries=llm_queries)
-                    plot_results(f"{domain_name}{seed}", learning_name, all_results, outdir=dist_out, dist=True, llm_queries=llm_queries)
+    logging.info(f"Wrote out to {out_path}")
 
 def _main():
     # Load the demoagent and agent results
@@ -602,7 +329,7 @@ def _main():
             results_path = os.path.join(base_path, learning_name, curiosity_name, f'{pc.domain}_{learning_name}_{curiosity_name}_{agent}_{seed}.pkl')
 
             if os.path.exists(results_path):
-                print("Loading from ", results_path)
+                logging.info("Loading from ", results_path)
                 with open(results_path, 'rb') as f:
                     results = pickle.load(f)
                     results_list.append(results)
@@ -612,7 +339,7 @@ def _main():
 
             old_results_path = os.path.join(base_path, learning_name, curiosity_name, f'{pc.domain}_{learning_name}_{curiosity_name}_{seed}.pkl')
             if os.path.exists(old_results_path):
-                print("Loading old from ", old_results_path)
+                logging.info("Loading old from ", old_results_path)
                 with open(old_results_path, 'rb') as f:
                     results = pickle.load(f)
                     old_results_list.append(results)
@@ -642,7 +369,7 @@ def _main():
                 all_results_filepaths.setdefault( new_method_curve_name, [])
                 all_results_filepaths[new_method_curve_name].append(results_path)
         else:
-            print(f"Warning: No results found in path {results_path}..")
+            logging.info(f"Warning: No results found in path {results_path}..")
 
     all_results[new_method_curve_name] = results_list
 
@@ -650,6 +377,8 @@ def _main():
 
     
 if __name__ == '__main__':
+
+    parse_flags()
     _main()
 
     # Evaluate demos data

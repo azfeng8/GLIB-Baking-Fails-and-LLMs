@@ -15,8 +15,7 @@ class NoPlanFoundException(Exception):
     pass
 
 class Planner:
-    def __init__(self, planning_operators, learned_operators, domain_name, action_space, observation_space):
-        self._planning_operators = planning_operators
+    def __init__(self, learned_operators, domain_name, action_space, observation_space):
         self._learned_operators = learned_operators
         self.domain_name = domain_name
         self._action_space = action_space
@@ -52,13 +51,13 @@ class Planner:
     def _create_domain_file_predicates(self):
         preds_pddl = []
         for pred in self._predicates.values():
-            if self.domain_name.lower()== 'bakingrealistic' and pred.name == 'different' or pred.name == 'name-less-than':
+            if self.domain_name.lower()== 'bakinglarge' and pred.name == 'different' or pred.name == 'name-less-than':
                 continue
             var_part = []
             for i, var_type in enumerate(pred.var_types):
                 var_part.append("?arg{} - {}".format(i, var_type))
             preds_pddl.append("\t\t({} {})".format(pred.name, " ".join(var_part)))
-        if self.domain_name.lower() == 'bakingrealistic':
+        if self.domain_name.lower() == 'bakinglarge':
             for t in self._types:
                 preds_pddl.append(f"\t\t(different ?arg0 - {t} ?arg1 - {t})")
                 if t == 'egg_hypothetical':
@@ -82,7 +81,7 @@ class Planner:
         # all_params = set()
         precond_strs = []
         for term in preconds.literals:
-            if term.predicate.name in self._action_pred_names and self.domain_name != 'Bakingrealistic':
+            if term.predicate.name in self._action_pred_names and self.domain_name != 'Bakinglarge':
                 continue
             params = set(map(str, term.variables))
 
@@ -102,7 +101,7 @@ class Planner:
                     var_cleaned = var[:var.find(":")]
                     for param in list(sorted(all_params)):
                         param_cleaned = param[:param.find(":")]
-                        if self.domain_name.lower() == 'bakingrealistic':
+                        if self.domain_name.lower() == 'bakinglarge':
                             precond += "(not (different {} {})) ".format(
                                 param_cleaned, var_cleaned)
                         else:
@@ -127,7 +126,7 @@ class Planner:
                     continue
                 param2_cleaned = param2[:param2.find(":")]
                 param2_type = param2[param2.find(':'):]
-                if self.domain_name.lower() == 'bakingrealistic':
+                if self.domain_name.lower() == 'bakinglarge':
                     if param2_type == param1_type:
                         precond_strs.append("(different {} {})".format(
                             param1_cleaned, param2_cleaned))
@@ -163,7 +162,7 @@ class Planner:
             # Add action literals (in case they're not already present in the initial state)
             # which will be true when the original domain uses operators_as_actions
 
-            if self.domain_name .lower()== 'bakingrealistic':
+            if self.domain_name .lower()== 'bakinglarge':
                 # action_pred_names = [p.name for p in self._action_space.predicates]
                 initial_state = set()
                 for lit in problem_parser.initial_state:

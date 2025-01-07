@@ -9,7 +9,6 @@ from collections import defaultdict
 import abc
 import random
 from settings import AgentConfig as ac
-from operator_learning_modules.foldt.foldt_operator_learning import FOLDTOperatorLearningModule
 from pddlgym.inference import find_satisfying_assignments
 from pddlgym import structs
 from pddlgym.parser import PDDLProblemParser
@@ -18,12 +17,10 @@ from pddlgym.parser import PDDLProblemParser
 class BaseCuriosityModule:
     """Base class for a curiosity module.
     """
-    def __init__(self, action_space, observation_space, planning_module,
-                 planning_operators, learned_operators, operator_learning_module, domain_name, llm_learned_operators, rand_state):
+    def __init__(self, action_space, observation_space, planning_module, learned_operators, operator_learning_module, domain_name, rand_state):
         self._action_space = action_space
         self._observation_space = observation_space
         self._planning_module = planning_module
-        self._planning_operators = planning_operators
         self._learned_operators = learned_operators
         self._operator_learning_module = operator_learning_module
         self._domain_name = domain_name
@@ -34,7 +31,6 @@ class BaseCuriosityModule:
 
         self._mutex_cache = {}
 
-        self._llm_learned_ops = llm_learned_operators
         self._initialize()
 
     @abc.abstractmethod
@@ -75,7 +71,7 @@ class BaseCuriosityModule:
         objects = state.objects
         initial_state = set([lit for lit in state.literals if lit.predicate.name != 'name-less-than'])
         # inject differents
-        if self._domain_name.lower() == 'bakingrealistic':
+        if self._domain_name == 'Bakinglarge':
             Different = structs.Predicate('different', 2)
             NameLessThan = structs.Predicate('name-less-than', 2)
             for obj1 in objects:
@@ -103,20 +99,11 @@ class BaseCuriosityModule:
 
     def _get_predicted_next_state(self, state, action, print=False):
         """Get the next state resulting from the given state and action,
-        under the current self._planning_operators. Returns None if either
+        under the current self._learned_operators. Returns None if either
         there is no learned operator for this action, or the preconditions
         are not satisfied.
         """
-        if ac.learning_name == "TILDE":
-            for act_pred, dt in self._operator_learning_module.learned_dts.items():
-                if act_pred.name != action.predicate.name:
-                    continue
-                prediction = FOLDTOperatorLearningModule.get_prediction(state.literals | {action}, dt)
-                if prediction is None:
-                    return prediction
-                effects = [structs.effect_to_literal(effect) for effect in prediction]
-                return self._execute_effects(state, effects)
-        elif ac.learning_name == "LNDR" or ac.learning_name == "LLM+LNDR":
+        if ac.learning_name == "LNDR" or ac.learning_name == "LLM+LNDR":
             for act_pred, ndrs in self._operator_learning_module._ndrs.items():
                 if act_pred.name != action.predicate.name:
                     continue
@@ -148,7 +135,7 @@ class BaseCuriosityModule:
         return None
 
     def _get_predicted_next_state_ops(self, state, action, mode="max", print=False):
-        """WARNING: Only use this method when self._planning_operators is
+        """WARNING: Only use this method when self._learned_operators is
         GROUND TRUTH OPS!!!
         """
         # if print: 
@@ -223,7 +210,7 @@ class BaseCuriosityModule:
 
     def _compute_static_preds(self):
         """Compute the static predicates under the current
-        self._planning_operators.
+        self._learned_operators.
         """
         static_preds = set()
         for pred in self._observation_space.predicates:
@@ -372,7 +359,7 @@ class BaseCuriosityModule:
 
     def _compute_mutex_literals(self, initial_state):
         """Top-level method for mutex. Compute the pairs of mutex literals
-        under the current self._planning_operators, from the given initial
+        under the current self._learned_operators, from the given initial
         state, up to the given max_level.
         """
         state = initial_state

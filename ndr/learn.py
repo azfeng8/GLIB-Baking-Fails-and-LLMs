@@ -38,7 +38,7 @@ class SearchOperator:
 
 
 def run_greedy_search(search_operators:list[SearchOperator], init_state, init_score, greedy_break=False, ndr_settings=None,
-                      max_timeout=None, max_node_expansions=1000, rng=None, verbose=False):
+                      max_timeout=None, max_node_expansions=1000, rng=None, verbose=False, evaluate=False):
     """Greedy search
 
     Called by run_main_search, induceoutcomes
@@ -61,7 +61,7 @@ def run_greedy_search(search_operators:list[SearchOperator], init_state, init_sc
             print("Expanding node {}/{}".format(n, max_node_expansions))
         found_improvement = False
         for search_operator in search_operators:
-            scored_children = search_operator.get_children(state, ndr_settings=ndr_settings)
+            scored_children = search_operator.get_children(state, ndr_settings=ndr_settings, evaluate=evaluate)
             for score, child in scored_children:
                 if verbose and DEBUG:
                     import ipdb; ipdb.set_trace()
@@ -356,7 +356,7 @@ class InduceOutcomesSearchOperator(SearchOperator):
         self._rule_copy = rule.copy() # feel free to modify in-place
         self._covered_transitions = covered_transitions
 
-    def get_children(self, probs_and_effects, ndr_settings=None):
+    def get_children(self, probs_and_effects, ndr_settings=None, evaluate=False):
         """Get new effects, get new probs and scores, then yield
         """
         _, effects = probs_and_effects
@@ -371,7 +371,7 @@ class InduceOutcomesSearchOperator(SearchOperator):
             ndr_settings=ndr_settings)
         return self._rule_copy.effect_probs.copy()
 
-    def get_score(self, probs, effects, ndr_settings=None):
+    def get_score(self, probs, effects, ndr_settings=None, evaluate=False):
         self._rule_copy.effect_probs = probs
         self._rule_copy.effects = effects
         return score_rule(self._rule_copy, self._covered_transitions,
@@ -437,50 +437,16 @@ def create_induce_outcomes_operators(rule, covered_transitions, ndr_settings=Non
         ndr_settings=ndr_settings)
     return [add_operator, remove_operator]
 
-# def get_all_possible_outcomes(rule, covered_transitions, ndr_settings=None):
-#     """Create initial outcomes as all possible ones, ensuring no empty effect sets."""
-#     # For a default rule (with no preconditions), we previously allowed an empty outcome (tuple()).
-#     # Now we disallow empty effects sets, so we only include (NOISE_OUTCOME,) as the minimal outcome.
-#     if len(rule.preconditions) == 0:
-#         # Remove the empty tuple from the set of possible outcomes
-#         all_possible_outcomes = { (NOISE_OUTCOME,) }
-#     else:
-#         all_possible_outcomes = { (NOISE_OUTCOME,) }
-#         for state, action, effects in covered_transitions:
-#             sigma = rule.find_substitutions(state, action)
-#             assert sigma is not None
-#             sigma_inverse = invert_sigma(sigma)
-#             # If there is some object in the effects that does not appear in
-#             # the rule, this outcome is noise.
-#             # Otherwise, we lift all effects and add them.
-#             lifted_effects = []
-#             include_effects = True
-#             for e in effects:
-#                 if not include_effects:
-#                     break
-#                 try:
-#                     lifted_es = ground_literal_multi(e, sigma_inverse)
-#                 except (KeyError, TypeError):
-#                     # If we can't properly ground due to missing vars,
-#                     # treat as noise and don't include.
-#                     include_effects = False
-#                     break
-#                 # If repeated effects occur or something similar, skip
-#                 if len(lifted_es) > 1:
-#                     include_effects = False
-#                     break
-#                 lifted_effects.append(lifted_es[0])
-#             if include_effects and len(lifted_effects) > 0:
-#                 # Only add non-empty sets of lifted effects
-#                 all_possible_outcomes.add(tuple(sorted(lifted_effects)))
-#     return sorted(all_possible_outcomes)
-
-def get_all_possible_outcomes(rule, covered_transitions, ndr_settings=None):
+def get_all_possible_outcomes(rule, covered_transitions, ndr_settings=None, evaluation_default_rule=False):
     """Create initial outcomes as all possible ones
     """
     # For default rule, the only possible outcomes are noise and nothing
     if len(rule.preconditions) == 0:
-        all_possible_outcomes = { (NOISE_OUTCOME,), tuple() }
+        if evaluation_default_rule:
+            # Remove the empty tuple from the set of possible outcomes
+            all_possible_outcomes = { (NOISE_OUTCOME,) }
+        else:
+            all_possible_outcomes = { (NOISE_OUTCOME,), tuple() }
     else:
         all_possible_outcomes = { (NOISE_OUTCOME,) }
         for state, action, effects in covered_transitions:
@@ -508,14 +474,14 @@ def get_all_possible_outcomes(rule, covered_transitions, ndr_settings=None):
                 all_possible_outcomes.add(tuple(sorted(lifted_effects)))
     return sorted(all_possible_outcomes)
 
-def induce_outcomes(rule, covered_transitions, max_node_expansions=100, ndr_settings=None):
+def induce_outcomes(rule, covered_transitions, max_node_expansions=100, ndr_settings=None, evaluate=False):
     """Induce outcomes for a rule
 
     Modifies the rule in place.
     """
     # Initialize effects with uniform distribution over all possible outcomes
     all_possible_outcomes = get_all_possible_outcomes(rule, covered_transitions,
-        ndr_settings=ndr_settings)
+        ndr_settings=ndr_settings, evaluation_default_rule=evaluate)
     num_possible_outcomes = len(all_possible_outcomes)
     rule.effect_probs = [1./num_possible_outcomes] * num_possible_outcomes
     rule.effects = [list(outcome) for outcome in all_possible_outcomes]
@@ -532,7 +498,7 @@ def induce_outcomes(rule, covered_transitions, max_node_expansions=100, ndr_sett
     rule.effects = best_effects
 
 ## Main search operators
-def create_default_rule_set(action, transitions_for_action, ndr_settings=None):
+def create_default_rule_set(action, transitions_for_action, ndr_settings=None, evaluate=False):
     """Helper for create default rule set. One default rule for action.
     """
     allow_redundant_variables = ndr_settings.get('allow_redundant_variables', False)
@@ -542,7 +508,7 @@ def create_default_rule_set(action, transitions_for_action, ndr_settings=None):
     ndr = NDR(action=lifted_action, preconditions=[], effect_probs=[], effects=[],
         allow_redundant_variables=allow_redundant_variables)
     covered_transitions = ndr.get_explained_transitions(transitions_for_action)
-    induce_outcomes(ndr, covered_transitions, ndr_settings=ndr_settings)
+    induce_outcomes(ndr, covered_transitions, ndr_settings=ndr_settings, evaluate=evaluate)
     action_rule_set = NDRSet(lifted_action, [], default_ndr=ndr,
         allow_redundant_variables=allow_redundant_variables)
     score = score_action_rule_set(action_rule_set, transitions_for_action,
@@ -563,7 +529,7 @@ class TrimPreconditionsSearchOperator(SearchOperator):
         # Comment this out b/c slow
         # assert self.check_if_valid(rule.preconditions)
 
-    def get_score(self, preconditions, ndr_settings=None):
+    def get_score(self, preconditions, ndr_settings=None, evaluate=False):
         """Get a score for a possible set of preconditions
         """
         allow_redundant_variables = ndr_settings.get('allow_redundant_variables', False)
@@ -573,8 +539,8 @@ class TrimPreconditionsSearchOperator(SearchOperator):
         # Induce outcomes for both rules
         rule_transitions, default_transitions = \
             rule_set.partition_transitions(self._transitions)
-        induce_outcomes(rule, rule_transitions, ndr_settings=ndr_settings)
-        induce_outcomes(rule_set.default_ndr, default_transitions, ndr_settings=ndr_settings)
+        induce_outcomes(rule, rule_transitions, ndr_settings=ndr_settings, evaluate=evaluate)
+        induce_outcomes(rule_set.default_ndr, default_transitions, ndr_settings=ndr_settings, evaluate=evaluate)
         return score_action_rule_set(rule_set, self._transitions, ndr_settings=ndr_settings)
 
     def check_if_valid(self, preconditions, verbose=False, ndr_settings=None):
@@ -599,7 +565,7 @@ class TrimPreconditionsSearchOperator(SearchOperator):
                 return False
         return True
 
-    def get_children(self, remaining_preconditions, ndr_settings=None):
+    def get_children(self, remaining_preconditions, ndr_settings=None, evaluate=False):
         for i in range(len(remaining_preconditions)):
             child_preconditions = [remaining_preconditions[j] \
                 for j in range(len(remaining_preconditions)) if i != j]
@@ -609,7 +575,7 @@ class TrimPreconditionsSearchOperator(SearchOperator):
 
 
 class TrimObjectsSearchOperator(TrimPreconditionsSearchOperator):
-    def get_children(self, remaining_preconditions, ndr_settings=None):
+    def get_children(self, remaining_preconditions, ndr_settings=None, evaluate=False):
         all_variables = {v for lit in remaining_preconditions for v in lit.variables}
         for var_to_drop in sorted(all_variables):
             child_preconditions = []
@@ -763,7 +729,7 @@ class ExplainExamples(SearchOperator):
 
         return overfitting_preconditions
 
-    def _initialize_new_rule(self, transition, ndr_settings=None):
+    def _initialize_new_rule(self, transition, ndr_settings=None, evaluate=False):
         """Step 1: Create a new rule
         """
         new_rule = NDR(action=None, preconditions=[], effect_probs=[], effects=[],
@@ -776,7 +742,7 @@ class ExplainExamples(SearchOperator):
         # Complete the rule
         # Call InduceOutComes to create the rule's outcomes.
         covered_transitions = new_rule.get_covered_transitions(self.transitions_for_action)
-        induce_outcomes(new_rule, covered_transitions, ndr_settings=ndr_settings)
+        induce_outcomes(new_rule, covered_transitions, ndr_settings=ndr_settings, evaluate=evaluate)
 
         if DEBUG: import ipdb; ipdb.set_trace()
         assert new_rule.effects is not None
@@ -810,7 +776,7 @@ class ExplainExamples(SearchOperator):
         if DEBUG: import ipdb; ipdb.set_trace()
 
 
-    def _create_new_rule_set(self, old_rule_set, new_rule, ndr_settings=None):
+    def _create_new_rule_set(self, old_rule_set, new_rule, ndr_settings=None, evaluate=False):
         """Step 3: Create a new rule set containing the new rule
         """
         allow_redundant_variables = ndr_settings.get('allow_redundant_variables', False)
@@ -832,12 +798,12 @@ class ExplainExamples(SearchOperator):
         # Recompute the parameters of the new rule and default rule
         default_rule = new_rule_set.default_ndr
         partitions = new_rule_set.partition_transitions(self.transitions_for_action)
-        induce_outcomes(new_rule, partitions[0], ndr_settings=ndr_settings)
-        induce_outcomes(default_rule, partitions[-1], ndr_settings=ndr_settings)
+        induce_outcomes(new_rule, partitions[0], ndr_settings=ndr_settings, evaluate=evaluate)
+        induce_outcomes(default_rule, partitions[-1], ndr_settings=ndr_settings, evaluate=evaluate)
         if DEBUG: import ipdb; ipdb.set_trace()
         return new_rule_set
 
-    def get_children(self, action_rule_set, ndr_settings=None):
+    def get_children(self, action_rule_set, ndr_settings=None, evaluate=False):
         """The successor
         """
         # Get unique transitions that are covered by the default rule
@@ -855,7 +821,7 @@ class ExplainExamples(SearchOperator):
             if VERBOSE:
                 print("Initializing new rule")
             # Step 1: Create a new rule
-            new_rule = self._initialize_new_rule(transition, ndr_settings=ndr_settings)
+            new_rule = self._initialize_new_rule(transition, ndr_settings=ndr_settings, evaluate=evaluate)
             # If preconditions are empty, don't enumerate; this should be covered by the default rule
             if len(new_rule.preconditions) == 0:
                 continue
@@ -891,7 +857,7 @@ class DropRules(SearchOperator):
     def __init__(self, transitions_for_action, ndr_settings=None, **kwargs):
         self.transitions_for_action = transitions_for_action
 
-    def get_children(self, action_rule_set, ndr_settings=None):
+    def get_children(self, action_rule_set, ndr_settings=None, evaluate=False):
         # Don't drop the default rule
         for i in range(len(action_rule_set.ndrs)):
             new_rule_set = action_rule_set.copy()
@@ -910,7 +876,7 @@ class DropLits(SearchOperator):
     def __init__(self, transitions_for_action, ndr_settings=None, **kwargs):
         self.transitions_for_action = transitions_for_action
 
-    def get_children(self, action_rule_set, ndr_settings=None):
+    def get_children(self, action_rule_set, ndr_settings=None, evaluate=False):
         # Don't drop the default rule
         for i, ndr in enumerate(action_rule_set.ndrs):
             num_preconds = len(ndr.preconditions)
@@ -926,7 +892,7 @@ class DropLits(SearchOperator):
                     continue
                 partitions = new_rule_set.partition_transitions(self.transitions_for_action)
                 # Induce new outcomes for modified ndr
-                induce_outcomes(new_ndr, partitions[i], ndr_settings=ndr_settings)
+                induce_outcomes(new_ndr, partitions[i], ndr_settings=ndr_settings, evaluate=evaluate)
                 # Update default rule parameters
                 learn_parameters(new_rule_set.default_ndr, partitions[-1], ndr_settings=ndr_settings)
                 score = score_action_rule_set(new_rule_set, self.transitions_for_action, 
@@ -940,7 +906,7 @@ class DropObjects(SearchOperator):
     def __init__(self, transitions_for_action, ndr_settings=None, **kwargs):
         self.transitions_for_action = transitions_for_action
 
-    def get_children(self, action_rule_set, ndr_settings=None):
+    def get_children(self, action_rule_set, ndr_settings=None, evaluate=False):
         # Don't drop the default rule
         for i, ndr in enumerate(action_rule_set.ndrs):
             all_variables = {v for lit in ndr.preconditions for v in lit.variables}
@@ -956,7 +922,7 @@ class DropObjects(SearchOperator):
                     continue
                 partitions = new_rule_set.partition_transitions(self.transitions_for_action)
                 # Induce new outcomes for modified ndr
-                induce_outcomes(new_ndr, partitions[i], ndr_settings=ndr_settings)
+                induce_outcomes(new_ndr, partitions[i], ndr_settings=ndr_settings, evaluate=evaluate)
                 # Update default rule parameters
                 learn_parameters(new_rule_set.default_ndr, partitions[-1], 
                     ndr_settings=ndr_settings)
@@ -985,7 +951,7 @@ class AddLits(SearchOperator):
             all_possible_additions.update(preconds)
         return sorted(all_possible_additions)
 
-    def get_children(self, action_rule_set, ndr_settings=None):
+    def get_children(self, action_rule_set, ndr_settings=None, evaluate=False):
         for i in range(len(action_rule_set.ndrs)):
             for new_lit in self._all_possible_additions:
                 new_rule_set = action_rule_set.copy()
@@ -1001,7 +967,7 @@ class AddLits(SearchOperator):
                 # ExplainExamples.trim_preconditions(new_ndr, self.transitions_for_action)
                 partitions = new_rule_set.partition_transitions(self.transitions_for_action)
                 # Induce new outcomes for modified ndr
-                induce_outcomes(new_ndr, partitions[i], ndr_settings=ndr_settings)
+                induce_outcomes(new_ndr, partitions[i], ndr_settings=ndr_settings, evaluate=evaluate)
                 # Update default rule parameters
                 learn_parameters(new_rule_set.default_ndr, partitions[-1], ndr_settings=ndr_settings)
                 # import ipdb; ipdb.set_trace()
@@ -1014,7 +980,7 @@ class SplitOnLits(AddLits):
     """Search operator that splits on a literal, creating two new rules
     """
 
-    def get_children(self, action_rule_set, ndr_settings=None):
+    def get_children(self, action_rule_set, ndr_settings=None, evaluate=False):
         for i in range(len(action_rule_set.ndrs)):
             for new_lit in self._all_possible_additions:
                 # if new_lit.predicate.name == "start":
@@ -1031,8 +997,8 @@ class SplitOnLits(AddLits):
                 new_rule_set.ndrs.insert(i+1, neg_ndr)
                 partitions = new_rule_set.partition_transitions(self.transitions_for_action)
                 # Induce new outcomes for modified ndrs
-                induce_outcomes(pos_ndr, partitions[i], ndr_settings=ndr_settings)
-                induce_outcomes(neg_ndr, partitions[i+1], ndr_settings=ndr_settings)
+                induce_outcomes(pos_ndr, partitions[i], ndr_settings=ndr_settings, evaluate=evaluate)
+                induce_outcomes(neg_ndr, partitions[i+1], ndr_settings=ndr_settings, evaluate=evaluate)
                 # Update default rule parameters
                 learn_parameters(new_rule_set.default_ndr, partitions[-1], 
                     ndr_settings=ndr_settings)
@@ -1064,7 +1030,7 @@ def get_search_operators(action, transitions_for_action, ndr_settings=None, **kw
 ## Main
 def run_main_search(transition_dataset, max_node_expansions=1000, rng=None, 
                     max_timeout=None, max_action_batch_size=None, get_batch_probs=lambda x : None,
-                    init_rule_sets=None, search_method="greedy", allow_redundant_variables=False, 
+                    init_rule_sets=None, search_method="greedy", allow_redundant_variables=False, evaluate=False,
                     **kwargs):
     """Run the main search
 
@@ -1094,7 +1060,7 @@ def run_main_search(transition_dataset, max_node_expansions=1000, rng=None,
 
         if init_rule_sets is None:
             init_score, init_state = create_default_rule_set(action, transitions_for_action,
-                ndr_settings=ndr_settings)
+                ndr_settings=ndr_settings, evaluate=evaluate)
         else:
             init_state = init_rule_sets[action]
             init_score = score_action_rule_set(init_state, transitions_for_action,
@@ -1107,7 +1073,7 @@ def run_main_search(transition_dataset, max_node_expansions=1000, rng=None,
         if search_method == "greedy":
             action_rule_set = run_greedy_search(search_operators, init_state, init_score, 
                 max_timeout=max_timeout, max_node_expansions=max_node_expansions, ndr_settings=ndr_settings,
-                rng=rng, verbose=VERBOSE)
+                rng=rng, verbose=VERBOSE, evaluate=evaluate)
         elif search_method == "best_first":
             action_rule_set = run_best_first_search(search_operators, init_state, init_score, 
                 max_timeout=max_timeout, max_node_expansions=max_node_expansions, ndr_settings=ndr_settings,

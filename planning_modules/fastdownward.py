@@ -24,10 +24,9 @@ class FastDownwardPlanner(Planner):
     
     def get_plan(self,  raw_problem_fname, use_learned_ops=False, use_cache=True, ops=None, bakinglarge_file=False):
         ops = self._learned_operators if use_learned_ops else ops
-        if self.domain_name == 'Bakingrealistic' and bakinglarge_file:
-            # domain_fname = '/home/catalan/pddlgym/pddlgym/pddl/bakingrealistic.pddl'
-            domain_fname = '/home/catalan/GLIB-Baking-Fails-and-LLMs/realistic-baking/dom.pddl'
-            fname = '/home/catalan/pddlgym/pddlgym/pddl/bakingrealistic0.pddl'
+        if self.domain_name == 'Bakinglarge' and bakinglarge_file:
+            domain_fname = 'realistic-baking/dom.pddl'
+            fname = 'bakinglarge.pddl'
             shutil.copyfile(domain_fname, fname)
             domain_fname = fname
         else:

@@ -1,4 +1,3 @@
-#TODO: probably a bug. some goals are sampled multiple times in a row.
 from curiosity_modules.goal_babbling import GoalBabblingCuriosityModule 
 from settings import AgentConfig as ac
 from pddlgym import structs
@@ -26,13 +25,12 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
 
     def _initialize(self):
         super()._initialize()
-        self.llm_line_stats = []
         self._name = "newiw"
         self._episode_start_state = None
         self._seen_state_actions = set()
 
         if self._compute_goals:
-            if self._domain_name.lower() == 'bakingrealistic':
+            if self._domain_name == 'Bakinglarge':
                 self._sampling_iterator = self._yield_goal_action(self._action_space.predicates, [p for p in self._observation_space.predicates if p.name not in ('different', 'name-less-than')], self._k)
             else:
                 self._sampling_iterator = self._yield_goal_action(self._action_space.predicates, self._observation_space.predicates, self._k)
@@ -126,7 +124,7 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
             logging.info(f"Goal mutex pairs compute took {time.time() - start} s")
         # Forget the goal-action that was going to be taken at the end of the plan in progress
         if self._compute_goals:
-            if self._domain_name.lower() == 'bakingrealistic':
+            if self._domain_name == 'Bakinglarge':
                 start = time.time()
                 self._sampling_iterator = self._yield_goal_action(self._action_space.predicates, [p for p in self._observation_space.predicates if p.name not in ('different', 'name-less-than')], self._k)
                 logging.info(f'Creating goal sampler generator took {time.time() - start} s')
@@ -346,55 +344,3 @@ def generator_for_numlits_goalpreds_actionpred(obs_predicates: list, max_num_lit
             observation_predicate_indices = random_indices[:-1]
             action_pred_idx = random_indices[-1]
             yield [obs_predicates[i] for i in observation_predicate_indices] + [action_predicates[action_pred_idx]]
-
-#  class LLMGLIBL2CuriosityModule(GLIBL2CuriosityModule):
-
-#     def _initialize(self):
-#         self.llm_line_stats = []
-#         super()._initialize()
-
-#     ### Update goals with LLM proposed operator preconditions
-    
-#     def learn(self, itr):
-#         """Set self._llm_goal_actions with the LLM and learner operators."""
-#         j = (itr - ac.LLM_start_interval[self._domain_name])
-#         if (j>=0) and (j % ac.LLM_learn_interval[self._domain_name] == 0):
-#             self._recompute_llm_goal_actions()
-#             self._unseen_goal_actions.update(self._llm_goal_actions)
-#             self._untried_episode_goal_actions.extend(self._llm_goal_actions)
-#             self._untried_episode_goal_actions = sorted(self._untried_episode_goal_actions, key=self._get_goal_action_priority)
-#             if self._ignore_statics:  # ignore static goals
-#                 static_preds = self._compute_static_preds()
-#                 self._untried_episode_goal_actions = list(filter(
-#                     lambda ga: any(lit.predicate not in static_preds for lit in ga[0]),
-#                     self._untried_episode_goal_actions))
-#             if self._ignore_mutex:  # ignore mutex goals
-#                 mutex_pairs = self._compute_lifted_mutex_literals(self._episode_start_state)
-#                 self._untried_episode_goal_actions = list(filter(
-#                     lambda ga: frozenset(ga[0]) not in mutex_pairs,
-#                     self._untried_episode_goal_actions))   
-
-#     def _get_goal_action_priority(self, goal_action):
-#         tiebreak = self._rand_state.uniform()
-#         if goal_action in self._llm_goal_actions:
-#             return (-1, len(goal_action[0]), tiebreak)
-#         return (1, len(goal_action[0]), tiebreak)
-    
-#     def _recompute_llm_goal_actions(self):
-#         """Get the (goal, action) tuples from the LLM proposed operators.
-#         """
-#         self._llm_goal_actions = []
-#         for o in self._llm_learned_ops:
-#             if self._llm_learned_ops[o] is not None:
-#                 combined_preconds = self.mix_lifted_preconditions(o, self._llm_learned_ops[o])
-
-#                 for precond in combined_preconds:
-#                     action = [p for p in precond
-#                                     if p.predicate in self._action_space.predicates][0]
-#                     precond.remove(action) 
-#                     self._llm_goal_actions.append((tuple(precond), action))
-#             else:
-#                 action = [p for p in o.preconds.literals
-#                         if p.predicate in self._action_space.predicates][0]
-#                 goal = tuple(sorted(set(o.preconds.literals) - {action}))
-#                 self._llm_goal_actions.append((goal, action, True))
