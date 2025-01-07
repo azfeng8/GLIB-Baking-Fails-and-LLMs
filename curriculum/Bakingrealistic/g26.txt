@@ -1,0 +1,2 @@
+(not (container-in-an-oven pan-0)), (not (container-in-an-oven pan-1))
+(pour-mixture-only pan-0 pan-1 mixture-0)

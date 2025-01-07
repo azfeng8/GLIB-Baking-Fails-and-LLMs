@@ -1,0 +1,4 @@
+(mixture-in-container pan-0 mixture-0)
+(egg-in-container pan-1 egg-1),(is-whipped-egg-whites egg-1)
+(not (container-in-an-oven pan-0)), (container-in-an-oven pan-1)
+(fold-stiff-egg-whites-into-mixture spatula-0 pan-1 pan-0 egg-1 mixture-0)

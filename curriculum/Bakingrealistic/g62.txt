@@ -1,0 +1,2 @@
+(egg-in-container bowl-0 egg-1), (is-whipped-egg-whites egg-1)
+(fold-stiff-egg-whites-into-mixture spatula-0 bowl-0 pan-0 egg-1 mixture-0)

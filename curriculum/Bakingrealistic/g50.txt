@@ -1,0 +1,3 @@
+(is-cake dessert-0),(dessert-in-container pan-0 dessert-0), (is-butter butter-0)
+(butter-in-container bowl-0 butter-0)
+(transfer-butter-from-pan-or-bowl bowl-0 bowl-1 butter-0)

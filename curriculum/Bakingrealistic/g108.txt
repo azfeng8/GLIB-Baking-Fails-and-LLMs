@@ -1,0 +1,3 @@
+(powder-ingredient-in-container pan-0 flour-1)
+(container-in-an-oven pan-0)
+(pour-powdery-ingredient-from-container pan-0 bowl-1 flour-1)

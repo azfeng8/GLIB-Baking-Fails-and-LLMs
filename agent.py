@@ -1910,7 +1910,7 @@ class StudentAgentSubgoals(StudentAgent):
                     logging.info(f"Ops to consider: {ops_to_consider}")
                     try:
                         if not (len(ops_to_consider) == 0 or 'use-stand-mixer' in chosen_op.name):
-                            file = get_input_cached("File containing merged operator or q? ").strip()
+                            file = get_input_cached("File containing merged operator, qq, or d? ").strip()
 
                             if file == 'd':
                                 dump_intermediate_state(self)
@@ -1919,7 +1919,7 @@ class StudentAgentSubgoals(StudentAgent):
                                 self._skip_to_next_op = True
 
                             while file not in ('q', 'qq') and not os.path.exists(file):
-                                file = get_input_cached("File containing merged operator or q? ").strip()
+                                file = get_input_cached("File containing merged operator, qq, or d? ").strip()
 
                                 if file == 'qq':
                                     # skip this operator
@@ -1957,7 +1957,11 @@ class StudentAgentSubgoals(StudentAgent):
                                 if plan not in ('q', 'qq'):
                                     return plan
                                 elif plan == 'qq':
+                                    #TODO: bugfix: uncomment after evaluate
+                                    # self._skip_to_next_op = True
                                     break
+                                elif plan == 'd':
+                                    dump_intermediate_state(self)
                             ground_truth_operator = [o for o in self._ground_truth_operators if o.name == name][0]
 
                         if self._skip_to_next_op:
@@ -1972,6 +1976,8 @@ class StudentAgentSubgoals(StudentAgent):
                         continue
 
                 if self._skip_to_next_op:
+                    #TODO: bugfix after the evaluation. uncomment this for the full run
+                    # operator_names_tried.add(chosen_op.name)
                     continue
  
 

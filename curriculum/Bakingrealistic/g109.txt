@@ -1,0 +1,2 @@
+(is-oven oven-0)
+(pour-powdery-ingredient-from-container pan-0 bowl-1 flour-1)
