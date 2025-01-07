@@ -188,7 +188,7 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
             logging.info("No assignments found.")
             return None
             
-        assignments = all_assignments[0]
+        assignments = rand_state.permutation(sorted(all_assignments, key=lambda d: d.items()))[0]
         # Sample an action conditioned on the assignments.
         # Find possible groundings for each object by type.
         types_to_objs = defaultdict(set)
