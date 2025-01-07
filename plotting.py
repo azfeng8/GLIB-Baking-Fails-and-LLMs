@@ -19,8 +19,7 @@ from planning_modules.base_planner import Planner, PlannerTimeoutException, \
     NoPlanFoundException
 from agent import Agent
 
-font = {'family' : 'normal',
-        'size'   : 14}
+font = { 'size'   : 14}
 
 matplotlib.rc('font', **font)
 
@@ -171,9 +170,9 @@ ALL_TASKS = set(range(22))
 PLOTS = {
     # ("Success Rate on Test Tasks", 'results/Bakingrealistic/bakingrealistic_succ_generalized.png'): GENERALIZATION_TASKS,
     # ("Success Rate on Training Tasks", 'results/Bakingrealistic/bakingrealistic_succ_training.png'): TRAIN_TASKS,
-    (f"{pc.domain}" if pc.domain != "Easygripper" else "Success Rate in Gripper", f'results/{pc.domain}/{pc.domain.lower()}_succ.png'): ALL_TASKS,
+    # (f"{pc.domain}" if pc.domain != "Easygripper" else "Gripper", f'results/{pc.domain}/{pc.domain.lower()}_succ.png'): ALL_TASKS,
     # (f"Keys and Doors", f'results/{pc.domain}/{pc.domain.lower()}_succ.png'): ALL_TASKS,
-    # (f"Success Rate in Baking-Large", f'results/{pc.domain}/{pc.domain.lower()}_succ.png'): ALL_TASKS,
+    (f"Baking-Large", f'results/{pc.domain}/{pc.domain.lower()}_succ.png'): ALL_TASKS,
     # ("Success Rate on Easy Training Tasks", f'results/{pc.domain}/{pc.domain.lower()}_succ_easy_training.png'): EASY_TRAIN_TASKS,
 
 
@@ -203,7 +202,7 @@ def get_plots(results_dict, results_filepaths_dict, append_demos_dict, old_resul
     with open(DEMOS_PATH, 'rb') as f:
         demos = pickle.load(f)
     total_demos, demo_successes = evaluate_demos(demos, 1)
-    print(f"SAAAAAAAAAAAAAAAA: {demo_successes}")
+    print(f"Demos successes: {demo_successes}")
     for curve_name, results_list in results_dict.items():
         for i,results in enumerate(results_list):
             assert results['mode'] == 'evaluated'
@@ -255,7 +254,7 @@ def get_plots(results_dict, results_filepaths_dict, append_demos_dict, old_resul
 
             for plot_name, _ in PLOTS:
                 # extend the line here.
-                if len(rates_result[plot_name]) < ac.num_train_iters[pc.domain]: #2000:
+                if len(rates_result[plot_name]) < ac.num_train_iters[pc.domain]:
                     # print(len(rates_result[plot_name]), rates_result[plot_name])
                     rates_result[plot_name] = rates_result[plot_name] + (rates_result[plot_name][-1] * np.ones((ac.num_train_iters[pc.domain]- len(rates_result[plot_name]),))).tolist()
                 rates[plot_name].append(rates_result[plot_name])

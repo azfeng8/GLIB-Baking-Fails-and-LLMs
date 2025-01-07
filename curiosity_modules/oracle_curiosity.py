@@ -5,6 +5,7 @@ import numpy as np
 from curiosity_modules import BaseCuriosityModule
 from settings import AgentConfig as ac
 from pddlgym import structs
+import logging
 
 
 class OracleCuriosityModule(BaseCuriosityModule):
@@ -65,7 +66,7 @@ class OracleCuriosityModule(BaseCuriosityModule):
                 return self._plan.pop(0), True
 
         if depth == max_depth:
-            # print("Sampling random action")
+            logging.info("Oracle: Sampling random action")
             return self._action_space.sample(state), False
 
         all_ground_actions = sorted(self._action_space.all_ground_literals(state))
@@ -79,7 +80,7 @@ class OracleCuriosityModule(BaseCuriosityModule):
                 self.lookaheads.append(0)
                 self.goaldirecteds.append(0)
                 self.fallbacks.append(0)
-                # print("found interesting action (1):", action)
+                logging.info(f"Oracle: found interesting action (1): {action}")
                 return action, True
 
             if self._is_goal_state_action(state, action):
@@ -87,7 +88,8 @@ class OracleCuriosityModule(BaseCuriosityModule):
                     self.lookaheads.append(0)
                     self.goaldirecteds.append(0)
                     self.fallbacks.append(0)
-                # print("found interesting action (2):", action)
+                logging.info(f"Oracle: found interesting action (2): {action}")
+                self._is_goal_state_action(state, action, print=True)
                 return action, True
 
         # All learned operators are perfect for the current state. So let's do
@@ -105,18 +107,22 @@ class OracleCuriosityModule(BaseCuriosityModule):
             self.lookaheads.append(0)
             self.goaldirecteds.append(0)
             self.fallbacks.append(1)
-        # print("Taking a random action")
+        logging.info("Oracle: Taking a random action")
         return self._action_space.sample(state), False
 
-    def _is_goal_state_action(self, state, action):
+    def _is_goal_state_action(self, state, action, print=False):
         """A state-action is a goal if the predicted next state is different
            from the ground truth."""
         # Calculate predicted next state under learned operators.
-        predicted_next_state = self._get_predicted_next_state(state, action)
-        actual_next_state = self._predict_ground_truth(state, action)
+        predicted_next_state = self._get_predicted_next_state(state, action, print=print)
+        actual_next_state = self._predict_ground_truth(state, action, print=print)
+        # if print:
+        #     diff_minus = (predicted_next_state.literals - actual_next_state.literals) 
+        #     diff_plus = (actual_next_state.literals - predicted_next_state.literals)
+            # logging.info(f"predicted state - actual_next_state: {diff_minus}\nactual - predicted: {diff_plus}")
         return predicted_next_state != actual_next_state
 
-    def _predict_ground_truth(self, state, action):
+    def _predict_ground_truth(self, state, action, print=False):
         # Save current operators.
         old_ops = set()
         for op in self._learned_operators:
@@ -132,7 +138,7 @@ class OracleCuriosityModule(BaseCuriosityModule):
                 action_predicate = [p for p in ac.train_env.domain.actions if p.name == op.name][0]
                 op.preconds.literals.append(action_predicate(*op.params))
         # Calculate actual next state under ground truth operators.
-        actual_next_state = self._get_predicted_next_state_ops(state, action, mode="max")
+        actual_next_state = self._get_predicted_next_state_ops(state, action, mode="max", print=print)
         # Restore current operators.
         self._learned_operators.clear()
         for op in old_ops:
@@ -154,6 +160,7 @@ class OracleCuriosityModule(BaseCuriosityModule):
             # for action in self._rand_state.permutation(list(self._action_space.all_ground_literals(state)))[:ac.oracle_max_neighbors]:
             for action in self._action_space.all_ground_literals(state):
                 if self._is_goal_state_action(state, action):
+                    logging.info(f"Oracle: found differing action: {act_seq + [action]}")
                     return act_seq+[action]
                 predicted_next_state = self._predict_ground_truth(state, action)
                 queue.append((path+[predicted_next_state], act_seq+[action]))

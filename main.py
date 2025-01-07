@@ -48,7 +48,8 @@ class Runner:
         self.curiosity_name = curiosity_name
         self.num_train_iters = ac.num_train_iters[domain_name]
 
-        if isinstance(agent, CreateDemonstrationsAgent) or isinstance(agent, StudentAgent):
+        # self.AUTO_EVAL = False
+        if isinstance(agent, CreateDemonstrationsAgent):
             self.AUTO_EVAL = False
         elif isinstance(agent, Agent) or isinstance(agent, DemonstrationsAgent) or isinstance(agent, StudentAgent):
             self.AUTO_EVAL = True
@@ -160,13 +161,15 @@ class Runner:
                         accept_uip =  get_input_cached("Press y to accept").strip()
                     cycle = [int(i) for i in episodes_uip.split()]
                 else:
-                    cycle = list(range(num_probs))
+                    cycle = list(np.random.permutation(range(num_probs)))
                 logging.info(f"Episodes: " + ','.join([str(s) for s in cycle]))
 
                 episode_done = True
+            elif (not isinstance(self.agent, StudentAgent)) and len(cycle) == 0:
+                num_probs = len(self.train_env.problems)
+                cycle = list(np.random.permutation(range(num_probs)))
 
-            if episode_done:
-                # if self.AUTO_EVAL:
+            if episode_done or ((not isinstance(self.agent, StudentAgent)) and itr % ac.max_train_episode_length[self.domain_name] == 0):
                 if self.AUTO_EVAL and not isinstance(self.agent, StudentAgent):
                     problem_idx = (problem_idx + 1) % self.num_train_problems
                 else:
@@ -182,7 +185,7 @@ class Runner:
                     for op in sorted(self.agent.learned_operators, key=lambda x: x.name):
                         logging.info(op.pddl_str())
 
-            if (not self.AUTO_EVAL) and self.agent.finished_preconds_plan:
+            if isinstance(self.agent, StudentAgent) and self.agent.finished_preconds_plan:
                 # Reset to previous subgoal
                 self.agent.finished_preconds_plan = False
                 obs, _ = self.train_env.reset()

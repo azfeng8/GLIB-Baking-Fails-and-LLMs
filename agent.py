@@ -94,7 +94,7 @@ class Agent:
     def get_action(self, state, _problem_idx, _precond_targeting_only):
         """Get an exploratory action to collect more training data.
            Not used for testing. Planner is used for testing."""
-        if self.domain_name.lower() == 'bakingrealistic':
+        if self.domain_name.lower() == 'bakingrealistic' and 'oracle' not in self.curiosity_module_name:
             obs_literals = set()
             for lit in state.literals:
                 if lit.predicate.name not in ('different', 'name-less-than'):
@@ -130,16 +130,16 @@ class Agent:
             for lit in next_state.literals:
                 if lit.predicate.name not in ('different', 'name-less-than'):
                     next_obs_literals.add(lit)
-            state = State(frozenset(obs_literals), state.objects, state.goal)
-            next_state = State(frozenset(next_obs_literals), next_state.objects, next_state.goal)
+            new_state = State(frozenset(obs_literals), state.objects, state.goal)
+            new_next_state = State(frozenset(next_obs_literals), next_state.objects, next_state.goal)
         # Get effects
-        effects = self._compute_effects(state, next_state)
+        effects = self._compute_effects(new_state, new_next_state)
         logging.info(f"EFFECTS: \n{effects}")
         # Add data
-        self._operator_learning_module.observe(state, action, effects, start_episode=self.episode_start, itr=itr)
+        self._operator_learning_module.observe(new_state, action, effects, start_episode=self.episode_start, itr=itr)
         # Some curiosity modules might use transition data
         start_time = time.time()
-        self._curiosity_module.observe(state, action, effects)
+        self._curiosity_module.observe(state, action, self._compute_effects(state, next_state))
         self.curiosity_time += time.time()-start_time
         self.episode_start = False
 
@@ -959,8 +959,8 @@ class DemonstrationsAgent(Agent):
         self.name = 'demoagent'   
 
         # Load the demos
-        # demos_path = f'/home/ubuntu/GLIB-Baking-Fails-and-LLMs/demonstrations/{self.domain_name.lower()}_demonstrations.pkl'
-        demos_path = f'/home/catalan/GLIB-Baking-Fails-and-LLMs/demonstrations/{self.domain_name.lower()}_demonstrations.pkl'
+        demos_path = f'/home/ubuntu/GLIB-Baking-Fails-and-LLMs/demonstrations/{self.domain_name.lower()}_demonstrations.pkl'
+        # demos_path = f'/home/catalan/GLIB-Baking-Fails-and-LLMs/demonstrations/{self.domain_name.lower()}_demonstrations.pkl'
         with open(demos_path, 'rb') as f:
             transitions = pickle.load(f)
         self._operator_learning_module._transitions = transitions
