@@ -1,6 +1,0 @@
-(is-cake dessert-0), (mixture-is-hypothetical mixture-0)
-(dessert-in-container plate-1 dessert-0)
-(mixture-in-container bowl-0 mixture-0)
-(oven-is-heated-for-souffle oven-0)
-(container-in-oven pan-0 oven-0)
-(set-oven-with-souffle-bake-time-and-press-start oven-0 dessert-0 mixture-0)

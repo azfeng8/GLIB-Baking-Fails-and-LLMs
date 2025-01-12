@@ -1,3 +1,0 @@
-(egg-in-container pan-0 egg-0)
-(container-in-oven pan-0 oven-0), (container-in-oven pan-1 oven-1)
-(transfer-egg-from-pan-or-bowl pan-0 pan-1 egg-0)

@@ -1,2 +1,0 @@
-(egg-in-container bowl-0 egg-2),(not (is-raw-egg-whites egg-2))
-(beat-egg-whites mixer-0 bowl-0 egg-2)

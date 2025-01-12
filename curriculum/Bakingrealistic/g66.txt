@@ -1,3 +1,0 @@
-(dessert-in-container pan-0 dessert-0)
-(not (container-in-an-oven pan-0))
-(move-baked-good-in-container-to-different-container pan-0 bowl-1 dessert-0)

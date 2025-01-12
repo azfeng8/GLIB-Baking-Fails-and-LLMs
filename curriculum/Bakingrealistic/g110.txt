@@ -1,2 +1,0 @@
-(container-in-oven pan-1 oven-1)
-(remove-pan-from-oven pan-1 oven-0)

@@ -1,2 +1,0 @@
-(oven-is-heated-for-cake oven-0)
-(preheat-oven-with-souffle-settings oven-0)

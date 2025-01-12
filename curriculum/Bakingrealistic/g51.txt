@@ -1,2 +1,0 @@
-(not (is-pan plate-0))
-(move-baked-good-in-container-to-different-container plate-0 plate-1 dessert-0)

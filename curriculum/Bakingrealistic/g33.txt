@@ -1,3 +1,0 @@
-(oven-is-heated-for-souffle oven-0)
-(container-in-oven pan-0 oven-0)
-(remove-pan-from-oven pan-0 oven-0)

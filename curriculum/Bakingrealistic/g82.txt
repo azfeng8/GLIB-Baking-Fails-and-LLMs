@@ -1,3 +1,0 @@
-(not (is-egg egg-0)), (not (is-whipped-egg-whites egg-2)), (egg-in-container pan-0 egg-2), (mixture-in-container bowl-0 mixture-0)
-(not (container-in-an-oven pan-0))
-(fold-stiff-egg-whites-into-mixture spatula-0 pan-0 bowl-0 egg-2 mixture-0)

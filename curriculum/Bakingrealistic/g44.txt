@@ -1,2 +1,0 @@
-(is-bowl bowl-0)
-(transfer-egg-from-pan-or-bowl pan-1 bowl-0 egg-0)

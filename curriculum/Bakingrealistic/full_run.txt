@@ -1,3 +1,7 @@
 n
 3
 y
+/home/catalan/GLIB-Baking-Fails-and-LLMs/curriculum/Bakingrealistic/g0.txt
+/home/catalan/GLIB-Baking-Fails-and-LLMs/corrected_plans/Bakingrealistic/c0.txt
+/home/catalan/GLIB-Baking-Fails-and-LLMs/curriculum/Bakingrealistic/g1.txt
+qq

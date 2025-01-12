@@ -1,2 +1,0 @@
-(powder-ingredient-in-container pan-0 flour-1)
-(pour-powdery-ingredient-from-container pan-0 bowl-1 flour-1)

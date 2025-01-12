@@ -1,2 +1,0 @@
-(not (egg-in-container bowl-0 egg-0)), (is-whole-raw-egg egg-0)
-(separate-raw-yolk-from-egg-whites egg-0 egg-2 bowl-0 bowl-1)

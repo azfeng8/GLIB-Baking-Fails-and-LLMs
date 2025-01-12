@@ -108,11 +108,11 @@ def learn_and_test(dataset, seed, domain_name, init_rule_sets=None):
         # Reward is 1 iff goal is reached
         if reward == 1.:
             successes.append(1)
-            logging.info(f"Problem {i}: PASS")
+            print(f"Problem {i}: PASS")
         else:
             assert reward == 0.
             successes.append(0)
-            logging.info(f"Problem {i}: FAIL")
+            print(f"Problem {i}: FAIL")
 
     return successes, rule_set
 
@@ -161,7 +161,7 @@ def get_plots(results_dict, results_filepaths_dict, append_demos_dict, old_resul
     with open(DEMOS_PATH, 'rb') as f:
         demos = pickle.load(f)
     total_demos, demo_successes = evaluate_demos(demos, 1, domain_name)
-    logging.info(f"Demos successes: {demo_successes}")
+    print(f"Demos successes: {demo_successes}")
     for curve_name, results_list in results_dict.items():
         for i,results in enumerate(results_list):
             assert results['mode'] == 'evaluated'
@@ -176,7 +176,7 @@ def get_plots(results_dict, results_filepaths_dict, append_demos_dict, old_resul
     max_seeds = 0
     for curve_name, results_list in results_dict.items():
         if len(results_list) == 0: 
-            logging.info(f"No results in new format found for {curve_name}")
+            print(f"No results in new format found for {curve_name}")
             continue
 
         rates = {plot_name: []}
@@ -220,7 +220,7 @@ def get_plots(results_dict, results_filepaths_dict, append_demos_dict, old_resul
 
     for curve_name, results_list in old_results_dict.items():
         if len(results_list) == 0: 
-            logging.info(f"No results in new format found for {curve_name}")
+            print(f"No results in new format found for {curve_name}")
             continue
 
 
@@ -297,11 +297,14 @@ def plot_succ(title, succ_rate_dict, succ_rate_std_dict, succ_rate_max_min_dict,
     plt.tight_layout()
     plt.savefig(out_path, dpi=300)
     plt.close()
-    logging.info(f"Wrote out to {out_path}")
+    print(f"Wrote out to {out_path}")
 
 def _main():
     # Load the demoagent and agent results
-    base_path = f'results_openstack/results/{pc.domain}'
+    if pc.domain != 'Bakinglarge':
+        base_path = f'results_openstack/results/{pc.domain}'
+    else:
+        base_path = f'results_openstack/results/Bakingrealistic'
     all_results = {}
     all_results_filepaths = {}
     old_result_format_results = {}
@@ -326,10 +329,13 @@ def _main():
         old_results_list = []
 
         for seed in pc.seeds:
-            results_path = os.path.join(base_path, learning_name, curiosity_name, f'{pc.domain}_{learning_name}_{curiosity_name}_{agent}_{seed}.pkl')
+            if pc.domain == "Bakinglarge":
+                results_path = os.path.join(base_path, learning_name, curiosity_name, f'Bakingrealistic_{learning_name}_{curiosity_name}_{agent}_{seed}.pkl')
+            else:
+                results_path = os.path.join(base_path, learning_name, curiosity_name, f'{pc.domain}_{learning_name}_{curiosity_name}_{agent}_{seed}.pkl')
 
             if os.path.exists(results_path):
-                logging.info("Loading from ", results_path)
+                print("Loading from ", results_path)
                 with open(results_path, 'rb') as f:
                     results = pickle.load(f)
                     results_list.append(results)
@@ -337,9 +343,12 @@ def _main():
                 all_results_filepaths.setdefault(curve_name, [])
                 all_results_filepaths[curve_name].append(results_path)
 
-            old_results_path = os.path.join(base_path, learning_name, curiosity_name, f'{pc.domain}_{learning_name}_{curiosity_name}_{seed}.pkl')
+            if pc.domain == "Bakinglarge":
+                old_results_path = os.path.join(base_path, learning_name, curiosity_name, f'Bakingrealistic_{learning_name}_{curiosity_name}_{seed}.pkl')
+            else:
+                old_results_path = os.path.join(base_path, learning_name, curiosity_name, f'{pc.domain}_{learning_name}_{curiosity_name}_{seed}.pkl')
             if os.path.exists(old_results_path):
-                logging.info("Loading old from ", old_results_path)
+                print("Loading old from ", old_results_path)
                 with open(old_results_path, 'rb') as f:
                     results = pickle.load(f)
                     old_results_list.append(results)
@@ -353,14 +362,16 @@ def _main():
     results_list = []
 
     # # Load the new method results
-    new_method_curve_name = "Teacher-GLIB"
+    new_method_curve_name = "Oracle-Guidance-Demos"
     # append_demos[new_method_curve_name] = False
     #TODO: when plot student results, change this to True
     append_demos[new_method_curve_name] = True
     for seed in pc.seeds:
-        # results_path = os.path.join(f'results/{pc.domain}', 'LNDR', 'GLIB_G1', f'{pc.domain}_LNDR_GLIB_G1_interactive_{seed}.pkl')
+        if pc.domain == 'Bakinglarge':
+            results_path = os.path.join(f'results/Bakingrealistic', 'LNDR', 'GLIB_G1', f'Bakingrealistic_LNDR_GLIB_G1_interactive_{seed}.pkl')
         #TODO: when plot student results, change this to GLIB_L2
-        results_path = os.path.join(f'results/{pc.domain}', 'LNDR', 'GLIB_L2', f'{pc.domain}_LNDR_GLIB_L2_student_{seed}.pkl')
+        else:
+            results_path = os.path.join(f'results/{pc.domain}', 'LNDR', 'GLIB_L2', f'{pc.domain}_LNDR_GLIB_L2_student_{seed}.pkl')
 
         if os.path.exists(results_path):
             with open(results_path, 'rb') as f:
@@ -369,16 +380,24 @@ def _main():
                 all_results_filepaths.setdefault( new_method_curve_name, [])
                 all_results_filepaths[new_method_curve_name].append(results_path)
         else:
-            logging.info(f"Warning: No results found in path {results_path}..")
+            print(f"Warning: No results found in path {results_path}..")
 
     all_results[new_method_curve_name] = results_list
 
     get_plots(all_results, all_results_filepaths, append_demos, old_result_format_results, old_results_filepaths, pc.domain)
+    print("Done")
 
     
 if __name__ == '__main__':
+    # fileHandler = logging.FileHandler('out.log')
+    # rootLogger = logging.getLogger()
+    # rootLogger.addHandler(fileHandler)
 
-    parse_flags()
+    # consoleHandler = logging.StreamHandler()
+    # rootLogger.addHandler(consoleHandler)
+
+
+    # parse_flags()
     _main()
 
     # Evaluate demos data

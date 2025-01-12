@@ -119,7 +119,7 @@ class GeneralConfig:
 class PlottingConfig:
     """Plotting from cached results.
     """
-    domain = "Easygripper"
+    domain = "Bakinglarge"
     seeds =  range(1,11)
     agent_learner_explorer = [
         ('demoagent', "LNDR", "GLIB_L2"),

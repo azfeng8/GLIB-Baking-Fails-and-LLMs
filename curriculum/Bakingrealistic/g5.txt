@@ -1,3 +1,0 @@
-(egg-in-container pan-0 egg-2)
-(container-in-an-oven pan-0), (container-in-an-oven pan-1)
-(separate-raw-yolk-from-egg-whites egg-2 egg-3 pan-0 pan-1)

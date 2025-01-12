@@ -180,12 +180,15 @@ class GLIBLCuriosityModule(GoalBabblingCuriosityModule):
         logging.info(f"Grounding goal {lifted_goal} and action {lifted_action}")
         # Try to find a grounding of the lifted goal in the state
         all_assignments = find_satisfying_assignments(state.literals, lifted_goal,
-            allow_redundant_variables=False)
+            allow_redundant_variables=False, rand_state=rand_state)
         # If none exist, return action None
         if len(all_assignments) == 0:
             logging.info("No assignments found.")
             return None
             
+        logging.info(f"Assignments:")
+        for assignment in all_assignments:
+            logging.info(assignment)
         assignments = rand_state.permutation(sorted(all_assignments, key=lambda d: d.items()))[0]
         # Sample an action conditioned on the assignments.
         # Find possible groundings for each object by type.

@@ -342,6 +342,13 @@ class StudentAgent(Agent):
                     for v in lit.variables:
                         params.add(v)
                 op.params = sorted(params, key=lambda param: param._str.split(':')[0])
+
+        # Load the demonstrations.
+        with open(f'demonstrations/{self.domain_name.lower()}_demonstrations.pkl', 'rb') as f:
+            transitions = pickle.load(f)
+        self._operator_learning_module._transitions = transitions
+        for pred in transitions:
+            self._operator_learning_module._fits_all_data[pred] = False
  
     
     def reset_episode(self, state):
@@ -399,11 +406,11 @@ class StudentAgent(Agent):
                     if inside.startswith("(") and inside.endswith(")"):
                         inside = inside[1:-1].strip()
                     items = inside.split()
-                    pred = Not(self._get_obs_predicate(items[0], items[1:], state.objects))
+                    pred = Not(self._get_predicate(items[0], items[1:], state.objects))
                 else:
                     # parse the positive literal
                     items = literal_str.split()
-                    pred = self._get_obs_predicate(items[0], items[1:], state.objects)
+                    pred = self._get_predicate(items[0], items[1:], state.objects)
                 subgoal_lits.append(pred)
             # Now combine them in a LiteralConjunction
             conj = LiteralConjunction(subgoal_lits)
@@ -556,9 +563,15 @@ class StudentAgent(Agent):
                     for o in ops_to_consider:
                         logging.info(o.pddl_str())
                     try:
-                        prompt = f"" #TODO: describe the options in the prompt
+                        prompt = \
+                        f"""There are multiple operators. If the operator preconditions can be joined by resolution and the effects can be aggregated, then please provide a file with the joined operator. Otherwise, choose an option:
+                        [qq] Skip to the next operator. If this operator's preconditions have already been tried, and another operator of the same action appeared as a result, skip this operator.
+                        [q] Use the chosen operator's preconditions.
+                        [d] Dump the state of this program.
+                        """
                         if not (len(ops_to_consider) == 0 or 'use-stand-mixer' in chosen_op.name):
-                            file = get_input_cached("File containing merged operator, qq, or d? ").strip()
+
+                            file = get_input_cached(prompt).strip()
 
                             if file == 'd':
                                 dump_intermediate_state(self)
@@ -567,7 +580,7 @@ class StudentAgent(Agent):
                                 self._skip_to_next_op = True
 
                             while file not in ('q', 'qq') and not os.path.exists(file):
-                                file = get_input_cached("File containing merged operator, qq, or d? ").strip()
+                                file = get_input_cached(prompt).strip()
 
                                 if file == 'qq':
                                     # skip this operator
@@ -595,11 +608,16 @@ class StudentAgent(Agent):
                                 ground_truth_operator = op
                                 break
                         if ground_truth_operator is None:
-                            #TODO: add more descriptive prompt
-                            name = get_input_cached("g.t. operator name or 'q' to manually enter goal").strip()
+                            prompt = """
+                            Need to match effects manually. Give the name of the ground truth operator with the matching effects, or skip this operator.
+                            [{operator name}] Enter the operator name to this prompt.
+                            [qq] Press qq to skip this operator.
+                            [q] Enter q to skip operator matching and enter the goal instead.
+                            """
+                            name = get_input_cached(prompt).strip()
                             names = {o.name for o in self._ground_truth_operators}
-                            while name not in names and name != 'q':
-                                name = get_input_cached("g.t. operator name or 'q' to manually enter goal").strip()                           
+                            while name not in names and name not in ('q', 'qq'):
+                                name = get_input_cached(prompt).strip()                           
                             if name == 'q':
                                 # 'qq' skips this operator, while 'q' retries combining and matching operators
                                 plan = self._prompt_for_grounded_goal_and_plan(state, chosen_op)
@@ -610,6 +628,9 @@ class StudentAgent(Agent):
                                     break
                                 elif plan == 'd':
                                     dump_intermediate_state(self)
+                            elif name == 'qq':
+                                self._skip_to_next_op = True
+                                break
                             ground_truth_operator = [o for o in self._ground_truth_operators if o.name == name][0]
 
                         if self._skip_to_next_op:
@@ -694,14 +715,14 @@ class StudentAgent(Agent):
                     action_pred = [act_pred for act_pred in self.action_space.predicates if act_pred.name == learned_operator.name.rstrip('0123456789')][0]
                     strong_base_preconds.append(action_pred(*sorted(op.params, key=lambda param: param._str.split(':')[0])))
 
-                if relation == 'weak':
+                if relation == 'strong':
+                    banks.append((strong_base_preconds, preconds_changes['strong']))
+                elif relation == 'weak':
                     base_preconds = deepcopy(learned_operator.preconds.literals)
                     banks.append((base_preconds, preconds_changes['weak']))
-                elif relation == 'strong':
-                    banks.append((strong_base_preconds, preconds_changes['strong']))
                 else:
-                    banks.append((deepcopy(learned_operator.preconds.literals) ,preconds_changes['weak']))
                     banks.append((strong_base_preconds,preconds_changes['strong']))
+                    banks.append((deepcopy(learned_operator.preconds.literals) ,preconds_changes['weak']))
 
                 for base_preconds, changes_bank in banks:
                     logging.info(f'Change bank length: {len(changes_bank)}')
@@ -920,8 +941,7 @@ class StudentAgent(Agent):
             # Sampled lifted goal
             ground_act = self._curiosity_module._sample_action_from_goal(goals, act,state, self._rand_state)
             if ground_act is None:
-                #TODO: more descriptive prmopt
-                ground_act_str = get_input_cached("Grounding failed. Enter the grounded action or Ctrl-C to end: ").strip()
+                ground_act_str = get_input_cached("Grounding failed. Maybe there's a bug in the grounding code. Enter the grounded action PDDL string (e.g. (put-pan-in-oven pan-0 oven-0) ) or Ctrl-C to end this run: ").strip()
                 while True:
                     try:
                         line = ground_act_str
@@ -957,7 +977,7 @@ class StudentAgent(Agent):
                         input("Continue or Ctrl-C to quit:")
                         continue
             mark = get_hashable_lits(tuple(sorted(goals)))
-            self._visited_goals_teacher_mode.add((mark, operator_str))
+            self._visited_goals_states_teacher_mode.add((mark, operator_str))
             self.plan_to_next_subgoal = None
             self.finished_plan = True
             logging.info(f"Executing grounded action: {ground_act}")
@@ -1099,7 +1119,7 @@ def dump_intermediate_state(agent:StudentAgent, fname='transitions.pkl'):
     with open('ops.pkl', 'wb') as f:
         pickle.dump(agent.learned_operators, f)
     with open('visited_preconds.pkl', 'wb') as f:
-        pickle.dump(agent._visited_preconds_states_teacher_mode, f)
+        pickle.dump(agent._visited_goals_states_teacher_mode, f)
     with open("ndrs.pkl", 'wb') as f:
         pickle.dump(agent._operator_learning_module._ndrs, f)
     with open('rand_state.pkl', 'wb') as f:

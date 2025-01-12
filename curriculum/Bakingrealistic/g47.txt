@@ -1,2 +1,0 @@
-(is-bowl bowl-0)
-(pour-mixture-only bowl-0 pan-0 mixture-0)

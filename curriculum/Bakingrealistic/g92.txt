@@ -1,3 +1,0 @@
-(butter-in-container bowl-0 butter-0)
-(not (container-in-an-oven pan-0))
-(transfer-butter-from-pan-or-bowl bowl-0 pan-0 butter-0)

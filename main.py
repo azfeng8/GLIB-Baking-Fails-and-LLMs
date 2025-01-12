@@ -74,13 +74,13 @@ class Runner:
         self.num_train_iters = ac.num_train_iters[domain_name]
 
         #TODO: remove self.AUTO_EVAL in final repository
-        # self.AUTO_EVAL = True
-        if isinstance(agent, CreateDemonstrationsAgent):
-            self.AUTO_EVAL = False
-        elif isinstance(agent, Agent) or isinstance(agent, DemonstrationsAgent) or isinstance(agent, StudentAgent):
-            self.AUTO_EVAL = True
-        else:
-            raise Exception("Not supported agent type")
+        self.AUTO_EVAL = False
+        # if isinstance(agent, CreateDemonstrationsAgent):
+        #     self.AUTO_EVAL = False
+        # elif isinstance(agent, Agent) or isinstance(agent, DemonstrationsAgent) or isinstance(agent, StudentAgent):
+        #     self.AUTO_EVAL = True
+        # else:
+        #     raise Exception("Not supported agent type")
 
     def run(self):
         """Run primitive operator learning loop.
@@ -209,9 +209,7 @@ class Runner:
                 # Reset to previous subgoal
                 self.agent.finished_plan = False
                 obs, _ = self.train_env.reset()
-                logging.info(f"Resetting to prev subgoal, executing actions:\n{self.agent.action_seq}")
-                for action in self.agent.action_seq:
-                    obs, rew, _, _ = self.train_env.step(action)
+                logging.info(f"Resetting to start state")
 
             logging.info("Getting action...")
             action = self.agent.get_action(obs, problem_idx, False)

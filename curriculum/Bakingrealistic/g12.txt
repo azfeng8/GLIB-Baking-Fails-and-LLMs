@@ -1,3 +1,0 @@
-(butter-in-measuring-cup butter-0 measuring-cup-4)
-(container-in-an-oven pan-0)
-(put-butter-in-container-from-measuring-cup butter-0 pan-0)

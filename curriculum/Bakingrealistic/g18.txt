@@ -1,2 +1,0 @@
-(not (container-in-an-oven pan-0))
-(crack-egg-and-put-in-container egg-1 pan-0)
